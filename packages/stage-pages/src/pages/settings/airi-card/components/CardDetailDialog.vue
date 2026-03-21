@@ -159,9 +159,19 @@ const backgroundOptions = computed(() => {
   ]
 })
 
+// Convert a Blob to a self-contained data URL string
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+}
+
 const preferredBackgroundId = computed({
   get: () => selectedCard.value?.extensions?.airi?.modules?.preferredBackgroundId || 'none',
-  set: (val: string) => {
+  set: async (val: string) => {
     if (!selectedCard.value)
       return
     const extension = JSON.parse(JSON.stringify(selectedCard.value.extensions))
@@ -170,11 +180,20 @@ const preferredBackgroundId = computed({
 
     extension.airi.modules.preferredBackgroundId = val
 
-    // If it's a journal entry, we also want to set name/dataUrl for portability
+    // If it's a journal entry, convert blob to data URL for reload persistence
+    // NOTICE: blob: URLs are ephemeral and die on page reload. Data URLs are
+    // self-contained strings that survive localStorage/card extension serialization.
     const journalEntry = journalEntries.value.find(e => e.id === val)
     if (journalEntry) {
       extension.airi.modules.preferredBackgroundName = journalEntry.title
-      extension.airi.modules.preferredBackgroundDataUrl = journalEntry.url
+      try {
+        extension.airi.modules.preferredBackgroundDataUrl = journalEntry.blob
+          ? await blobToDataUrl(journalEntry.blob)
+          : journalEntry.url || null
+      }
+      catch {
+        extension.airi.modules.preferredBackgroundDataUrl = journalEntry.url || null
+      }
     }
     else {
       const sceneBg = sceneStore.backgrounds.get(val)
@@ -242,8 +261,11 @@ const tabs = computed<Tab[]>(() => {
 
 async function handleSetAsBackground(entry: any) {
   try {
+    // Convert blob to data URL for both scene store and persistence
+    const dataUrl = entry.blob ? await blobToDataUrl(entry.blob) : entry.url
+
     // 1. Update SceneStore (Renderer immediate)
-    const id = sceneStore.addBackground(entry.url, entry.title)
+    const id = sceneStore.addBackground(dataUrl, entry.title)
     sceneStore.setActiveBackground(id)
 
     // 2. Update BackgroundStore (New system / layout sync)
@@ -255,6 +277,9 @@ async function handleSetAsBackground(entry: any) {
       file: entry.blob,
     })
     backgroundStore.setSelection(background)
+
+    // 3. Update card extension so the dropdown and reload persistence work
+    preferredBackgroundId.value = entry.id
   }
   catch (e) {
     console.error('[Gallery] Failed to set background', e)

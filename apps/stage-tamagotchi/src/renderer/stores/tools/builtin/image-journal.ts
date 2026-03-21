@@ -3,7 +3,7 @@ import type { Tool } from '@xsai/shared-chat'
 import { defineInvoke } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/renderer'
 import { useBackgroundStore } from '@proj-airi/stage-layouts'
-import { useArtistryStore, useImageJournalStore, useSceneStore } from '@proj-airi/stage-ui/stores'
+import { useAiriCardStore, useArtistryStore, useImageJournalStore, useSceneStore } from '@proj-airi/stage-ui/stores'
 import { tool } from '@xsai/tool'
 import { z } from 'zod'
 
@@ -47,6 +47,36 @@ function getArtistryConfig() {
 const { context } = createContext(window.electron.ipcRenderer)
 const generateHeadless = defineInvoke(context, artistryGenerateHeadless)
 const addWidget = defineInvoke(context, widgetsAdd)
+
+// Persist the preferred background in the active card's extension
+// so it survives page reload via the restoration logic in airi-card.ts
+function persistPreferredBackground(entryId: string, name: string, dataUrl: string) {
+  try {
+    const cardStore = useAiriCardStore()
+    const cardId = cardStore.activeCardId
+    if (!cardId)
+      return
+
+    const card = cardStore.cards.get(cardId)
+    if (!card)
+      return
+
+    const extension = JSON.parse(JSON.stringify(card.extensions || {}))
+    if (!extension.airi)
+      extension.airi = {}
+    if (!extension.airi.modules)
+      extension.airi.modules = {}
+
+    extension.airi.modules.preferredBackgroundId = entryId
+    extension.airi.modules.preferredBackgroundName = name
+    extension.airi.modules.preferredBackgroundDataUrl = dataUrl
+
+    cardStore.updateCard(cardId, { ...card, extensions: extension })
+  }
+  catch (e) {
+    console.warn('[ImageJournalTool] Failed to persist preferred background in card extension', e)
+  }
+}
 
 const imageJournalParams = z.object({
   action: z.enum(['create', 'set_as_background']).describe('Choose one: create or set_as_background.'),
@@ -128,6 +158,10 @@ async function executeCreateImageJournalEntry(params: { prompt?: string, title?:
           file: entry.blob,
         })
         backgroundStore.setSelection(background)
+
+        // 3. Persist as preferred background in card extension
+        persistPreferredBackground(entry.id, entry.title || title, dataUrl)
+
         return `Image saved as "${entry.title}" (ID: ${entry.id}) and set as background.`
       }
       catch (bgErr) {
@@ -186,6 +220,10 @@ async function executeSetAsBackground(params: { query?: string }) {
         file: entry.blob,
       })
       backgroundStore.setSelection(background)
+
+      // 3. Persist as preferred background in card extension
+      persistPreferredBackground(entry.id, entry.title, dataUrl)
+
       return `Successfully set background to journal entry "${entry.title}".`
     }
     catch (e) {
