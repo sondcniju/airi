@@ -37,28 +37,28 @@ export default defineConfig({
         // declaration with the recommended `codeSplitting` option.
         name: 'manual-chunks',
         outputOptions(options) {
-          options.codeSplitting = {
-            groups: [
-              {
-                name(moduleId) {
-                  // https://github.com/lobehub/lobehub/blob/6ecba929b738e1259e15d17e7643941e015324ee/apps/desktop/electron.vite.config.ts#L54
-                  // Prevent debug package from being bundled into index.js to avoid side-effect pollution
-                  if (moduleId.includes('node_modules/debug')) {
-                    return 'vendor-debug'
-                  }
-                },
-              },
-              {
-                name(moduleId) {
-                  // https://github.com/lobehub/lobehub/blob/6ecba929b738e1259e15d17e7643941e015324ee/apps/desktop/electron.vite.config.ts#L54
-                  // Prevent debug package from being bundled into index.js to avoid side-effect pollution
-                  if (moduleId.includes('node_modules/h3')) {
-                    return 'vendor-h3'
-                  }
-                },
-              },
-            ],
-          }
+          // options.codeSplitting = {
+          //   groups: [
+          //     {
+          //       name(moduleId) {
+          //         // https://github.com/lobehub/lobehub/blob/6ecba929b738e1259e15d17e7643941e015324ee/apps/desktop/electron.vite.config.ts#L54
+          //         // Prevent debug package from being bundled into index.js to avoid side-effect pollution
+          //         if (moduleId.includes('node_modules/debug')) {
+          //           return 'vendor-debug'
+          //         }
+          //       },
+          //     },
+          //     {
+          //       name(moduleId) {
+          //         // https://github.com/lobehub/lobehub/blob/6ecba929b738e1259e15d17e7643941e015324ee/apps/desktop/electron.vite.config.ts#L54
+          //         // Prevent debug package from being bundled into index.js to avoid side-effect pollution
+          //         if (moduleId.includes('node_modules/h3')) {
+          //           return 'vendor-h3'
+          //         }
+          //       },
+          //     },
+          //   ],
+          // }
 
           return options
         },
@@ -93,7 +93,7 @@ export default defineConfig({
     base: './',
 
     build: {
-      rolldownOptions: {
+      rollupOptions: {
         input: {
           'main': resolve(join(import.meta.dirname, 'src', 'renderer', 'index.html')),
           'beat-sync': resolve(join(import.meta.dirname, 'src', 'renderer', 'beat-sync.html')),
@@ -134,17 +134,22 @@ export default defineConfig({
     },
 
     resolve: {
-      alias: {
-        '@proj-airi/server-sdk': resolve(join(import.meta.dirname, '..', '..', 'packages', 'server-sdk', 'src')),
-        '@proj-airi/i18n': resolve(join(import.meta.dirname, '..', '..', 'packages', 'i18n', 'src')),
-        '@proj-airi/stage-ui': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src')),
-        '@proj-airi/stage-ui-three': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui-three', 'src')),
-        '@proj-airi/stage-pages': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-pages', 'src')),
-        '@proj-airi/stage-shared': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-shared', 'src')),
-        '@proj-airi/electron-vueuse': resolve(join(import.meta.dirname, '..', '..', 'packages', 'electron-vueuse', 'src')),
-        '@proj-airi/stage-layouts': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-layouts', 'src')),
-        'uncrypto': 'uncrypto/dist/crypto.web.mjs',
-      },
+      conditions: ['browser', 'import', 'default'],
+      alias: [
+        { find: '@proj-airi/server-sdk', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'server-sdk', 'src')) },
+        { find: '@proj-airi/i18n', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'i18n', 'src')) },
+        { find: '@proj-airi/stage-ui', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src')) },
+        { find: '@proj-airi/stage-ui-three', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui-three', 'src')) },
+        { find: '@proj-airi/stage-pages', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-pages', 'src')) },
+        { find: '@proj-airi/stage-shared', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-shared', 'src')) },
+        { find: '@proj-airi/electron-vueuse', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'electron-vueuse', 'src')) },
+        { find: '@proj-airi/stage-layouts', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-layouts', 'src')) },
+        { find: 'node:crypto', replacement: resolve(join(import.meta.dirname, 'src', 'renderer', 'shims', 'node-crypto.ts')) },
+        { find: 'crypto', replacement: resolve(join(import.meta.dirname, 'src', 'renderer', 'shims', 'node-crypto.ts')) },
+      ],
+    },
+    ssr: {
+      noExternal: ['uncrypto', '@noble/hashes'],
     },
 
     server: {
@@ -173,6 +178,27 @@ export default defineConfig({
     },
 
     plugins: [
+      {
+        name: 'force-node-crypto-shim',
+        enforce: 'pre',
+        resolveId(id, importer) {
+          if (id === 'node:crypto' || id === 'crypto') {
+            return resolve(join(import.meta.dirname, 'src', 'renderer', 'shims', 'node-crypto.ts'))
+          }
+          if (id.startsWith('node:') || ['process', 'module', 'path', 'fs'].includes(id)) {
+            return '\0virtual:node-shim'
+          }
+          if (id.includes('-node.mjs') && (id.includes('duckdb-wasm') || importer?.includes('duckdb-wasm'))) {
+            return this.resolve(id.replace('-node.mjs', '-browser.mjs'), importer, { skipSelf: true })
+          }
+          return null
+        },
+        load(id) {
+          if (id === '\0virtual:node-shim')
+            return 'export default {};'
+          return null
+        },
+      },
       Info(),
 
       {
