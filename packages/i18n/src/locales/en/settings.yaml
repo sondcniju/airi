@@ -544,6 +544,20 @@ pages:
         AIRI requires at least one {chat} provider to be configured to think,
         and behave properly. You could think of it as the brain of the
         characters living in AIRI system.
+    speech:
+      app_local_audio:
+        title: App (Local) Audio Settings
+        description: Configure local audio output settings for speech synthesis.
+        device_id: Output Device ID
+        device_id_placeholder: Enter output device ID (e.g. 'default')...
+        sample_rate: Sample Rate
+        sample_rate_placeholder: Enter sample rate (e.g. 16000)...
+    transcription:
+      app_local_audio:
+        title: App (Local) Audio Settings
+        description: Configure local audio input settings for transcription.
+        device_id: Input Device ID
+        device_id_placeholder: Enter input device ID (e.g. 'default')...
     catalog:
       edit:
         config-id-not-found: Provider configuration not found.

@@ -455,6 +455,20 @@ pages:
       title: '¿Primera vez aquí?'
       description: >
         AIRI requiere que al menos un proveedor de {chat} esté configurado para pensar y comportarse correctamente. Podrías pensarlo como el cerebro de los personajes que viven en el sistema AIRI.
+    speech:
+      app_local_audio:
+        title: Configuración de Audio de la Aplicación (Local)
+        description: Configure la salida de audio local para la síntesis de voz.
+        device_id: ID del Dispositivo de Salida
+        device_id_placeholder: Ingrese el ID del dispositivo de salida (ej. 'default')...
+        sample_rate: Frecuencia de Muestreo
+        sample_rate_placeholder: Ingrese la frecuencia de muestreo (ej. 16000)...
+    transcription:
+      app_local_audio:
+        title: Configuración de Audio de la Aplicación (Local)
+        description: Configure la entrada de audio local para la transcripción.
+        device_id: ID del Dispositivo de Entrada
+        device_id_placeholder: Ingrese el ID del dispositivo de entrada (ej. 'default')...
     catalog:
       edit:
         config-id-not-found: Provider configuration not found.
