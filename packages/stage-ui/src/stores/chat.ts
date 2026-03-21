@@ -317,6 +317,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
                   arguments: JSON.stringify(args),
                 },
               } as any,
+              bridged: true,
             })
             return true
           }
@@ -389,6 +390,42 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
                 state: 'executing',
               })
               updateUI()
+
+              // Manuel execution for bridged tool calls
+              if ((ctx.data as any).bridged) {
+                const toolCall = (ctx.data as any).toolCall
+                const resolvedTools = typeof options.tools === 'function' ? await options.tools() : options.tools
+                const tool = resolvedTools?.find(t => (t.function?.name || (t as any).name) === toolCall.function.name)
+
+                if (tool && (tool as any).execute) {
+                  console.log(`[ChatDebug] Manually executing bridged tool: ${toolCall.function.name}`)
+                  try {
+                    const result = await (tool as any).execute(JSON.parse(toolCall.function.arguments))
+                    toolCallQueue.enqueue({
+                      type: 'tool-call-result',
+                      id: toolCall.id,
+                      result: (typeof result === 'string' ? result : JSON.stringify(result)) as any,
+                    })
+                  }
+                  catch (err) {
+                    console.error(`[ChatDebug] Bridged tool execution failed: ${toolCall.function.name}`, err)
+                    toolCallQueue.enqueue({
+                      type: 'tool-call-result',
+                      id: toolCall.id,
+                      result: `Execution failed: ${err instanceof Error ? err.message : String(err)}`,
+                    })
+                  }
+                }
+                else {
+                  console.warn(`[ChatDebug] Tool not found or not executable: ${toolCall.function.name}`)
+                  toolCallQueue.enqueue({
+                    type: 'tool-call-result',
+                    id: toolCall.id,
+                    result: `Error: Tool "${toolCall.function.name}" not found or not executable.`,
+                  })
+                }
+              }
+
               return
             }
 

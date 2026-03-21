@@ -46,3 +46,10 @@ const { speechProviderSettings } = storeToRefs(hearingStore)
     </div>
   </div>
 </template>
+
+<route lang="yaml">
+meta:
+  layout: settings
+  stageTransition:
+    name: slide
+</route>

@@ -1182,3 +1182,30 @@ chat:
       45s: 45 seconds
       60s: 60 seconds
       120s: 2 minutes
+providers:
+  speech:
+    app_local_audio:
+      title: App (Local)
+      description: Built-in local speech synthesis using Kokoro / ONNX.
+      device_id: Device ID
+      device_id_placeholder: Auto
+      sample_rate: Sample Rate
+      sample_rate_placeholder: e.g. 24000
+    browser_local_audio:
+      title: Browser (Local)
+      description: Speech synthesis running in the browser using Web Speech API or local engine.
+      device_id: Device ID
+      device_id_placeholder: Auto
+      sample_rate: Sample Rate
+      sample_rate_placeholder: e.g. 24000
+  transcription:
+    app_local_audio:
+      title: App (Local)
+      description: Built-in local transcription using Whisper / ONNX.
+      device_id: Device ID
+      device_id_placeholder: Auto
+    browser_local_audio:
+      title: Browser (Local)
+      description: Transcription running in the browser via Web Speech API or local engine.
+      device_id: Device ID
+      device_id_placeholder: Auto

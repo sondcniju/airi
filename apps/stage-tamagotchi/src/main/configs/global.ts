@@ -23,7 +23,13 @@ export const globalAppConfigSchema = object({
 })
 
 export function createGlobalAppConfig() {
-  const config = createConfig('app', 'config.json', globalAppConfigSchema)
+  const config = createConfig('app', 'config.json', globalAppConfigSchema, {
+    default: {
+      language: 'en',
+      windows: [],
+      microphoneToggleHotkey: 'Scroll',
+    },
+  })
   config.setup()
 
   return config

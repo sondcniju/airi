@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { IconStatusItem, RippleGrid } from '@proj-airi/stage-ui/components'
-import { useAnalytics, useScrollToHash } from '@proj-airi/stage-ui/composables'
+import { useAnalytics } from '@proj-airi/stage-ui/composables'
 import { useRippleGridState } from '@proj-airi/stage-ui/composables/use-ripple-grid-state'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { storeToRefs } from 'pinia'
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
+const router = useRouter()
 const providersStore = useProvidersStore()
 const { lastClickedIndex, setLastClickedIndex } = useRippleGridState()
 const { trackProviderClick } = useAnalytics()
@@ -37,32 +38,41 @@ const providerBlocksConfig = [
     id: 'transcription',
     icon: 'i-solar:microphone-3-bold-duotone',
     title: 'Transcription',
-    description: 'Transcription (speech-to-text) model providers. e.g. Whisper.cpp, OpenAI, Azure Speech',
+    description: 'Transcription (speech-to-text) model providers. e.g. Whisper.cpp, OpenAI, Azure Speech.',
     providersRef: allAudioTranscriptionProvidersMetadata,
   },
 ]
 
-const providerBlocks = computed(() => {
-  let globalIndex = 0
-  return providerBlocksConfig.map(block => ({
-    id: block.id,
-    icon: block.icon,
-    title: block.title,
-    description: block.description,
-    providers: block.providersRef.value.map(provider => ({
-      ...provider,
-      renderIndex: globalIndex++,
-    })),
-  }))
+const activeTabId = ref(providerBlocksConfig[0].id)
+
+onMounted(() => {
+  if (route.hash) {
+    const hashId = route.hash.replace('#', '')
+    if (providerBlocksConfig.some(b => b.id === hashId)) {
+      activeTabId.value = hashId
+    }
+  }
 })
 
-useScrollToHash(() => route.hash, {
-  auto: true, // automatically react to route hash
-  offset: 16, // header + margin spacing
-  behavior: 'smooth', // smooth scroll animation
-  maxRetries: 15, // retry if target element isn't ready
-  retryDelay: 150, // wait between retries
-  scrollContainer: '#settings-scroll-container',
+function setActiveTab(id: string) {
+  activeTabId.value = id
+  router.replace({ hash: `#${id}` }).catch(() => {})
+}
+
+const providerBlocks = computed(() => {
+  let globalIndex = 0
+  return providerBlocksConfig
+    .filter(block => block.id === activeTabId.value)
+    .map(block => ({
+      id: block.id,
+      icon: block.icon,
+      title: block.title,
+      description: block.description,
+      providers: block.providersRef.value.map(provider => ({
+        ...provider,
+        renderIndex: globalIndex++,
+      })),
+    }))
 })
 </script>
 
@@ -84,6 +94,19 @@ useScrollToHash(() => route.hash, {
       </div>
     </div>
 
+    <div class="flex flex-row flex-wrap gap-2 pb-2">
+      <button
+        v-for="block in providerBlocksConfig"
+        :key="block.id"
+        class="flex items-center gap-2 rounded-xl px-4 py-2 outline-none transition-colors duration-200"
+        :class="activeTabId === block.id ? 'bg-primary-500/15 text-primary-700 dark:bg-primary-500/20 dark:text-primary-300 font-semibold' : 'hover:bg-neutral-200/50 dark:hover:bg-neutral-800 text-neutral-500 dark:text-neutral-400'"
+        @click="setActiveTab(block.id)"
+      >
+        <div :class="block.icon" class="text-xl" />
+        {{ block.title }}
+      </button>
+    </div>
+
     <RippleGrid
       :sections="providerBlocks"
       :get-items="block => block.providers"
@@ -92,13 +115,13 @@ useScrollToHash(() => route.hash, {
       @item-click="({ globalIndex }) => setLastClickedIndex(globalIndex)"
     >
       <template #header="{ section: block }">
-        <div flex="~ row items-center gap-2">
+        <div mb-1 flex="~ row items-center gap-2">
           <div :id="block.id" :class="block.icon" text="neutral-500 dark:neutral-400 4xl" />
           <div>
             <div>
-              <span text="neutral-300 dark:neutral-500 sm sm:base">{{ block.description }}</span>
+              <span text="neutral-400 dark:neutral-500 sm sm:base">{{ block.description }}</span>
             </div>
-            <div flex text-nowrap text="2xl sm:3xl" font-normal>
+            <div flex text-nowrap text-2xl font-semibold>
               <div>
                 {{ block.title }}
               </div>

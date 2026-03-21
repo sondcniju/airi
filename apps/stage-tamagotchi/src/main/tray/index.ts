@@ -107,7 +107,7 @@ export function setupTray(params: {
       const halfWidthTarget = Math.floor(halfHeightTarget * ASPECT_RATIO)
 
       const t = params.i18n.t
-      const config = params.getConfig()
+      const config = params.getConfig() ?? { windows: [] }
       const mainWindowConfig = config.windows?.find((w: any) => w.title === 'AIRI' && w.tag === 'main')
 
       const contextMenu = Menu.buildFromTemplate([
@@ -186,7 +186,7 @@ export function setupTray(params: {
               type: 'checkbox',
               checked: !!mainWindowConfig?.locked,
               click: (item) => {
-                const config = params.getConfig()
+                const config = params.getConfig() ?? { windows: [] }
                 if (!config.windows)
                   config.windows = []
                 let index = config.windows.findIndex((w: any) => w.title === 'AIRI' && w.tag === 'main')
@@ -207,7 +207,7 @@ export function setupTray(params: {
               label: t('tamagotchi.electron.tray.menu.labels.label.snapshot'),
               click: () => {
                 // Save the current window bounds as the "Home" position for future restoration.
-                const config = params.getConfig()
+                const config = params.getConfig() ?? { windows: [] }
                 if (!config.windows)
                   config.windows = []
                 let index = config.windows.findIndex((w: any) => w.title === 'AIRI' && w.tag === 'main')
@@ -232,7 +232,7 @@ export function setupTray(params: {
               enabled: !!mainWindowConfig?.snapshot,
               click: () => {
                 // Return the window to its previously saved "Home" position.
-                const config = params.getConfig()
+                const config = params.getConfig() ?? { windows: [] }
                 const mainWindow = config.windows?.find((w: any) => w.title === 'AIRI' && w.tag === 'main')
                 if (mainWindow?.snapshot) {
                   params.mainWindow.setBounds(mainWindow.snapshot)

@@ -130,7 +130,8 @@ async function executeCreateImageJournalEntry(params: { prompt?: string, title?:
   }
   catch (e) {
     console.error('[ImageJournalTool] Failed to create entry', e)
-    return `Failed to generate image: ${e instanceof Error ? e.message : String(e)}`
+    const errorMsg = e instanceof Error ? e.message : String(e)
+    return `Failed to generate image. Error: ${errorMsg}`
   }
 }
 

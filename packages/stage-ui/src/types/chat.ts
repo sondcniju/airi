@@ -11,6 +11,7 @@ export interface ChatSlicesToolCall {
   toolCall: CompletionToolCall
   state?: 'executing' | 'done' | 'error'
   result?: string | CommonContentPart[]
+  bridged?: boolean
 }
 
 export interface ChatSlicesToolCallResult {

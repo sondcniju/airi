@@ -47,7 +47,7 @@ export class ReplicateProvider implements ArtistryProvider {
       ...request.extra?.providerOptions, // Allow direct passthrough from AiriCard options
     }
 
-    log.log(`[Replicate] Generating with model ${model}...`)
+    log.log(`[Replicate] Generating with model ${model} (Inputs: ${JSON.stringify(inputOptions)})`)
 
     // We don't await the result here because the interface expects us to return an ArtistryJob immediately.
     // However, replicate.run() blocks until completion. We'll run it in the background and store the result.
@@ -93,8 +93,13 @@ export class ReplicateProvider implements ArtistryProvider {
       }
     }
     catch (error: any) {
-      log.error(`[Replicate] Error: ${error.message}`)
-      this.jobResults.set(jobId, { status: 'failed', error: error.message, actionLabel: `Error: ${error.message}` })
+      const errorMessage = error.message || (typeof error === 'object' ? JSON.stringify(error) : String(error))
+      log.error(`[Replicate] Generation Failed: ${errorMessage}`, error)
+      this.jobResults.set(jobId, {
+        status: 'failed',
+        error: errorMessage,
+        actionLabel: `Error: ${errorMessage.slice(0, 50)}${errorMessage.length > 50 ? '...' : ''}`,
+      })
     }
   }
 

@@ -61,14 +61,27 @@ export async function generateHeadless(params: {
     },
   }
 
+  log.log(`[Headless] Starting generation with provider: ${providerId}, model: ${params.model || 'default'}`)
   const job = await provider.generate(request)
+  log.log(`[Headless] Job created: ${job.jobId}`)
 
   // Polling/Wait for result
   if (!('setJobCallback' in provider)) {
     let isDone = false
     let lastStatus: any = {}
+    const start = Date.now()
+    const timeout = 1000 * 60 * 5 // 5 minutes timeout
+
     while (!isDone) {
+      if (Date.now() - start > timeout) {
+        log.error(`[Headless] Job ${job.jobId} timed out after 5 minutes.`)
+        throw new Error('Image generation timed out after 5 minutes.')
+      }
+
+      log.log(`[Headless] Polling status for job: ${job.jobId}...`)
       lastStatus = await provider.getStatus(job.jobId)
+      log.log(`[Headless] Status for job ${job.jobId}: ${lastStatus.status}`)
+
       if (lastStatus.status === 'succeeded' || lastStatus.status === 'failed') {
         isDone = true
       }
@@ -78,9 +91,11 @@ export async function generateHeadless(params: {
     }
 
     if (lastStatus.status === 'failed') {
+      log.error(`[Headless] Job ${job.jobId} failed: ${lastStatus.error || 'Unknown error'}`)
       throw new Error(lastStatus.error || 'Generation failed')
     }
 
+    log.log(`[Headless] Job ${job.jobId} succeeded. Image URL: ${lastStatus.imageUrl}`)
     return { imageUrl: lastStatus.imageUrl }
   }
   else {
