@@ -7,6 +7,8 @@ import { MarkdownRenderer } from '../../markdown'
 const props = defineProps<{
   toolName: string
   args: string
+  state?: 'executing' | 'done' | 'error'
+  result?: any
 }>()
 
 interface TextJournalArgs {
@@ -88,8 +90,26 @@ const formattedArgs = computed(() => {
         ]"
         @click="setVisible(!visible)"
       >
-        <div i-solar:sledgehammer-bold-duotone class="mr-1 inline-block translate-y-1 op-50" />
+        <div
+          v-if="state === 'executing'"
+          i-eos-icons:loading class="mr-1 inline-block translate-y-0.5 op-50"
+        />
+        <div
+          v-else-if="state === 'error'"
+          i-ph:warning-circle-duotone class="mr-1 inline-block translate-y-0.5 text-red-500"
+        />
+        <div
+          v-else-if="state === 'done'"
+          i-ph:check-circle-duotone class="mr-1 inline-block translate-y-0.5 text-emerald-500"
+        />
+        <div
+          v-else
+          i-solar:sledgehammer-bold-duotone class="mr-1 inline-block translate-y-1 op-50"
+        />
         <code>{{ toolName }}</code>
+        <span v-if="state === 'error' && result" class="ml-2 text-xs text-red-500 op-80">
+          ({{ result }})
+        </span>
       </button>
     </template>
     <div

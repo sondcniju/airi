@@ -9,6 +9,8 @@ export interface ChatSlicesText {
 export interface ChatSlicesToolCall {
   type: 'tool-call'
   toolCall: CompletionToolCall
+  state?: 'executing' | 'done' | 'error'
+  result?: string | CommonContentPart[]
 }
 
 export interface ChatSlicesToolCallResult {

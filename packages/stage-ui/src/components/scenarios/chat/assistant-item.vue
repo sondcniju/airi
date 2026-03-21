@@ -26,7 +26,7 @@ interface DisplaySegment {
   content: string
 }
 
-const ACT_MARKER_RE = /<\|ACT:[\s\S]*?(?:\|>|>)/gi
+const ACT_MARKER_RE = /<\|[\w-]+:[\s\S]*?(?:\|>|>)/g
 
 function parseAssistantDisplayText(text: string): DisplaySegment[] {
   const segments: DisplaySegment[] = []
@@ -128,8 +128,10 @@ function deleteSelf() {
         <template v-for="(slice, sliceIndex) in resolvedSlices" :key="sliceIndex">
           <ChatToolCallBlock
             v-if="slice.type === 'tool-call'"
-            :tool-name="slice.toolCall.toolName"
-            :args="slice.toolCall.args"
+            :tool-name="(slice.toolCall as any).function?.name || (slice.toolCall as any).toolName"
+            :args="(slice.toolCall as any).function?.arguments || (slice.toolCall as any).args"
+            :state="slice.state"
+            :result="slice.result"
             class="mb-2"
           />
           <template v-else-if="slice.type === 'tool-call-result'" />

@@ -2,13 +2,13 @@ import type { WebSocketEventInputs } from '@proj-airi/server-sdk'
 import type { ChatProvider } from '@xsai-ext/providers/utils'
 import type { CommonContentPart, Message, ToolMessage } from '@xsai/shared-chat'
 
-import type { ChatAssistantMessage, ChatSlices, ChatStreamEventContext, StreamingAssistantMessage } from '../types/chat'
+import type { ChatAssistantMessage, ChatSlices, ChatStreamEventContext } from '../types/chat'
 import type { StreamEvent, StreamOptions } from './llm'
 
 import { createQueue } from '@proj-airi/stream-kit'
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
-import { ref, toRaw } from 'vue'
+import { reactive, ref, toRaw } from 'vue'
 
 import { useAnalytics } from '../composables'
 import { createLlmJsonInterceptor } from '../composables/llm-json-interceptor'
@@ -149,10 +149,16 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
     const isForegroundSession = () => sessionId === activeSessionId.value
 
-    const buildingMessage: StreamingAssistantMessage = { role: 'assistant', content: '', slices: [], tool_results: [], createdAt: Date.now(), id: nanoid() }
+    const buildingMessage: ChatAssistantMessage = reactive({
+      role: 'assistant',
+      content: '',
+      slices: [],
+      tool_results: [],
+      createdAt: Date.now(),
+      id: nanoid(),
+    })
 
     const updateUI = () => {
-      console.log('[ChatDebug] updateUI triggered')
       if (isForegroundSession()) {
         streamingMessage.value = JSON.parse(JSON.stringify(buildingMessage))
       }
@@ -166,8 +172,6 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     let streamIdleTimeout: ReturnType<typeof setTimeout> | undefined
 
     try {
-      await hooks.emitBeforeMessageComposedHooks(sendingMessage, streamingMessageContext)
-
       const contentParts: CommonContentPart[] = [{ type: 'text', text: sendingMessage }]
 
       if (options.attachments) {
@@ -220,7 +224,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
           const current = categorizer.getCurrent()
           if (current) {
-            buildingMessage.categorization = {
+            ;(buildingMessage as any).categorization = {
               speech: current.speech,
               reasoning: current.reasoning,
             }
@@ -231,12 +235,12 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
             await hooks.emitTokenLiteralHooks(speechOnly, streamingMessageContext)
 
-            const lastSlice = buildingMessage.slices.at(-1)
+            const lastSlice = (buildingMessage as any).slices.at(-1)
             if (lastSlice?.type === 'text') {
               lastSlice.text += speechOnly
             }
             else {
-              buildingMessage.slices.push({
+              ;(buildingMessage as any).slices.push({
                 type: 'text',
                 text: speechOnly,
               })
@@ -254,7 +258,6 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
       async function tryBridgeMarker(marker: string): Promise<boolean> {
         // Supports: <|tool:args|>, [call_tool:tool, args], and [call_tool:tool(args)]
-        // Using non-greedy match to avoid swallowing multiple tags if they are adjacent
         const match = marker.match(/^<\|([\w-]+):([^|]*)\|>/) || marker.match(/^\[call_tool:([\w-]+),\s*([^\]]*)\]/)
         if (!match)
           return false
@@ -269,8 +272,6 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         console.log(`[ChatDebug] Bridging marker to tool call: ${toolName}`)
         try {
           const args: Record<string, any> = {}
-          // Use a non-capturing group for the optional separator (start of string or comma/space)
-          // followed by the key, the separator (colon or equals), and then the various value types.
           const kvRegex = /(?:^|[, \n\t]+)\s*([\w-]+)\s*[:=]\s*(?:"([^"]*)"|'([^']*)'|(\d+(?:\.\d+)?)|(true|false)|(\{.*\}|\[.*\]))/g
           let kvMatch
 
@@ -332,13 +333,11 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           if (shouldAbort())
             return
 
-          // Catch hallucinated markers that come through as literals (not wrapped in <|...|>)
-          // regex looks for [call_tool:...] pattern
-          const literalMarkerMatch = text.match(/\[call_tool:[\w-]+,[^\]]+\]/)
+          // Catch hallucinated markers
+          const literalMarkerMatch = text.match(/\[call_tool:[\w-]+,[^\]]+\]/) || text.match(/<\|([\w-]+):[^|]+\|>/)
           if (literalMarkerMatch) {
             const marker = literalMarkerMatch[0]
             if (await tryBridgeMarker(marker)) {
-              // If perfectly bridged, remove it from the text so it doesn't leak into speech/TTS
               text = text.replace(marker, '')
             }
           }
@@ -364,17 +363,12 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
           const finalCategorization = categorizeResponse(fullText, activeProvider.value)
 
-          buildingMessage.categorization = {
+          ;(buildingMessage as any).categorization = {
             speech: finalCategorization.speech,
-            reasoning: (buildingMessage.categorization?.reasoning ?? '') + (finalCategorization.reasoning ? `\n\n${finalCategorization.reasoning}` : ''),
+            reasoning: ((buildingMessage as any).categorization?.reasoning ?? '') + (finalCategorization.reasoning ? `\n\n${finalCategorization.reasoning}` : ''),
           }
 
-          // [ChatDebug] Sync check
           if (buildingMessage.content !== finalCategorization.speech) {
-            console.log('[ChatDebug] onEnd sync difference found:', {
-              building: (buildingMessage.content ?? '').length,
-              final: finalCategorization.speech.length,
-            })
             buildingMessage.content = finalCategorization.speech
           }
 
@@ -388,14 +382,31 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           async (ctx) => {
             if (shouldAbort())
               return
+
             if (ctx.data.type === 'tool-call') {
-              buildingMessage.slices.push(ctx.data)
+              ;(buildingMessage.slices as any).push({
+                ...ctx.data,
+                state: 'executing',
+              })
               updateUI()
               return
             }
 
             if (ctx.data.type === 'tool-call-result') {
-              buildingMessage.tool_results.push(ctx.data)
+              const resultData = ctx.data as any
+              buildingMessage.tool_results.push(resultData)
+
+              const slice = buildingMessage.slices.find((s: any) => {
+                if (s.type !== 'tool-call')
+                  return false
+                const tc = s.toolCall as any
+                return tc.id === resultData.id || tc.toolCallId === resultData.id
+              })
+              if (slice && slice.type === 'tool-call') {
+                slice.state = ctx.data.result?.toString().toLowerCase().includes('failed') ? 'error' : 'done'
+                slice.result = ctx.data.result
+              }
+
               updateUI()
             }
           },
@@ -472,11 +483,8 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         max_tokens: generationKnown?.maxTokens,
         requestOverrides: generationConfig?.enabled ? generationConfig.advanced : undefined,
         abortSignal: abortController.signal,
-        // NOTICE: xsai stream may emit `finish` before tool steps continue, so keep waiting until
-        // the final non-tool finish to avoid ending the chat turn with no assistant reply.
         waitForTools: true,
         onStreamEvent: async (event: StreamEvent) => {
-          console.log('[ChatDebug] Stream event in orchestrator:', event)
           resetStreamIdleTimeout()
           switch (event.type) {
             case 'tool-call':
@@ -484,7 +492,6 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
                 type: 'tool-call',
                 toolCall: event,
               })
-
               break
             case 'tool-result':
               toolCallQueue.enqueue({
@@ -492,11 +499,9 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
                 id: event.toolCallId,
                 result: event.result,
               })
-
               break
             case 'text-delta':
               fullText += event.text
-              // Log raw delta to main process
               ;(window as any).electron.ipcRenderer.send('llm-raw-output', {
                 type: 'delta',
                 text: event.text,
@@ -505,14 +510,13 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
               await parser.consume(event.text)
               break
             case 'reasoning-delta':
-              if (!buildingMessage.categorization) {
-                buildingMessage.categorization = { speech: '', reasoning: '' }
+              if (!(buildingMessage as any).categorization) {
+                ;(buildingMessage as any).categorization = { speech: '', reasoning: '' }
               }
-              buildingMessage.categorization.reasoning += event.text
+              ;(buildingMessage as any).categorization.reasoning += event.text
               updateUI()
               break
             case 'finish':
-              // Log final full text to main process
               ;(window as any).electron.ipcRenderer.send('llm-raw-output', {
                 type: 'full',
                 text: fullText,
@@ -526,7 +530,6 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       })
 
       clearStreamIdleTimeout()
-
       await parser.end()
 
       if (!isStaleGeneration() && buildingMessage.slices.length > 0) {
@@ -534,9 +537,9 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         chatSession.setSessionMessages(sessionId, [...currentMessages, toRaw(buildingMessage)])
       }
 
+      // Finalize hooks and analytics
       await hooks.emitStreamEndHooks(streamingMessageContext)
       await hooks.emitAssistantResponseEndHooks(fullText, streamingMessageContext)
-
       await hooks.emitAfterSendHooks(sendingMessage, streamingMessageContext)
       await hooks.emitAssistantMessageHooks({ ...buildingMessage }, fullText, streamingMessageContext)
       await hooks.emitChatTurnCompleteHooks({
