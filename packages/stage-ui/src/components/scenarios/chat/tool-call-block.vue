@@ -15,6 +15,13 @@ interface TextJournalArgs {
   content?: string
 }
 
+interface ImageJournalArgs {
+  action?: string
+  prompt?: string
+  title?: string
+  set_as_background?: boolean
+}
+
 const parsedArgs = computed<TextJournalArgs | null>(() => {
   try {
     return JSON.parse(props.args) as TextJournalArgs
@@ -30,6 +37,12 @@ const isTextJournalCreate = computed(() => {
     && !!parsedArgs.value?.content?.trim()
 })
 
+const isImageJournalCreate = computed(() => {
+  return props.toolName === 'image_journal'
+    && parsedArgs.value?.action === 'create'
+    && !!(parsedArgs.value as ImageJournalArgs)?.prompt?.trim()
+})
+
 const textJournalMarkdown = computed(() => {
   if (!isTextJournalCreate.value)
     return ''
@@ -37,6 +50,17 @@ const textJournalMarkdown = computed(() => {
   const title = parsedArgs.value?.title?.trim() || 'Journal Entry'
   const content = parsedArgs.value?.content?.trim() || ''
   return `# ${title}\n\n${content}`
+})
+
+const imageJournalMarkdown = computed(() => {
+  if (!isImageJournalCreate.value)
+    return ''
+
+  const args = parsedArgs.value as ImageJournalArgs
+  const title = args?.title?.trim() || 'Untitled Image'
+  const prompt = args?.prompt?.trim() || ''
+  const setBg = args?.set_as_background ? '\n\n> Setting as background...' : ''
+  return `### ${title}\n\n*${prompt}*${setBg}`
 })
 
 const formattedArgs = computed(() => {
@@ -82,6 +106,15 @@ const formattedArgs = computed(() => {
           </div>
         </div>
         <MarkdownRenderer :content="textJournalMarkdown" />
+      </template>
+      <template v-else-if="isImageJournalCreate">
+        <div class="mb-2 flex items-center gap-2">
+          <div class="i-solar:camera-bold-duotone text-base text-violet-500" />
+          <div class="rounded-full bg-violet-500/12 px-2.5 py-1 text-xs text-violet-700 dark:text-violet-300">
+            Generating image
+          </div>
+        </div>
+        <MarkdownRenderer :content="imageJournalMarkdown" />
       </template>
       <div v-else class="whitespace-pre-wrap break-words font-mono">
         {{ formattedArgs }}

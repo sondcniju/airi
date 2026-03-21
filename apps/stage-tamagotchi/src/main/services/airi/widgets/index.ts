@@ -5,7 +5,8 @@ import type { WidgetsWindowManager } from '../../../windows/widgets'
 
 import { defineInvokeHandlers } from '@moeru/eventa'
 
-import { widgetsAdd, widgetsClear, widgetsFetch, widgetsHideWindow, widgetsOpenWindow, widgetsPrepareWindow, widgetsRemove, widgetsUpdate } from '../../../../shared/eventa'
+import { artistryGenerateHeadless, widgetsAdd, widgetsClear, widgetsFetch, widgetsHideWindow, widgetsOpenWindow, widgetsPrepareWindow, widgetsRemove, widgetsUpdate } from '../../../../shared/eventa'
+import { generateHeadless } from './artistry-bridge'
 
 interface InvokeOptions {
   raw?: { ipcMainEvent?: IpcMainEvent }
@@ -33,6 +34,7 @@ export function createWidgetsService(params: { context: ReturnType<typeof create
     widgetsClear,
     widgetsFetch,
     widgetsHideWindow,
+    artistryGenerateHeadless,
   }, {
     widgetsPrepareWindow: async (payload, options) => {
       if (!isFromWindow(options as InvokeOptions, params.window))
@@ -73,6 +75,18 @@ export function createWidgetsService(params: { context: ReturnType<typeof create
       if (!isFromWindow(options as InvokeOptions, params.window))
         return undefined
       return params.widgetsManager!.hideWindow(payload ?? undefined)
+    },
+    artistryGenerateHeadless: async (payload, options) => {
+      if (!isFromWindow(options as InvokeOptions, params.window))
+        return { error: 'Unauthorized window' }
+      if (!payload)
+        return { error: 'Payload missing' }
+      try {
+        return await generateHeadless(payload)
+      }
+      catch (error: any) {
+        return { error: error.message }
+      }
     },
   })
 }

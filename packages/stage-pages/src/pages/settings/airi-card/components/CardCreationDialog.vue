@@ -12,6 +12,7 @@ import { DisplayModelFormat, useDisplayModelsStore } from '@proj-airi/stage-ui/s
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
+import { useImageJournalStore } from '@proj-airi/stage-ui/stores/modules/image-journal'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
@@ -58,6 +59,7 @@ const proactivityStore = useProactivityStore()
 const providersStore = useProvidersStore()
 const displayModelsStore = useDisplayModelsStore()
 const stageModelStore = useSettingsStageModel()
+const journalStore = useImageJournalStore()
 const modelStore = useModelStore()
 
 const { sensorPayload } = storeToRefs(proactivityStore)
@@ -264,10 +266,18 @@ const sceneOptions = computed(() => {
     label: bg.name || id,
   }))
 
+  const journalOptions = journalStore.entries
+    .filter(e => e.characterId === props.cardId)
+    .map(entry => ({
+      value: entry.id,
+      label: `Journal: ${entry.title}`,
+    }))
+
   return [
     { value: '__default__', label: t('settings.pages.card.creation.use_default') },
     { value: '__none__', label: t('settings.pages.card.creation.none') },
     ...options,
+    ...journalOptions,
   ]
 })
 
@@ -278,14 +288,25 @@ const selectedPreferredBackgroundName = computed(() => {
   if (selectedPreferredBackgroundId.value === '__default__')
     return null
 
-  return backgrounds.value.get(selectedPreferredBackgroundId.value)?.name ?? null
+  const journalEntry = journalStore.entries.find(e => e.id === selectedPreferredBackgroundId.value)
+  if (journalEntry)
+    return journalEntry.title
+
+  return backgrounds.value.get(selectedPreferredBackgroundId.value)?.name || null
 })
 
 const selectedPreferredBackgroundDataUrl = computed(() => {
-  if (selectedPreferredBackgroundId.value === '__default__' || selectedPreferredBackgroundId.value === '__none__')
+  if (selectedPreferredBackgroundId.value === '__none__')
     return null
 
-  return backgrounds.value.get(selectedPreferredBackgroundId.value)?.url ?? null
+  if (selectedPreferredBackgroundId.value === '__default__')
+    return null
+
+  const journalEntry = journalStore.entries.find(e => e.id === selectedPreferredBackgroundId.value)
+  if (journalEntry)
+    return journalEntry.url
+
+  return backgrounds.value.get(selectedPreferredBackgroundId.value)?.url || null
 })
 
 const actingModelExpressionOptions = computed(() => {

@@ -30,9 +30,66 @@ function createRunId(widgetId: string) {
 }
 
 // Maintain a registry of providers
-const providers = new Map<string, ArtistryProvider>()
-providers.set('comfyui', new ComfyUIProvider())
-providers.set('replicate', new ReplicateProvider())
+export const artistryProviders = new Map<string, ArtistryProvider>()
+artistryProviders.set('comfyui', new ComfyUIProvider())
+artistryProviders.set('replicate', new ReplicateProvider())
+
+export async function generateHeadless(params: {
+  prompt: string
+  model?: string
+  provider?: string
+  options?: Record<string, any>
+  globals?: any
+}) {
+  const providerId = params.provider || 'replicate'
+  const provider = artistryProviders.get(providerId)
+  if (!provider) {
+    throw new Error(`Provider '${providerId}' not found.`)
+  }
+
+  // Initialize the provider if globals are provided
+  if (provider.initialize && params.globals) {
+    await provider.initialize(params.globals)
+  }
+
+  const request: ArtistryRequest = {
+    prompt: params.prompt,
+    model: params.model,
+    extra: {
+      ...params.options,
+      internalJobId: createRunId('headless'),
+    },
+  }
+
+  const job = await provider.generate(request)
+
+  // Polling/Wait for result
+  if (!('setJobCallback' in provider)) {
+    let isDone = false
+    let lastStatus: any = {}
+    while (!isDone) {
+      lastStatus = await provider.getStatus(job.jobId)
+      if (lastStatus.status === 'succeeded' || lastStatus.status === 'failed') {
+        isDone = true
+      }
+      if (!isDone) {
+        await new Promise(resolve => setTimeout(resolve, 2000))
+      }
+    }
+
+    if (lastStatus.status === 'failed') {
+      throw new Error(lastStatus.error || 'Generation failed')
+    }
+
+    return { imageUrl: lastStatus.imageUrl }
+  }
+  else {
+    // For providers with callbacks (like ComfyUI), we might need a different wait logic
+    // But for MVP (Replicate), the above is sufficient.
+    // For now, let's just throw if it's not supported easily
+    throw new Error('Headless generation not yet implemented for callback-based providers.')
+  }
+}
 
 async function handleArtistryTrigger(params: {
   id: string
@@ -65,7 +122,7 @@ async function handleArtistryTrigger(params: {
     const runId = createRunId(params.id)
     activeRunMap.set(params.id, runId)
 
-    const provider = providers.get(providerId)
+    const provider = artistryProviders.get(providerId)
     if (!provider) {
       log.error(`🔴 Provider '${providerId}' not found.`)
       params.widgetsManager.updateWidget({

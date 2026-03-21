@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { computed, ref, watch } from 'vue'
+import { useBackgroundStore } from '@proj-airi/stage-layouts'
+import { useAiriCardStore, useImageJournalStore } from '@proj-airi/stage-ui/stores'
+import { computed, ref } from 'vue'
 
 import { widgetsHideWindow, widgetsRemove } from '../../../../shared/eventa'
 
@@ -19,59 +21,27 @@ const props = withDefaults(defineProps<{
   progress: 0,
 })
 
-interface HistoryFrame {
-  frameId: number
-  generationId: number
-  url: string
-  prompt?: string
-  remixId?: string | number
-}
+const journalStore = useImageJournalStore()
+const cardStore = useAiriCardStore()
+const backgroundStore = useBackgroundStore()
 
-const history = ref<HistoryFrame[]>([])
+// NOTICE: Comfy.vue is a display-only widget. All journal ingestion is
+// handled by the `image_journal` tool. This widget only reads existing
+// entries for gallery browsing and background setting.
+
+// Filter history for current character
+const history = computed(() => journalStore.entries.filter(e => e.characterId === cardStore.activeCardId))
 const currentIndex = ref(0)
 const isFlipped = ref(false)
 const errorOccurred = ref(false)
-const currentGenerationId = ref(0)
-const nextFrameId = ref(1)
+const isSettingBackground = ref(false)
 
 const hideWindow = useElectronEventaInvoke(widgetsHideWindow)
 const removeWidget = useElectronEventaInvoke(widgetsRemove)
 
-watch(() => props.status, (status, previousStatus) => {
-  if (status === 'generating' && previousStatus !== 'generating')
-    currentGenerationId.value += 1
-}, { immediate: true })
-
-// Keep one gallery frame per generation cycle, even when the backend reuses the same file URL.
-watch(() => [props.imageUrl, props.prompt, props.remixId] as const, ([newUrl, prompt, remixId]) => {
-  if (!newUrl)
-    return
-
-  errorOccurred.value = false
-  if (currentGenerationId.value === 0)
-    currentGenerationId.value = 1
-
-  const existingIndex = history.value.findIndex(img => img.generationId === currentGenerationId.value)
-  if (existingIndex === -1) {
-    history.value.push({
-      frameId: nextFrameId.value++,
-      generationId: currentGenerationId.value,
-      url: newUrl,
-      prompt,
-      remixId,
-    })
-    currentIndex.value = history.value.length - 1
-  }
-  else {
-    history.value[existingIndex] = {
-      ...history.value[existingIndex],
-      url: newUrl,
-      prompt,
-      remixId,
-    }
-    currentIndex.value = existingIndex
-  }
-}, { immediate: true })
+// If status changes to generating, we stay on the current image if any,
+// but we might want to reset the current index when done.
+// The watch above handles jumping to the new entry when done.
 
 const currentImage = computed(() => history.value[currentIndex.value])
 
@@ -95,6 +65,29 @@ function prevImage() {
 
 function toggleFlip() {
   isFlipped.value = !isFlipped.value
+}
+
+async function handleSetAsBackground() {
+  if (!currentImage.value)
+    return
+  isSettingBackground.value = true
+  try {
+    const entry = currentImage.value
+    const background = await backgroundStore.addOption({
+      id: entry.id,
+      label: entry.title,
+      description: `Journal entry: ${entry.prompt}`,
+      kind: 'image' as any,
+      file: entry.blob,
+    })
+    backgroundStore.setSelection(background)
+  }
+  catch (e) {
+    console.error('[ComfyWidget] Failed to set background', e)
+  }
+  finally {
+    isSettingBackground.value = false
+  }
 }
 
 async function handleClose() {
@@ -268,20 +261,23 @@ async function handleClose() {
               </div>
             </div>
           </div>
-
-          <div v-if="engineStats" class="border border-white/10 rounded border-dashed bg-black/40 p-2">
-            <div class="mb-1 text-[8px] text-white/30 font-bold uppercase">
-              Performance Details
-            </div>
-            <div class="text-green-500/80 leading-tight">
-              {{ engineStats }}
-            </div>
-          </div>
         </div>
 
-        <div class="pointer-events-none mt-auto flex select-none items-center gap-2 pt-2 text-[9px] text-white opacity-30">
-          <div class="size-1.5 animate-pulse rounded-full bg-green-500" />
-          <span>CUIPP BACKEND LINKED</span>
+        <div class="mt-auto pt-2 space-y-2">
+          <button
+            class="w-full flex items-center justify-center gap-2 border border-yellow-500/30 rounded-lg bg-yellow-500/10 py-2.5 text-xs text-yellow-500 font-bold transition-all active:scale-95 hover:bg-yellow-500/20 disabled:opacity-50"
+            :disabled="!currentImage || isSettingBackground"
+            @click="handleSetAsBackground"
+          >
+            <div v-if="isSettingBackground" class="i-iconify-line-md:loading-twotone-loop text-base" />
+            <div v-else class="i-iconify-material-symbols:wallpaper text-base" />
+            {{ isSettingBackground ? 'SETTING...' : 'SET AS BACKGROUND' }}
+          </button>
+
+          <div class="pointer-events-none flex select-none items-center gap-2 text-[9px] text-white opacity-30">
+            <div class="size-1.5 animate-pulse rounded-full bg-green-500" />
+            <span>CUIPP BACKEND LINKED</span>
+          </div>
         </div>
       </div>
     </div>

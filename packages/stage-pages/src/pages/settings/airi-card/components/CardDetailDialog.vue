@@ -3,11 +3,16 @@ import type { AiriCard } from '@proj-airi/stage-ui/stores/modules/airi-card'
 
 import DOMPurify from 'dompurify'
 
-import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
-import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
-import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
-import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
-import { Button } from '@proj-airi/ui'
+import { useBackgroundStore } from '@proj-airi/stage-layouts'
+import {
+  useAiriCardStore,
+  useArtistryStore,
+  useConsciousnessStore,
+  useImageJournalStore,
+  useSceneStore,
+  useSpeechStore,
+} from '@proj-airi/stage-ui/stores'
+import { Button, Select } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import {
   DialogContent,
@@ -35,6 +40,11 @@ const { t } = useI18n()
 const cardStore = useAiriCardStore()
 const consciousnessStore = useConsciousnessStore()
 const speechStore = useSpeechStore()
+const journalStore = useImageJournalStore()
+const sceneStore = useSceneStore()
+const backgroundStore = useBackgroundStore()
+const isRefreshingGallery = ref(false)
+
 const { removeCard } = cardStore
 const { activeCardId } = storeToRefs(cardStore)
 const artistryStore = useArtistryStore()
@@ -48,6 +58,11 @@ const selectedCard = computed<AiriCard | undefined>(() => {
     return undefined
   return cardStore.getCard(props.cardId)
 })
+
+// Journal entries for this card
+const journalEntries = computed(() => journalStore.entries.filter(e => e.characterId === props.cardId))
+
+// ... keep existing moduleSettings and characterSettings ...
 
 // Get module settings
 const moduleSettings = computed(() => {
@@ -119,12 +134,60 @@ function handleDeleteConfirm() {
   showDeleteConfirm.value = false
 }
 
-// Tab type definition
 interface Tab {
   id: string
   label: string
   icon: string
 }
+
+// Background options including journal entries
+const backgroundOptions = computed(() => {
+  const options = Array.from(sceneStore.backgrounds.entries()).map(([id, bg]) => ({
+    value: id,
+    label: bg.name || id,
+  }))
+
+  const journalOptions = journalEntries.value.map(entry => ({
+    value: entry.id,
+    label: `Journal: ${entry.title}`,
+  }))
+
+  return [
+    { value: 'none', label: t('settings.pages.card.creation.none') },
+    ...options,
+    ...journalOptions,
+  ]
+})
+
+const preferredBackgroundId = computed({
+  get: () => selectedCard.value?.extensions?.airi?.modules?.preferredBackgroundId || 'none',
+  set: (val: string) => {
+    if (!selectedCard.value)
+      return
+    const extension = JSON.parse(JSON.stringify(selectedCard.value.extensions))
+    if (!extension.airi.modules)
+      extension.airi.modules = {}
+
+    extension.airi.modules.preferredBackgroundId = val
+
+    // If it's a journal entry, we also want to set name/dataUrl for portability
+    const journalEntry = journalEntries.value.find(e => e.id === val)
+    if (journalEntry) {
+      extension.airi.modules.preferredBackgroundName = journalEntry.title
+      extension.airi.modules.preferredBackgroundDataUrl = journalEntry.url
+    }
+    else {
+      const sceneBg = sceneStore.backgrounds.get(val)
+      extension.airi.modules.preferredBackgroundName = sceneBg?.name || null
+      extension.airi.modules.preferredBackgroundDataUrl = sceneBg?.url || null
+    }
+
+    cardStore.updateCard(props.cardId, {
+      ...selectedCard.value,
+      extensions: extension,
+    })
+  },
+})
 
 // Active tab ID state
 const activeTabId = ref('')
@@ -167,8 +230,56 @@ const tabs = computed<Tab[]>(() => {
     icon: 'i-solar:tuning-square-linear',
   })
 
+  // Gallery tab - always show
+  availableTabs.push({
+    id: 'gallery',
+    label: 'Gallery',
+    icon: 'i-solar:gallery-linear',
+  })
+
   return availableTabs
 })
+
+async function handleSetAsBackground(entry: any) {
+  try {
+    // 1. Update SceneStore (Renderer immediate)
+    const id = sceneStore.addBackground(entry.url, entry.title)
+    sceneStore.setActiveBackground(id)
+
+    // 2. Update BackgroundStore (New system / layout sync)
+    const background = await backgroundStore.addOption({
+      id: entry.id,
+      label: entry.title,
+      description: `Journal entry: ${entry.prompt}`,
+      kind: 'image' as any,
+      file: entry.blob,
+    })
+    backgroundStore.setSelection(background)
+  }
+  catch (e) {
+    console.error('[Gallery] Failed to set background', e)
+  }
+}
+
+async function handleSetAsPreferred(entry: any) {
+  preferredBackgroundId.value = entry.id
+}
+
+async function handleDeleteEntry(id: string) {
+  if (confirm('Are you sure you want to delete this image from the journal?')) {
+    await journalStore.deleteEntry(id)
+  }
+}
+
+async function handleRefreshGallery() {
+  isRefreshingGallery.value = true
+  try {
+    await journalStore.refresh()
+  }
+  finally {
+    isRefreshingGallery.value = false
+  }
+}
 
 // Active tab state - set to first available tab by default
 const activeTab = computed({
@@ -441,6 +552,112 @@ function getModuleDisplayValue(value: string | undefined, defaultValue: string |
                     <span class="whitespace-pre-wrap break-all text-sm text-neutral-700 font-medium font-mono dark:text-neutral-300">
                       {{ getModuleDisplayValue(moduleSettings.artistryOptions, 'None') }}
                     </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Gallery -->
+            <div v-if="activeTab === 'gallery'">
+              <!-- Gallery Header / Preferred Background Selection -->
+              <div
+                :class="[
+                  'mb-6 flex flex-row items-center justify-between gap-4',
+                  'border-b border-neutral-100 pb-4 dark:border-neutral-700/50',
+                ]"
+              >
+                <div class="flex flex-row items-center gap-3">
+                  <div class="flex flex-col gap-1">
+                    <h3 text-sm font-medium>
+                      Pinned Background
+                    </h3>
+                    <p text-xs text-neutral-500>
+                      Select the image to show when this character is active.
+                    </p>
+                  </div>
+                  <button
+                    :class="[
+                      'flex items-center justify-center size-7 rounded-md',
+                      'bg-neutral-100 dark:bg-neutral-800 text-neutral-500',
+                      'hover:bg-neutral-200 dark:hover:bg-neutral-700 hover:text-neutral-700 dark:hover:text-neutral-300',
+                      'transition-all duration-200 active:scale-90',
+                    ]"
+                    :disabled="isRefreshingGallery"
+                    title="Refresh gallery"
+                    @click="handleRefreshGallery"
+                  >
+                    <div
+                      class="i-lucide:refresh-cw text-sm"
+                      :class="{ 'animate-spin': isRefreshingGallery }"
+                    />
+                  </button>
+                </div>
+                <div w-64>
+                  <Select
+                    v-model="preferredBackgroundId"
+                    :options="backgroundOptions"
+                    placeholder="Select background"
+                  />
+                </div>
+              </div>
+
+              <div
+                v-if="journalEntries.length === 0"
+                :class="[
+                  'flex flex-col items-center justify-center',
+                  'border border-dashed border-neutral-200 rounded-xl',
+                  'bg-neutral-50/50 py-12 dark:border-neutral-700/50 dark:bg-neutral-900/50',
+                ]"
+              >
+                <div class="i-solar:gallery-wide-broken mb-3 text-5xl text-neutral-300 dark:text-neutral-600" />
+                <p class="text-neutral-500 dark:text-neutral-400">
+                  No images in the journal yet.
+                </p>
+              </div>
+              <div v-else class="grid grid-cols-2 max-h-120 gap-4 overflow-y-auto pr-2 lg:grid-cols-4 sm:grid-cols-3">
+                <div
+                  v-for="entry in journalEntries"
+                  :key="entry.id"
+                  class="group relative aspect-square overflow-hidden border border-neutral-200 rounded-lg bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900"
+                  :class="{ 'ring-2 ring-primary-500 border-primary-500': preferredBackgroundId === entry.id }"
+                >
+                  <img
+                    :src="entry.url"
+                    class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                    loading="lazy"
+                  >
+                  <!-- Overlay Actions -->
+                  <div class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                    <button
+                      class="flex items-center gap-1 rounded-full bg-white/20 px-3 py-1.5 text-[10px] text-white font-bold backdrop-blur-md transition-all active:scale-95 hover:bg-white/30"
+                      @click="handleSetAsBackground(entry)"
+                    >
+                      <div class="i-solar:wallpaper-linear" />
+                      SET BG
+                    </button>
+                    <button
+                      class="flex items-center gap-1 rounded-full px-3 py-1.5 text-[10px] text-white font-bold backdrop-blur-md transition-all active:scale-95"
+                      :class="preferredBackgroundId === entry.id ? 'bg-primary-500 hover:bg-primary-600' : 'bg-white/20 hover:bg-white/30'"
+                      @click="handleSetAsPreferred(entry)"
+                    >
+                      <div :class="preferredBackgroundId === entry.id ? 'i-solar:pin-bold' : 'i-solar:pin-linear'" />
+                      {{ preferredBackgroundId === entry.id ? 'PINNED' : 'PIN AS PREFERRED' }}
+                    </button>
+                    <button
+                      class="flex items-center gap-1 rounded-full bg-red-500/80 px-3 py-1.5 text-[10px] text-white font-bold backdrop-blur-md transition-all active:scale-95 hover:bg-red-500"
+                      @click="handleDeleteEntry(entry.id)"
+                    >
+                      <div class="i-solar:trash-bin-trash-linear" />
+                      DELETE
+                    </button>
+                  </div>
+                  <!-- Info Badge -->
+                  <div class="pointer-events-none absolute bottom-1 left-1 right-1 truncate rounded bg-black/40 px-1.5 py-0.5 text-[9px] text-white/90 backdrop-blur-sm">
+                    {{ entry.title }}
+                  </div>
+                  <!-- Active Indicator -->
+                  <div v-if="preferredBackgroundId === entry.id" class="absolute left-1 top-1 rounded bg-primary-500 p-1 text-white shadow-lg">
+                    <div class="i-solar:pin-bold text-[10px]" />
                   </div>
                 </div>
               </div>

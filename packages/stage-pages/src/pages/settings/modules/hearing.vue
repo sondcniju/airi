@@ -1,8 +1,14 @@
 <script setup lang="ts">
+import type { MicToggleHotkey } from '@proj-airi/stage-shared/shortcuts'
+
 import workletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
 
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { electronGetMicToggleHotkey, electronSetMicToggleHotkey } from '@proj-airi/stage-shared/shortcuts'
+import {
+  electronGetMicToggleHotkey,
+  electronSetMicToggleHotkey,
+
+} from '@proj-airi/stage-shared/shortcuts'
 import { Alert, ErrorContainer, LevelMeter, RadioCardManySelect, RadioCardSimple, TestDummyMarker, ThresholdMeter, TimeSeriesChart } from '@proj-airi/stage-ui/components'
 import { useAnalytics, useAudioAnalyzer, useAudioRecorder } from '@proj-airi/stage-ui/composables'
 import { useVAD } from '@proj-airi/stage-ui/stores/ai/models/vad'
