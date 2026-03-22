@@ -16,7 +16,10 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./vite": "./src/vite.ts",
+    "./vite": {
+      "types": "./src/vite.ts",
+      "default": "./vite.js"
+    },
     "./beat-sync": "./src/beat-sync/index.ts",
     "./electron-renderer": "./src/electron-renderer.d.ts",
     "./composables": "./src/composables/index.ts",

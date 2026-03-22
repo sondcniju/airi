@@ -35,9 +35,15 @@ If your settings seem to have disappeared after a restart:
 To ensure consistency across restarts, you can force the dev server to use a specific port.
 
 ### Option 1: Temporary (Command Line)
-In Windows CMD, you must use `&&` to chain the set command:
+In Windows CMD, use `AIRI_RENDERER_PORT` to match the current Electron Vite config:
 ```cmd
-set PORT=5174 && pnpm run build && pnpm run dev:tamagotchi
+set AIRI_RENDERER_PORT=5174 && pnpm run dev:tamagotchi
+```
+
+In PowerShell:
+```powershell
+$env:AIRI_RENDERER_PORT='5174'
+pnpm dev:tamagotchi
 ```
 
 ### Option 2: Convenience Script (Recommended)

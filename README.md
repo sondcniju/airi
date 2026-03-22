@@ -368,6 +368,13 @@ pnpm dev
 pnpm dev:tamagotchi
 ```
 
+To keep a stable desktop dev origin, set `AIRI_RENDERER_PORT` before starting Tamagotchi. In PowerShell:
+
+```powershell
+$env:AIRI_RENDERER_PORT='5174'
+pnpm dev:tamagotchi
+```
+
 A Nix package for Tamagotchi is included. To run airi with Nix, first make sure to enable flakes, then run:
 
 ```shell
