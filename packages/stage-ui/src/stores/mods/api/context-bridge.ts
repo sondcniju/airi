@@ -197,13 +197,13 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
           }
 
           console.log('[Context Bridge] Broadcasting before-compose', { message })
-          broadcastStreamEvent({ type: 'before-compose', message, sessionId: chatSession.activeSessionId, context: structuredClone(toRaw(context)) })
+          broadcastStreamEvent({ type: 'before-compose', message, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
         }),
         chatOrchestrator.onAfterMessageComposed(async (message, context) => {
           if (isProcessingRemoteStream)
             return
 
-          broadcastStreamEvent({ type: 'after-compose', message, sessionId: chatSession.activeSessionId, context: structuredClone(toRaw(context)) })
+          broadcastStreamEvent({ type: 'after-compose', message, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
         }),
         chatOrchestrator.onBeforeSend(async (message, context) => {
           if (isProcessingRemoteStream) {
@@ -212,13 +212,13 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
           }
 
           console.log('[Context Bridge] Broadcasting before-send', { message })
-          broadcastStreamEvent({ type: 'before-send', message, sessionId: chatSession.activeSessionId, context: structuredClone(toRaw(context)) })
+          broadcastStreamEvent({ type: 'before-send', message, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
         }),
         chatOrchestrator.onAfterSend(async (message, context) => {
           if (isProcessingRemoteStream)
             return
 
-          broadcastStreamEvent({ type: 'after-send', message, sessionId: chatSession.activeSessionId, context: structuredClone(toRaw(context)) })
+          broadcastStreamEvent({ type: 'after-send', message, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
         }),
         chatOrchestrator.onTokenLiteral(async (literal, context) => {
           if (isProcessingRemoteStream) {
@@ -227,25 +227,25 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
           }
 
           console.log('[Context Bridge] Broadcasting token-literal', { literal })
-          broadcastStreamEvent({ type: 'token-literal', literal, sessionId: chatSession.activeSessionId, context: structuredClone(toRaw(context)) })
+          broadcastStreamEvent({ type: 'token-literal', literal, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
         }),
         chatOrchestrator.onTokenSpecial(async (special, context) => {
           if (isProcessingRemoteStream)
             return
 
-          broadcastStreamEvent({ type: 'token-special', special, sessionId: chatSession.activeSessionId, context: structuredClone(toRaw(context)) })
+          broadcastStreamEvent({ type: 'token-special', special, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
         }),
         chatOrchestrator.onStreamEnd(async (context) => {
           if (isProcessingRemoteStream)
             return
 
-          broadcastStreamEvent({ type: 'stream-end', sessionId: chatSession.activeSessionId, context: structuredClone(toRaw(context)) })
+          broadcastStreamEvent({ type: 'stream-end', sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
         }),
         chatOrchestrator.onAssistantResponseEnd(async (message, context) => {
           if (isProcessingRemoteStream)
             return
 
-          broadcastStreamEvent({ type: 'assistant-end', message, sessionId: chatSession.activeSessionId, context: structuredClone(toRaw(context)) })
+          broadcastStreamEvent({ type: 'assistant-end', message, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
         }),
 
         chatOrchestrator.onAssistantMessage(async (message, _messageText, context) => {

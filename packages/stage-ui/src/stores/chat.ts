@@ -152,8 +152,6 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     if (shouldAbort())
       return
 
-    sending.value = true
-
     const isForegroundSession = () => sessionId === activeSessionId.value
 
     const buildingMessage: ChatAssistantMessage = reactive({
@@ -179,6 +177,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     let streamIdleTimeout: ReturnType<typeof setTimeout> | undefined
 
     try {
+      sending.value = true
       let effectiveModel = options.model
       let effectiveProvider = options.chatProvider
       let effectiveProviderId = activeProvider.value
