@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
+import { env } from 'node:process'
 
 import VueI18n from '@intlify/unplugin-vue-i18n/vite'
 import Vue from '@vitejs/plugin-vue'
@@ -12,10 +13,11 @@ import VitePluginVueDevTools from 'vite-plugin-vue-devtools'
 import Layouts from 'vite-plugin-vue-layouts'
 import VueMacros from 'vue-macros/vite'
 
-import { resilient } from '@proj-airi/stage-shared/vite'
 import { Download } from '@proj-airi/unplugin-fetch'
 import { DownloadLive2DSDK } from '@proj-airi/unplugin-live2d-sdk'
 import { defineConfig } from 'electron-vite'
+
+import { resilient } from '../../packages/stage-shared/src/vite'
 
 const stageUIAssetsRoot = resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src', 'assets'))
 const sharedCacheDir = resolve(join(import.meta.dirname, '..', '..', '.cache'))
@@ -171,7 +173,7 @@ export default defineConfig({
       },
       // Prefer a dedicated renderer dev port override so unrelated services
       // like the AIRI channel server do not accidentally inherit it.
-      port: Number.parseInt(process.env.AIRI_RENDERER_PORT || process.env.PORT || '5173'),
+      port: Number.parseInt(env.AIRI_RENDERER_PORT || env.PORT || '5173'),
       strictPort: true,
       warmup: {
         clientFiles: [
@@ -282,7 +284,7 @@ export default defineConfig({
         fullInstall: true,
       }),
 
-      ...(!process.env.SKIP_DOWNLOADS
+      ...(!env.SKIP_DOWNLOADS
         ? [
             resilient(DownloadLive2DSDK()),
             resilient(Download('https://dist.ayaka.moe/live2d-models/hiyori_free_zh.zip', 'hiyori_free_zh.zip', 'live2d/models', { parentDir: stageUIAssetsRoot, cacheDir: sharedCacheDir })),

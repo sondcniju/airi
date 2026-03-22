@@ -56,39 +56,39 @@ controls-island:
     small: Nhỏ
 live2d:
   change-model:
-    from-file: Tải từ tệp
-    from-file-select: Chọn
-    from-url: Tải từ URL
-    from-url-confirm: Tải
-    from-url-placeholder: Nhập URL mô hình Live2D
-    title: Đổi mô hình
+    from-file: Load from File
+    from-file-select: Select
+    from-url: Load from URL
+    from-url-confirm: Load
+    from-url-placeholder: Enter Live2D model URL
+    title: Change Model
   edit-motion-map:
-    title: Chỉnh bản đồ chuyển động
+    title: Edit motion map
   map-motions:
-    play: Phát chuyển động
-    title: Gán chuyển động
-  title: Cài đặt Live2D
+    play: Play Motion
+    title: Map Motions
+  title: Live2D Settings
   scale-and-position:
-    title: Tỉ lệ và vị trí
-    scale: Tỉ lệ
+    title: Scale And Position
+    scale: Scale
     x: X
     'y': 'Y'
   switch-to-vrm:
-    title: Chuyển sang mô hình 3D?
-    change-to-vrm: Bấm vào đây để đổi sang cài đặt mô hình 3D (VRM)
+    title: Switch to 3D Avatar?
+    change-to-vrm: Click here to switch to the 3D avatar setting (VRM)
   theme-color-from-model:
-    title: Trích xuất màu từ mô hình
+    title: Extract colors from model
     button-extract:
-      title: Trích xuất
+      title: Extract
   focus:
-    title: Tắt theo dõi chuột cho mô hình
+    title: Disable model mouse tracking
     button-disable:
-      title: Tắt
+      title: Disable
   fps:
     title: FPS
-    description: Giới hạn tốc độ khung hình hiển thị
+    description: Limit the displayed frame rate
     options:
-      unlimited: Không giới hạn
+      unlimited: Unlimited
 microphone: Micro
 models: Mô hình
 pages:
