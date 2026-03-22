@@ -15,7 +15,6 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), { placement: 'down' })
 
 const emit = defineEmits<{
-  (e: 'create'): void
   (e: 'manage'): void
 }>()
 
@@ -37,11 +36,6 @@ const cardsList = computed(() =>
 async function activateCard(id: string) {
   await cardStore.activateCard(id)
   open.value = false
-}
-
-function handleCreate() {
-  open.value = false
-  emit('create')
 }
 
 function handleManage() {
@@ -132,18 +126,6 @@ function handleManage() {
 
         <!-- Actions -->
         <div class="p-1">
-          <button
-            :class="[
-              'group w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition',
-              'text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800',
-            ]"
-            type="button"
-            @click="handleCreate"
-          >
-            <div class="i-solar:add-circle-bold-duotone size-4 text-neutral-400 transition group-hover:text-primary-500" />
-            {{ t('stage.profile-switcher.save-as-new') }}
-          </button>
-
           <button
             :class="[
               'group w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition',

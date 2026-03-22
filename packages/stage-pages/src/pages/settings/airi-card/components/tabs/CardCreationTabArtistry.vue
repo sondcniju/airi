@@ -20,7 +20,7 @@ const REPLICATE_MODELS = [
     id: 'prunaai/p-image',
     label: 'p-image',
     cost: '$1 / 200 imgs',
-    prompt: 'A photo of a plant nursery entrance features a chalkboard sign reading "SOTA Efficiency 0.5 cent per image," with a purple neon light beside it displaying "Pruna AI". Next to it hangs a poster showing a beautiful golden "P", and beneath the poster is written "P-Image made this”. There is a basket with prunes in front of the store. There is a small cute knitted purple prune next to the basket.',
+    prompt: 'A high-quality anime-style illustration with professional shading, vibrant colors, hand-drawn aesthetic, highly detailed,',
     preset: {
       aspect_ratio: '16:9',
     },
@@ -29,7 +29,7 @@ const REPLICATE_MODELS = [
     id: 'prunaai/z-image-turbo',
     label: 'z-turbo',
     cost: '$1 / 200 imgs',
-    prompt: 'A hyper-realistic, close-up portrait of a tribal elder from the Omo Valley, painted with intricate white chalk patterns and adorned with a headdress made of dried flowers, seed pods, and rusted bottle caps. The focus is razor-sharp on the texture of the skin, showing every pore, wrinkle, and scar that tells a story of survival. The background is a blurred, smoky hut interior, with the warm glow of a cooking fire reflecting in the subject\'s dark, soulful eyes. Shot on a Leica M6 with Kodak Portra 400 film grain aesthetic.',
+    prompt: 'A highly detailed anime illustration, crisp lines, vibrant color palette, professional digital art style, nicely shaded,',
     preset: {
       width: 1024,
       height: 768,
@@ -43,7 +43,7 @@ const REPLICATE_MODELS = [
     id: 'black-forest-labs/flux-schnell',
     label: 'flux-schnell',
     cost: '$1 / 333 imgs',
-    prompt: 'black forest gateau cake spelling out the words "FLUX SCHNELL", tasty, food photography, dynamic shot',
+    prompt: 'A stunning, high-definition anime scene, professional cel-shading, vibrant atmosphere, hand-drawn quality,',
     preset: {
       go_fast: true,
       num_outputs: 1,
@@ -53,10 +53,10 @@ const REPLICATE_MODELS = [
     },
   },
   {
-    id: 'prunaai/z-image-turbo-lora',
+    id: 'prunaai/z-image-turbo-lora:197b2db2015aa366d2bc61a941758adf4c31ac66b18573f5c66dc388ab081ca2',
     label: 'z-turbo-lora',
     cost: '$1 / 217 imgs',
-    prompt: 't3chnic4lly vibrant 1960s close-up of a woman sitting under a tree in a blue skit and white blouse, she has blonde wavy short hair and a smile with green eyes lake scene by a garden with flowers in the foreground 1960s styl;e film She\'s holding her hand out there is a small smooth frog in her palm, she\'s making eye contact with the toad.',
+    prompt: 'A beautifully rendered anime illustration in a classic hand-drawn style, rich textures, vibrant colors, masterpiece quality,',
     preset: {
       width: 1024,
       height: 1024,
@@ -69,10 +69,10 @@ const REPLICATE_MODELS = [
     },
   },
   {
-    id: 'aisha-ai-official/wai-nsfw-illustrious-v11',
+    id: 'aisha-ai-official/wai-nsfw-illustrious-v11:c1d5b02687df6081c7953c74bcc527858702e8c153c9382012ccc3906752d3ec',
     label: 'wai-ilx',
     cost: '$1 / 151 imgs',
-    prompt: 'street, 1girl, dark-purple short hair, purple eyes, medium breasts, cleavage, casual clothes, smile, V',
+    prompt: 'high quality, masterpiece, hirez, absurdres, anime style, highly detailed, vibrant colors, aesthetic,',
     preset: {
       vae: 'default',
       seed: -1,
@@ -91,10 +91,10 @@ const REPLICATE_MODELS = [
     },
   },
   {
-    id: 'aisha-ai-official/anillustrious-v4',
+    id: 'aisha-ai-official/anillustrious-v4:80441e2c32a55f2fcf9b77fa0a74c6c86ad7deac51eed722b9faedb253265cb4',
     label: 'anillustrious',
     cost: '$1 / 188 imgs',
-    prompt: '\nfrom above,street\n1girl, dark-purple short hair, purple eyes, medium breasts, cleavage, casual clothes, smile',
+    prompt: 'high quality, masterpiece, hirez, absurdres, anime style, detailed background, atmospheric, beautifully shaded,',
     preset: {
       vae: 'default',
       seed: -1,

@@ -104,6 +104,13 @@ live2d:
       unlimited: No Limit
 microphone: Microphone
 models: Model
+groups:
+  character:
+    title: Character & Scene
+  intelligence:
+    title: Intelligence
+  information:
+    title: Information
 pages:
   chat:
     title: Chat
@@ -268,7 +275,7 @@ pages:
       all_deleted: All local data deleted.
       desktop_reset: Desktop data reset.
   models:
-    description: Live2D, VRM, etc.
+    description: Select & explore new models (Live2D, VRM, VRMA) to replace your active one
     title: Models
     sections:
       section:
@@ -280,16 +287,16 @@ pages:
           description: Configure 3D VRM models and settings
         scene: Scene
   scene:
-    title: Scene
+    title: Scenes
     description: Customize the virtual environment for your characters.
-    beta_label: Scene Beta
+    beta_label: Scenes System
     beta_description: >-
-      Welcome to the new Scenes system! Phase 2 adds a background gallery.
-      Each character card can now specify its own preferred background from this gallery.
+      Each character card specifies its own preferred background from this gallery.
+      Setting it here will set it as the default for the currently active character.
     background_image:
-      title: Global Default Background
+      title: Active Character Background
       no_background: >-
-        No global background active. Upload a square or landscape image for best
+        No background active for this character. Upload a square or landscape image for best
         results.
       upload: Upload to Gallery
       change: Change Background
@@ -297,9 +304,9 @@ pages:
     gallery:
       title: Scene Gallery
       empty: No images in gallery yet. Upload one above!
-      set_as_global: Set as Global Default
+      set_as_global: Set as Character Default
       delete: Delete from Gallery
-      global_badge: Global Default
+      global_badge: Character Default
       active_badge: Current Scene
     tip:
       label: Tip!
@@ -477,7 +484,7 @@ pages:
             pause: Pause
             play_sample: Play Sample
             search_models_placeholder: Search models...
-            search_models_results: Found {count} of {total} models
+            search_results: Found {count} of {total} models
             search_voices_placeholder: Search voices...
             search_voices_results: Found {count} of {total} voices
             unsupported_voice_warning_title: No supported voices
@@ -948,10 +955,6 @@ pages:
   connection:
     description: Configure WebSocket server connection
     title: Connection
-    websocket-url:
-      description: Full address of the WebSocket server (e.g., ws://localhost:6121/ws)
-      label: WebSocket Server Address
-      placeholder: ws://localhost:6121/ws
   system:
     color-scheme:
       description: Change the color scheme of the stage.
@@ -1139,11 +1142,11 @@ vrm:
     camera-distance: Camera distance
     eye-tracking-mode:
       title: Looking at
-      options:
-        option:
-          camera: Camera
-          mouse: Mouse
-          disabled: Disabled
+    options:
+      option:
+        camera: Camera
+        mouse: Mouse
+        disabled: Disabled
   switch-to-vrm:
     title: Switch to Live2D Avatar?
     change-to-vrm: Click here to switch to the Live2D avatar setting

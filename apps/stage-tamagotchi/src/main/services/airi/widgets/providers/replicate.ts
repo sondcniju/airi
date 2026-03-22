@@ -72,29 +72,43 @@ export class ReplicateProvider implements ArtistryProvider {
         throw new Error('No output received from Replicate.')
       }
 
-      if (Array.isArray(output) && output.length > 0) {
-        const fileOutput = output[0] as any
-        if (fileOutput.url) {
-          const imageUrl = typeof fileOutput.url === 'function' ? fileOutput.url().href : fileOutput.url
-          log.log(`[Replicate] EXTRACTED IMAGE: ${imageUrl}`)
-          this.jobResults.set(jobId, { status: 'succeeded', progress: 100, imageUrl })
+      log.log(`[Replicate] Raw output type: ${typeof output}, isArray: ${Array.isArray(output)}`)
+
+      // Replicate's run() can return a single string, an array of strings, or an array of FileUpload objects
+      const items = Array.isArray(output) ? output : [output]
+      if (items.length > 0) {
+        const first = items[0]
+        let imageUrl: string | undefined
+
+        // Case 1: FileUpload object with .url() method (common in recent SDK versions)
+        if (typeof first === 'object' && first !== null && 'url' in first && typeof (first as any).url === 'function') {
+          imageUrl = (first as any).url().href
         }
-        else if (typeof output[0] === 'string' && output[0].startsWith('http')) {
-          const imageUrl = output[0]
+        // Case 2: Object with url property as a string
+        else if (typeof first === 'object' && first !== null && 'url' in first && typeof (first as any).url === 'string') {
+          imageUrl = (first as any).url
+        }
+        // Case 3: Simple string (the URL itself)
+        else if (typeof first === 'string') {
+          imageUrl = first
+        }
+
+        if (imageUrl && imageUrl.startsWith('http')) {
           log.log(`[Replicate] EXTRACTED IMAGE: ${imageUrl}`)
           this.jobResults.set(jobId, { status: 'succeeded', progress: 100, imageUrl })
         }
         else {
-          throw new Error('Output does not contain a recognizable URL.')
+          log.error(`[Replicate] Failed to extract URL from output: ${JSON.stringify(first)}`)
+          throw new Error('Output does not contain a recognizable image URL.')
         }
       }
       else {
-        throw new Error(`Unexpected output format: ${JSON.stringify(output)}`)
+        throw new Error('Replicate returned an empty output array.')
       }
     }
     catch (error: any) {
       const errorMessage = error.message || (typeof error === 'object' ? JSON.stringify(error) : String(error))
-      log.error(`[Replicate] Generation Failed: ${errorMessage}`, error)
+      log.error(`[Replicate] Generation Failed: ${errorMessage}`)
       this.jobResults.set(jobId, {
         status: 'failed',
         error: errorMessage,

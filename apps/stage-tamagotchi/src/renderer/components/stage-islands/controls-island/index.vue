@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { useElectronEventaContext, useElectronEventaInvoke, useElectronMouseInElement } from '@proj-airi/electron-vueuse'
+import { useElectronEventaContext, useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useSettings, useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
 import { useTheme } from '@proj-airi/ui'
-import { useTimeoutFn } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -63,24 +62,6 @@ const view = ref<'main' | 'emotions'>('main')
 // Expose whether hearing dialog is open so parent can disable click-through
 const hearingDialogOpen = ref(false)
 defineExpose({ hearingDialogOpen, rootElement: islandRef })
-
-const { isOutside } = useElectronMouseInElement(islandRef)
-
-const { start: startCollapseTimer, stop: stopCollapseTimer } = useTimeoutFn(() => {
-  if (expanded.value && !hearingDialogOpen.value) {
-    expanded.value = false
-    view.value = 'main' // Reset sub-menu on collapse
-  }
-}, 1500)
-
-watch(isOutside, (outside) => {
-  if (outside) {
-    startCollapseTimer()
-  }
-  else {
-    stopCollapseTimer()
-  }
-})
 
 watch(expanded, (isExp) => {
   if (!isExp) {
@@ -225,20 +206,12 @@ function cycleAnimation() {
             mode="out-in"
           >
             <div v-if="view === 'main'" key="main" grid grid-cols-3 gap-2>
-              <ControlButtonTooltip>
-                <ControlButton :button-style="adjustStyleClasses.button" @click="handleOpenSettings">
-                  <div i-solar:settings-minimalistic-outline :class="adjustStyleClasses.icon" text="neutral-800 dark:neutral-300" />
-                </ControlButton>
-                <template #tooltip>
-                  {{ t('tamagotchi.stage.controls-island.open-settings') }}
-                </template>
-              </ControlButtonTooltip>
-
+              <!-- Row 1: Communication -->
               <ControlButtonTooltip disable-hoverable-content>
                 <ControlsIslandProfilePicker>
                   <template #default="{ toggle }">
                     <ControlButton :button-style="adjustStyleClasses.button" @click="toggle">
-                      <div i-solar:emoji-funny-square-broken :class="adjustStyleClasses.icon" text="neutral-800 dark:neutral-300" />
+                      <div i-solar:emoji-funny-square-broken :class="adjustStyleClasses.icon" text="sky-600 dark:sky-400" />
                     </ControlButton>
                   </template>
                 </ControlsIslandProfilePicker>
@@ -249,31 +222,10 @@ function cycleAnimation() {
 
               <ControlButtonTooltip disable-hoverable-content>
                 <ControlButton :button-style="adjustStyleClasses.button" @click="handleOpenChat">
-                  <div i-solar:chat-line-line-duotone :class="adjustStyleClasses.icon" text="neutral-800 dark:neutral-300" />
+                  <div i-solar:chat-line-line-duotone :class="adjustStyleClasses.icon" text="sky-600 dark:sky-400" />
                 </ControlButton>
                 <template #tooltip>
                   {{ t('tamagotchi.stage.controls-island.open-chat') }}
-                </template>
-              </ControlButtonTooltip>
-
-              <ControlButtonTooltip>
-                <ControlButton :button-style="adjustStyleClasses.button" @click="refreshWindow">
-                  <div i-solar:refresh-linear :class="adjustStyleClasses.icon" text="neutral-800 dark:neutral-300" />
-                </ControlButton>
-                <template #tooltip>
-                  {{ t('tamagotchi.stage.controls-island.refresh') }}
-                </template>
-              </ControlButtonTooltip>
-
-              <ControlButtonTooltip>
-                <ControlButton :button-style="adjustStyleClasses.button" @click="toggleDark()">
-                  <Transition name="fade" mode="out-in">
-                    <div v-if="isDark" i-solar:moon-outline :class="adjustStyleClasses.icon" text="neutral-800 dark:neutral-300" />
-                    <div v-else i-solar:sun-2-outline :class="adjustStyleClasses.icon" text="neutral-800 dark:neutral-300" />
-                  </Transition>
-                </ControlButton>
-                <template #tooltip>
-                  {{ isDark ? t('tamagotchi.stage.controls-island.switch-to-light-mode') : t('tamagotchi.stage.controls-island.switch-to-dark-mode') }}
                 </template>
               </ControlButtonTooltip>
 
@@ -283,7 +235,7 @@ function cycleAnimation() {
                     <ControlButton :button-style="adjustStyleClasses.button">
                       <Transition name="fade" mode="out-in">
                         <IndicatorMicVolume v-if="enabled" :class="adjustStyleClasses.icon" />
-                        <div v-else i-ph:microphone-slash :class="adjustStyleClasses.icon" text="neutral-800 dark:neutral-300" />
+                        <div v-else i-ph:microphone-slash :class="adjustStyleClasses.icon" text="sky-600 dark:sky-400" />
                       </Transition>
                     </ControlButton>
                   </div>
@@ -293,29 +245,25 @@ function cycleAnimation() {
                 </template>
               </ControlButtonTooltip>
 
+              <!-- Row 2: Persona & Performance -->
               <ControlButtonTooltip>
-                <ControlButton :button-style="adjustStyleClasses.button" @click="toggleAlwaysOnTop()">
-                  <div v-if="alwaysOnTop" i-solar:pin-bold :class="adjustStyleClasses.icon" text="neutral-800 dark:neutral-300" />
-                  <div v-else i-solar:pin-linear :class="adjustStyleClasses.icon" text="neutral-800 dark:neutral-300 opacity-50" />
+                <ControlButton :button-style="adjustStyleClasses.button" @click="cycleAnimation">
+                  <div i-solar:running-2-linear :class="adjustStyleClasses.icon" text="amber-500" />
                 </ControlButton>
                 <template #tooltip>
-                  {{ alwaysOnTop ? t('tamagotchi.stage.controls-island.unpin-from-top') : t('tamagotchi.stage.controls-island.pin-on-top') }}
+                  {{ t('tamagotchi.stage.controls-island.cycle-animation') }}: {{ currentIdleAnimationLabel }}
                 </template>
               </ControlButtonTooltip>
 
-              <ControlsIslandFadeOnHover :icon-class="adjustStyleClasses.icon" :button-style="adjustStyleClasses.button" />
-
-              <!-- Emotions Button -->
               <ControlButtonTooltip>
                 <ControlButton :button-style="adjustStyleClasses.button" @click="view = 'emotions'">
-                  <div i-solar:emoji-funny-square-outline :class="adjustStyleClasses.icon" text="neutral-800 dark:neutral-300" />
+                  <div i-solar:emoji-funny-square-outline :class="adjustStyleClasses.icon" text="amber-500" />
                 </ControlButton>
                 <template #tooltip>
                   Emotions
                 </template>
               </ControlButtonTooltip>
 
-              <!-- Favorite Button -->
               <ControlButtonTooltip>
                 <ControlButton
                   :button-style="adjustStyleClasses.button"
@@ -325,7 +273,7 @@ function cycleAnimation() {
                   <div
                     :class="[
                       adjustStyleClasses.icon,
-                      hasFavorite ? 'text-amber-500' : 'text-neutral-400 dark:text-neutral-600',
+                      'text-amber-500',
                       isFavoriteActive ? 'i-solar:star-bold' : 'i-solar:star-linear',
                     ]"
                   />
@@ -335,15 +283,49 @@ function cycleAnimation() {
                 </template>
               </ControlButtonTooltip>
 
-              <!-- Animation Cycle Button -->
+              <!-- Row 3: System & Utility -->
               <ControlButtonTooltip>
-                <ControlButton :button-style="adjustStyleClasses.button" @click="cycleAnimation">
-                  <div i-solar:running-2-linear :class="adjustStyleClasses.icon" text="neutral-800 dark:neutral-300" />
+                <ControlButton :button-style="adjustStyleClasses.button" @click="handleOpenSettings">
+                  <div i-solar:settings-minimalistic-outline :class="adjustStyleClasses.icon" text="purple-600 dark:purple-400" />
                 </ControlButton>
                 <template #tooltip>
-                  {{ t('tamagotchi.stage.controls-island.cycle-animation') }}: {{ currentIdleAnimationLabel }}
+                  {{ t('tamagotchi.stage.controls-island.open-settings') }}
                 </template>
               </ControlButtonTooltip>
+
+              <ControlButtonTooltip>
+                <ControlButton :button-style="adjustStyleClasses.button" @click="refreshWindow">
+                  <div i-solar:refresh-linear :class="adjustStyleClasses.icon" text="purple-600 dark:purple-400" />
+                </ControlButton>
+                <template #tooltip>
+                  {{ t('tamagotchi.stage.controls-island.refresh') }}
+                </template>
+              </ControlButtonTooltip>
+
+              <ControlButtonTooltip>
+                <ControlButton :button-style="adjustStyleClasses.button" @click="toggleDark()">
+                  <Transition name="fade" mode="out-in">
+                    <div v-if="isDark" i-solar:moon-outline :class="adjustStyleClasses.icon" text="purple-600 dark:purple-400" />
+                    <div v-else i-solar:sun-2-outline :class="adjustStyleClasses.icon" text="purple-600 dark:purple-400" />
+                  </Transition>
+                </ControlButton>
+                <template #tooltip>
+                  {{ isDark ? t('tamagotchi.stage.controls-island.switch-to-light-mode') : t('tamagotchi.stage.controls-island.switch-to-dark-mode') }}
+                </template>
+              </ControlButtonTooltip>
+
+              <!-- Row 4: Window/Stage Management -->
+              <ControlButtonTooltip>
+                <ControlButton :button-style="adjustStyleClasses.button" @click="toggleAlwaysOnTop()">
+                  <div v-if="alwaysOnTop" i-solar:pin-bold :class="adjustStyleClasses.icon" text="neutral-600 dark:text-neutral-300 shadow-xl" />
+                  <div v-else i-solar:pin-linear :class="adjustStyleClasses.icon" text="neutral-600 dark:neutral-400 opacity-50" />
+                </ControlButton>
+                <template #tooltip>
+                  {{ alwaysOnTop ? t('tamagotchi.stage.controls-island.unpin-from-top') : t('tamagotchi.stage.controls-island.pin-on-top') }}
+                </template>
+              </ControlButtonTooltip>
+
+              <ControlsIslandFadeOnHover :icon-class="adjustStyleClasses.icon" :button-style="adjustStyleClasses.button" />
 
               <ControlButtonTooltip>
                 <ControlButton :button-style="adjustStyleClasses.button" hover:bg-red-500 hover:text-white @click="hideWindow()">
@@ -359,7 +341,7 @@ function cycleAnimation() {
             <div v-else key="emotions" grid grid-cols-3 gap-2>
               <ControlButtonTooltip v-for="emotion in ACT_EMOTIONS" :key="emotion.key">
                 <ControlButton :button-style="adjustStyleClasses.button" @click="triggerEmotion(emotion.key)">
-                  <div :class="[adjustStyleClasses.icon, 'flex items-center justify-center text-base leading-none']">
+                  <div :class="[adjustStyleClasses.icon, 'flex items-center justify-center text-base leading-none text-amber-500']">
                     {{ emotion.emoji }}
                   </div>
                 </ControlButton>
@@ -371,7 +353,7 @@ function cycleAnimation() {
               <!-- Random -->
               <ControlButtonTooltip>
                 <ControlButton :button-style="adjustStyleClasses.button" @click="triggerRandomEmotion">
-                  <div i-solar:shuffle-linear :class="adjustStyleClasses.icon" text="neutral-800 dark:neutral-300" />
+                  <div i-solar:shuffle-linear :class="adjustStyleClasses.icon" text="amber-500" />
                 </ControlButton>
                 <template #tooltip>
                   Random Emotion
@@ -381,7 +363,7 @@ function cycleAnimation() {
               <!-- Back -->
               <ControlButtonTooltip>
                 <ControlButton :button-style="adjustStyleClasses.button" @click="view = 'main'">
-                  <div i-solar:arrow-left-outline :class="adjustStyleClasses.icon" text="neutral-800 dark:neutral-300" />
+                  <div i-solar:arrow-left-outline :class="adjustStyleClasses.icon" text="amber-500" />
                 </ControlButton>
                 <template #tooltip>
                   Back
@@ -399,7 +381,7 @@ function cycleAnimation() {
             <div
               :class="[adjustStyleClasses.icon, expanded ? 'rotate-180' : 'rotate-0']"
               i-solar:alt-arrow-up-line-duotone scale-110 transition-all duration-300
-              text="neutral-800 dark:neutral-300"
+              text="neutral-600 dark:neutral-400"
             />
           </ControlButton>
           <template #tooltip>

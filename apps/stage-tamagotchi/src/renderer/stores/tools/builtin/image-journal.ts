@@ -119,7 +119,7 @@ async function executeCreateImageJournalEntry(params: { prompt?: string, title?:
         componentProps: {
           status: 'done',
           entryId,
-          imageUrl: backgroundStore.getBackgroundUrl(entryId),
+          imageUrl: artistryResult.imageUrl || artistryResult.base64,
           prompt: params.prompt as string,
           title,
           _skipIngestion: true,

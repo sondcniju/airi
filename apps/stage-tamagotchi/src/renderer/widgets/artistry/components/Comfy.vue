@@ -33,9 +33,9 @@ const history = computed(() => backgroundStore.getCharacterJournalEntries(cardSt
 const currentIndex = ref(0)
 
 // When entryId prop matches a new generation, jump to it in the gallery
-watch(() => props.entryId, (newId) => {
+watch([() => props.entryId, history], ([newId, newHistory]) => {
   if (newId) {
-    const index = history.value.findIndex(e => e.id === newId)
+    const index = newHistory.findIndex(e => e.id === newId)
     if (index >= 0) {
       currentIndex.value = index
     }

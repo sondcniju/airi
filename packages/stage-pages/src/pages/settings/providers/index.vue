@@ -2,6 +2,7 @@
 import { IconStatusItem, RippleGrid } from '@proj-airi/stage-ui/components'
 import { useAnalytics } from '@proj-airi/stage-ui/composables'
 import { useRippleGridState } from '@proj-airi/stage-ui/composables/use-ripple-grid-state'
+import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref } from 'vue'
@@ -10,6 +11,7 @@ import { useRoute, useRouter } from 'vue-router'
 const route = useRoute()
 const router = useRouter()
 const providersStore = useProvidersStore()
+const artistryStore = useArtistryStore()
 const { lastClickedIndex, setLastClickedIndex } = useRippleGridState()
 const { trackProviderClick } = useAnalytics()
 
@@ -18,6 +20,35 @@ const {
   allAudioSpeechProvidersMetadata,
   allAudioTranscriptionProvidersMetadata,
 } = storeToRefs(providersStore)
+
+const allArtistryProvidersMetadata = computed(() => {
+  return [
+    {
+      id: 'comfyui',
+      category: 'artistry',
+      icon: 'i-solar:gallery-bold-duotone',
+      iconColor: 'text-indigo-500',
+      name: 'ComfyUI',
+      localizedName: 'ComfyUI',
+      description: 'Local image generation runner.',
+      localizedDescription: 'Local image generation runner.',
+      configured: !!artistryStore.comfyuiHostUrl,
+      to: '/settings/providers/artistry/comfyui',
+    },
+    {
+      id: 'replicate',
+      category: 'artistry',
+      icon: 'i-lobe-icons:replicate',
+      iconColor: 'i-lobe-icons:replicate-color',
+      name: 'Replicate',
+      localizedName: 'Replicate',
+      description: 'Cloud-based model inference service.',
+      localizedDescription: 'Cloud-based model inference service.',
+      configured: !!artistryStore.replicateApiKey,
+      to: '/settings/providers/artistry/replicate',
+    },
+  ]
+})
 
 const providerBlocksConfig = [
   {
@@ -40,6 +71,13 @@ const providerBlocksConfig = [
     title: 'Transcription',
     description: 'Transcription (speech-to-text) model providers. e.g. Whisper.cpp, OpenAI, Azure Speech.',
     providersRef: allAudioTranscriptionProvidersMetadata,
+  },
+  {
+    id: 'artistry',
+    icon: 'i-solar:palette-bold-duotone',
+    title: 'Artistry',
+    description: 'Image generation and design model providers. e.g. ComfyUI, Replicate.',
+    providersRef: allArtistryProvidersMetadata,
   },
 ]
 

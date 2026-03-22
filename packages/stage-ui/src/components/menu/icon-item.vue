@@ -5,6 +5,7 @@ defineProps<{
   icon?: string
   iconTemplate?: boolean
   to: string
+  active?: boolean
 }>()
 </script>
 
@@ -19,10 +20,16 @@ defineProps<{
     transition="all ease-in-out duration-400"
     relative w-full items-center overflow-hidden rounded-lg p-5 text-left
     cursor="pointer"
+    :class="[active ? 'bg-primary-500/5 border-primary-500/30' : '']"
     :to="to"
   >
     <div z-1 flex-1>
-      <div text-lg font-normal class="menu-icon-item-title" transition="all ease-in-out duration-400">
+      <div
+        text-lg font-normal
+        class="menu-icon-item-title"
+        transition="all ease-in-out duration-400"
+        :class="[active ? 'text-primary-600 dark:text-primary-400' : '']"
+      >
         {{ title }}
       </div>
       <div
@@ -40,12 +47,18 @@ defineProps<{
         absolute right-0 size-24
         translate-y-4
         text="neutral-400/50 dark:neutral-600/50"
-        :class="[icon]"
+        :class="[icon, active ? 'text-primary-500/40! scale-110' : '']"
       />
     </template>
     <template v-if="iconTemplate">
       <slot name="icon" />
     </template>
+
+    <!-- Active Indicator Bar -->
+    <div
+      v-if="active"
+      class="absolute right-0 top-0 h-full w-1 bg-primary-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"
+    />
   </RouterLink>
 </template>
 

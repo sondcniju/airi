@@ -26,6 +26,18 @@ const settings = computed(() => [
     icon: 'i-solar:code-bold-duotone',
     to: '/settings/system/developer',
   },
+  {
+    title: t('settings.pages.chat.title'),
+    description: t('settings.pages.chat.description'),
+    icon: 'i-solar:chat-round-dots-bold-duotone',
+    to: '/settings/system/chat',
+  },
+  {
+    title: t('settings.pages.connection.title'),
+    description: t('settings.pages.connection.description'),
+    icon: 'i-solar:wi-fi-router-bold-duotone',
+    to: '/settings/system/connection',
+  },
 ])
 </script>
 

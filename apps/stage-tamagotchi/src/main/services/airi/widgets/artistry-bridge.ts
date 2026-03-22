@@ -29,6 +29,23 @@ function createRunId(widgetId: string) {
   return `${widgetId}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`
 }
 
+async function downloadImageAsBase64(url: string): Promise<string> {
+  try {
+    log.log(`[Artistry Bridge] Downloading image from: ${url}`)
+    const response = await fetch(url)
+    if (!response.ok)
+      throw new Error(`Failed to fetch image: ${response.statusText}`)
+    const buffer = await response.arrayBuffer()
+    const contentType = response.headers.get('content-type') || 'image/png'
+    const base64 = Buffer.from(buffer).toString('base64')
+    return `data:${contentType};base64,${base64}`
+  }
+  catch (error: any) {
+    log.error(`[Artistry Bridge] Failed to download image: ${error.message}`)
+    throw error
+  }
+}
+
 // Maintain a registry of providers
 export const artistryProviders = new Map<string, ArtistryProvider>()
 artistryProviders.set('comfyui', new ComfyUIProvider())
@@ -40,7 +57,7 @@ export async function generateHeadless(params: {
   provider?: string
   options?: Record<string, any>
   globals?: any
-}) {
+}): Promise<{ imageUrl?: string, base64?: string, error?: string }> {
   const providerId = params.provider || 'replicate'
   const provider = artistryProviders.get(providerId)
   if (!provider) {
@@ -96,13 +113,35 @@ export async function generateHeadless(params: {
     }
 
     log.log(`[Headless] Job ${job.jobId} succeeded. Image URL: ${lastStatus.imageUrl}`)
-    return { imageUrl: lastStatus.imageUrl }
+    const base64 = lastStatus.imageUrl ? await downloadImageAsBase64(lastStatus.imageUrl) : undefined
+    return { imageUrl: lastStatus.imageUrl, base64 }
   }
   else {
-    // For providers with callbacks (like ComfyUI), we might need a different wait logic
-    // But for MVP (Replicate), the above is sufficient.
-    // For now, let's just throw if it's not supported easily
-    throw new Error('Headless generation not yet implemented for callback-based providers.')
+    // For providers with callbacks (like ComfyUI), we wait for the result via the callback
+    log.log(`[Headless] Using callback-based wait logic for provider: ${providerId}`)
+    return new Promise<{ imageUrl?: string, base64?: string }>((resolve, reject) => {
+      const timeout = 1000 * 60 * 5 // 5 minutes timeout
+      const timer = setTimeout(() => {
+        reject(new Error('Image generation timed out after 5 minutes.'))
+      }, timeout)
+
+      ;(provider as any).setJobCallback(request.extra?.internalJobId, async (status: any) => {
+        if (status.status === 'succeeded') {
+          clearTimeout(timer)
+          try {
+            const base64 = status.imageUrl ? await downloadImageAsBase64(status.imageUrl) : undefined
+            resolve({ imageUrl: status.imageUrl, base64 })
+          }
+          catch (e) {
+            reject(e)
+          }
+        }
+        else if (status.status === 'failed') {
+          clearTimeout(timer)
+          reject(new Error(status.error || 'Generation failed'))
+        }
+      })
+    })
   }
 }
 

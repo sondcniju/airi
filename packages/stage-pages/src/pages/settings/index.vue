@@ -4,9 +4,10 @@ import { useRippleGridState } from '@proj-airi/stage-ui/composables/use-ripple-g
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 const router = useRouter()
+const route = useRoute()
 const resolveAnimation = ref<() => void>()
 const { t } = useI18n()
 const { lastClickedIndex, setLastClickedIndex } = useRippleGridState()
@@ -26,25 +27,96 @@ const removeBeforeEach = router.beforeEach(async (_, __, next) => {
   next()
 })
 
-const settings = computed(() => {
-  return router
-    .getRoutes()
-    .filter(route => route.meta?.settingsEntry)
-    .sort((a, b) => (Number(a.meta?.order ?? 0) - Number(b.meta?.order ?? 0)))
-    .map(route => ({
-      title: route.meta?.titleKey ? t(route.meta.titleKey as string) : (route.meta?.title as string | undefined),
-      description: route.meta?.descriptionKey ? t(route.meta.descriptionKey as string) : (route.meta?.description as string | undefined) || '',
-      icon: route.meta?.icon as string | undefined,
-      to: route.path,
-    }))
-})
+const settingsGroups = computed(() => [
+  {
+    id: 'character',
+    title: 'CHARACTER & SCENE',
+    items: [
+      {
+        title: t('settings.pages.card.title'),
+        description: t('settings.pages.card.description'),
+        icon: 'i-solar:emoji-funny-square-bold-duotone',
+        to: '/settings/airi-card',
+      },
+      {
+        title: t('settings.pages.scene.title'),
+        description: t('settings.pages.scene.description'),
+        icon: 'i-solar:armchair-2-bold-duotone',
+        to: '/settings/scene',
+      },
+      {
+        title: t('settings.pages.models.title'),
+        description: t('settings.pages.models.description'),
+        icon: 'i-solar:people-nearby-bold-duotone',
+        to: '/settings/models',
+      },
+    ],
+  },
+  {
+    id: 'intelligence',
+    title: 'INTELLIGENCE',
+    items: [
+      {
+        title: t('settings.pages.modules.title'),
+        description: t('settings.pages.modules.description'),
+        icon: 'i-solar:layers-bold-duotone',
+        to: '/settings/modules',
+      },
+      {
+        title: t('settings.pages.providers.title'),
+        description: t('settings.pages.providers.description'),
+        icon: 'i-solar:box-minimalistic-bold-duotone',
+        to: '/settings/providers',
+      },
+    ],
+  },
+  {
+    id: 'information',
+    title: 'INFORMATION',
+    items: [
+      {
+        title: t('settings.pages.memory.title'),
+        description: t('settings.pages.memory.description'),
+        icon: 'i-solar:leaf-bold-duotone',
+        to: '/settings/memory',
+      },
+      {
+        title: t('settings.pages.data.title'),
+        description: t('settings.pages.data.description'),
+        icon: 'i-solar:database-bold-duotone',
+        to: '/settings/data',
+      },
+    ],
+  },
+  {
+    id: 'system',
+    title: 'SYSTEM',
+    items: [
+      {
+        title: t('settings.pages.system.title'),
+        description: t('settings.pages.system.description'),
+        icon: 'i-solar:filters-bold-duotone',
+        to: '/settings/system',
+      },
+    ],
+  },
+])
+
+function isActive(to: string) {
+  const currentPath = route.path.replace(/\/$/, '')
+  const targetPath = to.replace(/\/$/, '')
+  return currentPath === targetPath || currentPath.startsWith(`${targetPath}/`)
+}
 </script>
 
 <template>
-  <div flex="~ col gap-4" font-normal>
-    <div pb-12>
+  <div flex="~ col gap-8" pb-12 font-normal>
+    <div v-for="group in settingsGroups" :key="group.id" flex="~ col gap-4">
+      <div px-4 text="xs neutral-400 dark:neutral-500" font-bold tracking-wider uppercase>
+        {{ group.title }}
+      </div>
       <RippleGrid
-        :items="settings"
+        :items="group.items"
         :get-key="item => item.to"
         :columns="1"
         :origin-index="lastClickedIndex"
@@ -52,10 +124,11 @@ const settings = computed(() => {
       >
         <template #item="{ item }">
           <IconItem
-            :title="item.title || ''"
+            :title="item.title"
             :description="item.description"
             :icon="item.icon"
             :to="item.to"
+            :active="isActive(item.to)"
           />
         </template>
       </RippleGrid>
@@ -78,7 +151,6 @@ const settings = computed(() => {
 <route lang="yaml">
 meta:
   layout: settings
-  titleKey: settings.title
   stageTransition:
     name: slide
 </route>
