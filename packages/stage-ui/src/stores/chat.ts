@@ -671,8 +671,36 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         streamingMessage.value = { role: 'assistant', content: '', slices: [], tool_results: [] }
       }
     }
-    catch (error) {
+    catch (error: any) {
       console.error('Error sending message:', { sessionId, generation, error })
+
+      let errorMessage = 'An unknown error occurred.'
+      if (error && typeof error === 'object') {
+        errorMessage = error.message || 'An object error occurred.'
+
+        // Handle XSAIError or similar with response/data info
+        try {
+          const detail = error.response || error.data || error.body
+          if (detail) {
+            errorMessage += `\n\nDetails: ${JSON.stringify(detail, null, 2)}`
+          }
+        }
+        catch {}
+      }
+      else {
+        errorMessage = String(error)
+      }
+
+      // Display in UI
+      buildingMessage.content += `${buildingMessage.content ? '\n\n' : ''}⚠️ **Error**: ${errorMessage}`
+      updateUI()
+
+      // Persist to session history if not stale
+      if (!isStaleGeneration()) {
+        const currentMessages = chatSession.getSessionMessages(sessionId)
+        chatSession.setSessionMessages(sessionId, [...currentMessages, { ...toRaw(buildingMessage) }])
+      }
+
       throw error
     }
     finally {
