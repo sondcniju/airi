@@ -11,6 +11,7 @@ import VueDevTools from 'vite-plugin-vue-devtools'
 import Layouts from 'vite-plugin-vue-layouts'
 import VueMacros from 'vue-macros/vite'
 
+import { resilient } from '@proj-airi/stage-shared/vite'
 import { Download } from '@proj-airi/unplugin-fetch/vite'
 import { DownloadLive2DSDK } from '@proj-airi/unplugin-live2d-sdk/vite'
 import { createS3Provider, WarpDrivePlugin } from '@proj-airi/vite-plugin-warpdrive'
@@ -18,16 +19,11 @@ import { LFS, SpaceCard } from 'hfup/vite'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-import { resilient } from '../../packages/stage-shared/src/vite'
-
 const stageUIAssetsRoot = resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src', 'assets'))
 const sharedCacheDir = resolve(join(import.meta.dirname, '..', '..', '.cache'))
 
 export default defineConfig({
   optimizeDeps: {
-    esbuildOptions: {
-      target: 'esnext',
-    },
     include: [
       'uncrypto',
     ],
@@ -81,7 +77,6 @@ export default defineConfig({
   },
   build: {
     sourcemap: true,
-    target: 'esnext',
   },
   worker: {
     format: 'es',
@@ -186,7 +181,7 @@ export default defineConfig({
     // https://github.com/webfansplz/vite-plugin-vue-devtools
     VueDevTools(),
 
-    ...(!env.SKIP_DOWNLOADS
+    ...(!process.env.SKIP_DOWNLOADS
       ? [
           resilient(DownloadLive2DSDK()),
           resilient(Download('https://dist.ayaka.moe/live2d-models/hiyori_free_zh.zip', 'hiyori_free_zh.zip', 'live2d/models', { parentDir: stageUIAssetsRoot, cacheDir: sharedCacheDir })),
