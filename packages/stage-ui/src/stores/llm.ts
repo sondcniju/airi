@@ -6,6 +6,7 @@ import { generateText } from '@xsai/generate-text'
 import { listModels } from '@xsai/model'
 import { streamText } from '@xsai/stream-text'
 import { defineStore } from 'pinia'
+import { toRaw } from 'vue'
 
 import { mcp } from '../tools'
 
@@ -28,6 +29,7 @@ export interface StreamOptions {
   temperature?: number
   top_p?: number
   max_tokens?: number
+  vision?: boolean
   requestOverrides?: Record<string, unknown>
 }
 
@@ -50,20 +52,42 @@ function sanitizeRequestOverrides(overrides?: Record<string, unknown>) {
 }
 
 // TODO: proper format for other error messages.
-function sanitizeMessages(messages: unknown[]): Message[] {
-  return messages.map((m: any) => {
+export function sanitizeMessages(messages: unknown[], options?: { vision?: boolean }): Message[] {
+  // Use JSON snapshotting to completely remove Vue reactivity and ensure cloninability.
+  // This is necessary because @xsai libraries use structuredClone internally.
+  const rawMessages = JSON.parse(JSON.stringify(toRaw(messages))) as any[]
+
+  return rawMessages.map((m: any) => {
     if (m && m.role === 'error') {
       return {
         role: 'user',
         content: `User encountered error: ${String(m.content ?? '')}`,
       } as Message
     }
-    // NOTICE: This block is critical for backward compatibility with LLM providers (e.g., DeepSeek)
-    // that expect message content to be a string, not an array of content parts.
-    // Failure to flatten array content (when no image_url is present) can lead to
-    // deserialization errors like "invalid type: sequence, expected a string".
+
     if (m && Array.isArray(m.content)) {
       const contentParts = m.content as { type?: string, text?: string }[]
+
+      // If vision is explicitly disabled, strip all image_url parts
+      if (options?.vision === false && contentParts.some(p => p?.type === 'image_url')) {
+        const originalContentLength = JSON.stringify(m.content).length
+        const newContent = contentParts
+          .map(p => p?.type === 'image_url' ? '[Image]' : (p?.text ?? ''))
+          .filter(Boolean)
+          .join(' ')
+
+        console.log(`[llm.ts] Stripping image from message. Original length: ${originalContentLength}, New content: "${newContent}"`)
+
+        return {
+          ...m,
+          content: newContent,
+        } as Message
+      }
+
+      // NOTICE: This block is critical for backward compatibility with LLM providers (e.g., DeepSeek)
+      // that expect message content to be a string, not an array of content parts.
+      // Failure to flatten array content (when no image_url is present) can lead to
+      // deserialization errors like "invalid type: sequence, expected a string".
       if (!contentParts.some(p => p?.type === 'image_url')) {
         return { ...m, content: contentParts.map(p => p?.text ?? '').join('') } as Message
       }
@@ -80,7 +104,7 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
   const headers = options?.headers
   const chatConfig = chatProvider.chat(model)
 
-  const sanitized = sanitizeMessages(messages as unknown[])
+  const sanitized = sanitizeMessages(messages as unknown[], { vision: options?.vision })
   const requestOverrides = sanitizeRequestOverrides(options?.requestOverrides)
   const resolveTools = async () => {
     const tools = typeof options?.tools === 'function'
@@ -138,7 +162,7 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
     }
 
     try {
-      streamText({
+      const result = streamText({
         ...chatConfig,
         ...requestOverrides,
         maxSteps: 10,
@@ -152,6 +176,21 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
         onEvent,
         abortSignal: options?.abortSignal,
       })
+
+      // We MUST catch all promises returned by streamText to ensure the main promise settles
+      // and to prevent "Uncaught (in promise)" errors if the initial handshake fails (e.g. 429).
+      result.messages.catch(rejectOnce)
+      result.steps.catch(rejectOnce)
+      result.usage.catch(rejectOnce)
+      result.totalUsage.catch(rejectOnce)
+
+      // result.messages usually settles when the stream is done or fails.
+      result.messages.then(() => {
+        // If finish event didn't already resolve it, we resolve now.
+        resolveOnce()
+      }).catch((err) => {
+        rejectOnce(err)
+      })
     }
     catch (err) {
       rejectOnce(err)
@@ -162,7 +201,7 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
 async function generateFrom(model: string, chatProvider: ChatProvider, messages: Message[], options?: StreamOptions) {
   const headers = options?.headers
   const chatConfig = chatProvider.chat(model)
-  const sanitized = sanitizeMessages(messages as unknown[])
+  const sanitized = sanitizeMessages(messages as unknown[], { vision: options?.vision })
   const requestOverrides = sanitizeRequestOverrides(options?.requestOverrides)
 
   const resolveTools = async () => {
@@ -207,6 +246,7 @@ export async function attemptForToolsCompatibilityDiscovery(model: string, chatP
       await streamFrom(model, chatProvider, [{ role: 'user', content: 'Hello, world!' }], {
         ...options,
         supportsTools: enable,
+        vision: false,
         onStreamEvent: (event) => {
           if (event.type === 'error') {
             const errStr = String(event.error)

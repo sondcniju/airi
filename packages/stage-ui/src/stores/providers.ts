@@ -3209,19 +3209,31 @@ export const useProvidersStore = defineStore('providers', () => {
   }, [])
 
   const allChatProvidersMetadata = computed(() => {
-    return availableProvidersMetadata.value.filter(metadata => metadata.category === 'chat')
+    return availableProvidersMetadata.value.filter(metadata =>
+      metadata.category === 'chat'
+      || metadata.tasks.some(task => ['chat', 'text-generation'].includes(task.toLowerCase())),
+    )
   })
 
   const allAudioSpeechProvidersMetadata = computed(() => {
-    return availableProvidersMetadata.value.filter(metadata => metadata.category === 'speech')
+    return availableProvidersMetadata.value.filter(metadata =>
+      metadata.category === 'speech'
+      || metadata.tasks.some(task => ['text-to-speech', 'speech', 'tts'].includes(task.toLowerCase())),
+    )
   })
 
   const allAudioTranscriptionProvidersMetadata = computed(() => {
-    return availableProvidersMetadata.value.filter(metadata => metadata.category === 'transcription')
+    return availableProvidersMetadata.value.filter(metadata =>
+      metadata.category === 'transcription'
+      || metadata.tasks.some(task => ['speech-to-text', 'automatic-speech-recognition', 'asr', 'stt'].includes(task.toLowerCase())),
+    )
   })
 
   const allVisionProvidersMetadata = computed(() => {
-    return availableProvidersMetadata.value.filter(metadata => metadata.category === 'vision')
+    return availableProvidersMetadata.value.filter(metadata =>
+      metadata.category === 'vision'
+      || metadata.tasks.some(task => ['vision', 'image-to-text'].includes(task.toLowerCase())),
+    )
   })
 
   const configuredChatProvidersMetadata = computed(() => {
@@ -3258,19 +3270,31 @@ export const useProvidersStore = defineStore('providers', () => {
   })
 
   const persistedChatProvidersMetadata = computed(() => {
-    return persistedProvidersMetadata.value.filter(metadata => metadata.category === 'chat')
+    return persistedProvidersMetadata.value.filter(metadata =>
+      metadata.category === 'chat'
+      || metadata.tasks.some(task => ['chat', 'text-generation'].includes(task.toLowerCase())),
+    )
   })
 
   const persistedSpeechProvidersMetadata = computed(() => {
-    return persistedProvidersMetadata.value.filter(metadata => metadata.category === 'speech')
+    return persistedProvidersMetadata.value.filter(metadata =>
+      metadata.category === 'speech'
+      || metadata.tasks.some(task => ['text-to-speech', 'speech', 'tts'].includes(task.toLowerCase())),
+    )
   })
 
   const persistedTranscriptionProvidersMetadata = computed(() => {
-    return persistedProvidersMetadata.value.filter(metadata => metadata.category === 'transcription')
+    return persistedProvidersMetadata.value.filter(metadata =>
+      metadata.category === 'transcription'
+      || metadata.tasks.some(task => ['speech-to-text', 'automatic-speech-recognition', 'asr', 'stt'].includes(task.toLowerCase())),
+    )
   })
 
   const persistedVisionProvidersMetadata = computed(() => {
-    return persistedProvidersMetadata.value.filter(metadata => metadata.category === 'vision')
+    return persistedProvidersMetadata.value.filter(metadata =>
+      metadata.category === 'vision'
+      || metadata.tasks.some(task => ['vision', 'image-to-text'].includes(task.toLowerCase())),
+    )
   })
 
   function getProviderConfig(providerId: string) {
