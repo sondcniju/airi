@@ -302,6 +302,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
 
   async function createAudioStreamFromMediaStream(stream: MediaStream, sampleRate = DEFAULT_SAMPLE_RATE, onActivity?: () => void) {
     const audioContext = new AudioContext({ sampleRate, latencyHint: 'interactive' })
+    console.info(`[Hearing Pipeline] Created AudioContext. SampleRate: ${audioContext.sampleRate}Hz (Requested: ${sampleRate}Hz)`)
     await audioContext.audioWorklet.addModule(vadWorkletUrl)
     const workletNode = new AudioWorkletNode(audioContext, 'vad-audio-worklet-processor')
 
@@ -329,11 +330,10 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
     const mediaStreamSource = audioContext.createMediaStreamSource(stream)
     mediaStreamSource.connect(workletNode)
 
-    // Sink to avoid feedback/echo
-    const silentGain = audioContext.createGain()
-    silentGain.gain.value = 0
-    workletNode.connect(silentGain)
-    silentGain.connect(audioContext.destination)
+    // Sink to avoid feedback/echo - connect to a MediaStreamDestination instead of hardware destination
+    // This keeps the worklet active without any risk of audio leakage to speakers
+    const dest = audioContext.createMediaStreamDestination()
+    workletNode.connect(dest)
 
     return {
       audioContext,
@@ -418,6 +418,11 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
       clearTimeout(session.idleTimer)
 
     streamingSession.value = undefined
+    // NOTICE: Always reset the transcribing flag here. Previously it was only
+    // reset in the text stream reader's finally block (line ~759), which was
+    // unreliable when the stream errored or was aborted. This caused all
+    // subsequent calls to transcribeForMediaStream to bail at the guard.
+    hearingStore.isTranscribing = false
 
     if (session.result?.mode === 'stream') {
       try {
@@ -461,8 +466,12 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
       return
     }
 
-    if (hearingStore.isTranscribing) {
-      console.warn('[Hearing Pipeline] Transcription already in progress, skipping')
+    // NOTICE: We check isTranscribing here but allow re-entry when there's an
+    // existing session to restart (the restart logic below handles teardown).
+    // Previously this guard permanently blocked re-entry because
+    // stopStreamingTranscription did not reset isTranscribing.
+    if (hearingStore.isTranscribing && !streamingSession.value) {
+      console.warn('[Hearing Pipeline] Transcription already in progress (no session to restart), skipping')
       return
     }
 

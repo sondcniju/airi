@@ -166,7 +166,7 @@ watch([isOutsideForInstant, isAroundWindowBorderForInstant, isOutsideWindow, isT
 const settingsAudioDeviceStore = useSettingsAudioDevice()
 const { stream, enabled, selectedAudioInputLabel } = storeToRefs(settingsAudioDeviceStore)
 const { askPermission, startStream } = settingsAudioDeviceStore
-const { startRecord, stopRecord, onStopRecord } = useAudioRecorder(stream)
+const { startRecord, stopRecord, onStopRecord, dispose: disposeRecorder } = useAudioRecorder(stream)
 const hearingPipeline = useHearingSpeechInputPipeline()
 const {
   transcribeForRecording,
@@ -177,6 +177,7 @@ const { supportsStreamInput } = storeToRefs(hearingPipeline)
 const chatStore = useChatOrchestratorStore()
 const hearingStore = useHearingStore()
 const { hearingDetectionMode } = storeToRefs(hearingStore)
+const isStartingAudio = ref(false)
 
 const shouldUseStreamInput = computed(() => supportsStreamInput.value && !!stream.value)
 
@@ -228,14 +229,24 @@ async function handleSpeechEnd() {
 }
 
 async function startAudioInteraction() {
+  if (isStartingAudio.value) {
+    console.warn('[Main Page] Audio interaction startup already in progress, skipping duplicate call')
+    return
+  }
+
+  isStartingAudio.value = true
   try {
     console.info('[Main Page] Starting audio interaction with device:', selectedAudioInputLabel.value)
 
     if (stream.value) {
-      if (hearingDetectionMode.value === 'vad') {
-        // Ensure VAD is initialized and then start it
+      if (hearingDetectionMode.value === 'vad' && !shouldUseStreamInput.value) {
+        // Only use separate VAD if not in streaming mode (streaming providers handle their own VAD/segmentation)
+        console.info('[Main Page] Initializing separate VAD for non-streaming mode')
         await initVAD()
         await startVAD(stream.value)
+      }
+      else if (hearingDetectionMode.value === 'vad') {
+        console.info('[Main Page] Skipping separate VAD in streaming mode (provider handles segmentation)')
       }
       else {
         // Manual mode: start recording immediately if not streaming
@@ -371,6 +382,9 @@ async function startAudioInteraction() {
   catch (e) {
     console.error('Audio interaction init failed:', e)
   }
+  finally {
+    isStartingAudio.value = false
+  }
 }
 
 async function stopAudioInteraction() {
@@ -409,10 +423,11 @@ watch(enabled, async (val) => {
   }
 }, { immediate: true })
 
-watch(stream, (newStream) => {
+watch(stream, async (newStream) => {
   if (enabled.value && newStream) {
     console.info('[Main Page] Stream changed while enabled, restarting audio interaction')
-    void startAudioInteraction()
+    await stopAudioInteraction()
+    await startAudioInteraction()
   }
 })
 
@@ -441,6 +456,7 @@ watch(hearingDetectionMode, async (val) => {
 onUnmounted(async () => {
   await stopAudioInteraction()
   disposeVAD()
+  await disposeRecorder()
 })
 
 watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
