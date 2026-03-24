@@ -51,6 +51,7 @@ export interface CharacterGenerationConfig {
     maxTokens?: number
     temperature?: number
     topP?: number
+    contextWidth?: number
   }
   advanced?: Record<string, any>
   importedPresetMeta?: {
@@ -365,7 +366,9 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       enabled: false,
       provider: activeConsciousnessProvider.value,
       model: activeConsciousnessModel.value,
-      known: {},
+      known: {
+        contextWidth: undefined,
+      },
       advanced: undefined,
       importedPresetMeta: undefined,
     }
@@ -453,6 +456,7 @@ Use provider-supported speech mannerisms only when they help communicate tone or
           maxTokens: existingExtension.generation?.known?.maxTokens,
           temperature: existingExtension.generation?.known?.temperature,
           topP: existingExtension.generation?.known?.topP,
+          contextWidth: existingExtension.generation?.known?.contextWidth ?? defaultGeneration.known?.contextWidth,
         },
         advanced: existingExtension.generation?.advanced,
         importedPresetMeta: existingExtension.generation?.importedPresetMeta,

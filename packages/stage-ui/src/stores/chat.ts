@@ -606,6 +606,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         temperature: generationKnown?.temperature,
         top_p: generationKnown?.topP,
         max_tokens: generationKnown?.maxTokens,
+        contextWidth: generationKnown?.contextWidth,
         vision: isVisionSupported,
         requestOverrides: generationConfig?.enabled ? generationConfig.advanced : undefined,
         abortSignal: abortController.signal,

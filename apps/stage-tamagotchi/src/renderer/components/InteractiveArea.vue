@@ -325,6 +325,13 @@ const sessionTokenCount = computed(() => {
 
 const formattedTokenCount = computed(() => formatTokenCount(sessionTokenCount.value))
 
+const contextWidth = computed(() => activeCard.value?.extensions?.airi?.generation?.known?.contextWidth)
+const contextPercentage = computed(() => {
+  if (!contextWidth.value)
+    return 0
+  return (sessionTokenCount.value / contextWidth.value) * 100
+})
+
 onMounted(() => {
   updateWindowTitle()
   textJournalStore.load()
@@ -406,8 +413,25 @@ watch(messageInput, () => {
     </div>
 
     <div class="flex items-center justify-end gap-2 py-1">
-      <!-- Token Counter -->
       <div
+        v-if="contextWidth"
+        class="flex cursor-help items-center gap-1.5 px-2 py-1"
+        :title="`Context: ${formattedTokenCount} / ${formatTokenCount(contextWidth)} (${contextPercentage.toFixed(1)}%)`"
+      >
+        <div class="i-solar:graph-bold-duotone text-[10px] text-neutral-400 dark:text-neutral-500" />
+        <span class="text-[10px] text-neutral-400 font-bold leading-none tracking-tight uppercase dark:text-neutral-500">{{ formattedTokenCount }}</span>
+        <div class="h-1.5 w-12 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+          <div
+            class="h-full transition-all duration-300"
+            :class="[
+              contextPercentage > 85 ? 'bg-red-500' : contextPercentage > 60 ? 'bg-amber-500' : 'bg-emerald-500',
+            ]"
+            :style="{ width: `${Math.min(contextPercentage, 100)}%` }"
+          />
+        </div>
+      </div>
+      <div
+        v-else
         class="flex cursor-help items-center gap-1.5 px-2 py-1 text-[10px] font-bold tracking-tight uppercase"
         :class="[
           sessionTokenCount > 100000 ? 'text-amber-600 dark:text-amber-400' : 'text-neutral-400 dark:text-neutral-500',

@@ -14,6 +14,7 @@ const generationModel = defineModel<string>('generationModel', { required: true 
 const generationMaxTokens = defineModel<number | undefined>('generationMaxTokens', { required: true })
 const generationTemperature = defineModel<number | undefined>('generationTemperature', { required: true })
 const generationTopP = defineModel<number | undefined>('generationTopP', { required: true })
+const generationContextWidth = defineModel<number | undefined>('generationContextWidth', { required: true })
 const generationAdvancedJson = defineModel<string>('generationAdvancedJson', { required: true })
 </script>
 
@@ -87,6 +88,15 @@ const generationAdvancedJson = defineModel<string>('generationAdvancedJson', { r
         description="Nucleus sampling cutoff for this character's replies."
         type="number"
         placeholder="0.9"
+      />
+
+      <FieldInput
+        v-model="generationContextWidth"
+        class="field-block"
+        label="Context Width"
+        description="The maximum token capacity for this character (e.g. 4096, 128000). Drives the visual context meter."
+        type="number"
+        placeholder="4096"
       />
 
       <FieldTextArea

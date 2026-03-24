@@ -93,6 +93,7 @@ const generationModel = ref<string>('')
 const generationMaxTokens = ref<number | undefined>(undefined)
 const generationTemperature = ref<number | undefined>(undefined)
 const generationTopP = ref<number | undefined>(undefined)
+const generationContextWidth = ref<number | undefined>(undefined)
 const generationAdvancedJson = ref<string>('{\n  \n}')
 const selectedActingModelExpressionPrompt = ref<string>('')
 const selectedActingSpeechExpressionPrompt = ref<string>('')
@@ -498,6 +499,7 @@ async function saveCard(card: Card): Promise<boolean> {
     maxTokens: normalizeOptionalNumber(generationMaxTokens.value),
     temperature: normalizeOptionalNumber(generationTemperature.value),
     topP: normalizeOptionalNumber(generationTopP.value),
+    contextWidth: normalizeOptionalNumber(generationContextWidth.value),
   }
   let generationAdvanced: Record<string, any> | undefined
 
@@ -621,6 +623,7 @@ function initializeCard(): Card {
   generationMaxTokens.value = normalizeOptionalNumber(airiExt?.generation?.known?.maxTokens)
   generationTemperature.value = normalizeOptionalNumber(airiExt?.generation?.known?.temperature)
   generationTopP.value = normalizeOptionalNumber(airiExt?.generation?.known?.topP)
+  generationContextWidth.value = normalizeOptionalNumber(airiExt?.generation?.known?.contextWidth)
   generationAdvancedJson.value = airiExt?.generation?.advanced ? JSON.stringify(airiExt.generation.advanced, null, 2) : '{\n  \n}'
   selectedActingModelExpressionPrompt.value = airiExt?.acting?.modelExpressionPrompt || DEFAULT_ACTING_MODEL_PROMPT
   selectedActingSpeechExpressionPrompt.value = airiExt?.acting?.speechExpressionPrompt || DEFAULT_ACTING_SPEECH_EXPRESSION_PROMPT
@@ -803,6 +806,7 @@ function getDefaultPlaceholder(defaultValue: string | undefined): string {
             v-model:generation-max-tokens="generationMaxTokens"
             v-model:generation-temperature="generationTemperature"
             v-model:generation-top-p="generationTopP"
+            v-model:generation-context-width="generationContextWidth"
             v-model:generation-advanced-json="generationAdvancedJson"
             :provider-options="generationProviderOptions"
             :model-options="generationModelOptions"
