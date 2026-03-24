@@ -101,10 +101,69 @@ const resolvedSlices = computed<ChatSlices[]>(() => {
   return []
 })
 
+function extractMood(text: string): string | null {
+  const match = text.match(ACT_MARKER_RE)
+  if (!match)
+    return null
+
+  // Extract the label part: <|Label: ... |> -> Label
+  const raw = match[0]
+  const tagContent = raw.slice(2, -2).trim() // Remove <| and |>
+  const colonIndex = tagContent.indexOf(':')
+  if (colonIndex === -1)
+    return tagContent
+
+  return tagContent.slice(0, colonIndex).trim()
+}
+
+const mood = computed(() => {
+  if (props.message.slices?.length) {
+    for (const slice of props.message.slices) {
+      if (slice.type === 'text') {
+        const m = extractMood(slice.text)
+        if (m)
+          return m
+      }
+    }
+  }
+
+  if (typeof props.message.content === 'string') {
+    return extractMood(props.message.content)
+  }
+
+  if (Array.isArray(props.message.content)) {
+    const textPart = props.message.content.find(part => 'type' in part && part.type === 'text') as { text?: string } | undefined
+    if (textPart?.text)
+      return extractMood(textPart.text)
+  }
+
+  return null
+})
+
+const moodClasses = computed(() => {
+  if (!mood.value)
+    return ''
+
+  const m = mood.value.toLowerCase()
+  if (m.includes('happy') || m.includes('joy') || m.includes('laugh') || m.includes('grin'))
+    return 'mood-happy'
+  if (m.includes('sad') || m.includes('cry') || m.includes('sorrow') || m.includes('pout'))
+    return 'mood-sad'
+  if (m.includes('angry') || m.includes('mad') || m.includes('annoy') || m.includes('frustrate'))
+    return 'mood-angry'
+  if (m.includes('surprise') || m.includes('shock') || m.includes('wonder'))
+    return 'mood-surprised'
+  if (m.includes('think') || m.includes('ponder') || m.includes('curious'))
+    return 'mood-thinking'
+
+  return ''
+})
+
 const showLoader = computed(() => props.showPlaceholder && resolvedSlices.value.length === 0)
 const containerClass = computed(() => props.variant === 'mobile' ? 'mr-0' : 'mr-12')
 const boxClasses = computed(() => [
   props.variant === 'mobile' ? 'px-2 py-2 text-sm bg-primary-50/90 dark:bg-primary-950/90' : 'px-3 py-3 bg-primary-50/80 dark:bg-primary-950/80',
+  moodClasses.value,
 ])
 
 function deleteSelf() {
@@ -119,8 +178,20 @@ function deleteSelf() {
       flex="~ col" shadow="sm primary-200/50 dark:none"
       h="unset <sm:fit"
       relative min-w-20 rounded-xl
+      transition="all duration-300"
       :class="boxClasses"
     >
+      <div
+        v-if="moodClasses"
+        class="absolute inset-x-0 bottom--1px top--1px z--1 rounded-xl opacity-50 blur-sm transition-all duration-500"
+        :class="[
+          moodClasses === 'mood-happy' ? 'bg-emerald-400/30' : '',
+          moodClasses === 'mood-sad' ? 'bg-blue-400/30' : '',
+          moodClasses === 'mood-angry' ? 'bg-rose-400/30' : '',
+          moodClasses === 'mood-surprised' ? 'bg-purple-400/30' : '',
+          moodClasses === 'mood-thinking' ? 'bg-amber-400/20' : '',
+        ]"
+      />
       <div>
         <span text-sm text="black/60 dark:white/65" font-normal class="inline <sm:hidden">{{ label }}</span>
       </div>
@@ -158,3 +229,26 @@ function deleteSelf() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.mood-happy {
+  @apply border-emerald-400/50 dark:border-emerald-500/50;
+}
+.mood-sad {
+  @apply border-blue-400/50 dark:border-blue-500/50;
+}
+.mood-angry {
+  @apply border-rose-400/50 dark:border-rose-500/50;
+}
+.mood-surprised {
+  @apply border-purple-400/50 dark:border-purple-500/50;
+}
+.mood-thinking {
+  @apply border-amber-400/30 dark:border-amber-500/30;
+}
+
+/* Ensure transition is smooth */
+.rounded-xl {
+  border: 1px solid transparent;
+}
+</style>
