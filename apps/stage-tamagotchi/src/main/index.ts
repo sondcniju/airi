@@ -108,6 +108,15 @@ app.whenReady().then(async () => {
       headers['access-control-allow-origin'] = ['*']
       headers['access-control-allow-headers'] = ['Authorization, Content-Type']
       headers['access-control-allow-methods'] = ['GET, POST, OPTIONS']
+
+      // NOTICE: Deepgram returns 401/405 for preflight OPTIONS requests.
+      // The browser requires a 2xx status on the preflight response in addition
+      // to the CORS headers, so we force 200 OK for OPTIONS.
+      if (details.method === 'OPTIONS') {
+        callback({ responseHeaders: headers, statusLine: 'HTTP/1.1 200 OK' })
+        return
+      }
+
       callback({ responseHeaders: headers })
     },
   )

@@ -115,16 +115,7 @@ const ACT_EMOJI: Record<string, string> = {
 </script>
 
 <template>
-  <Container
-    title="Expressions"
-    icon="i-solar:emoji-funny-square-bold-duotone"
-    :expand="false"
-    :class="[
-      'rounded-xl',
-      'bg-white/80 dark:bg-black/75',
-      'backdrop-blur-lg',
-    ]"
-  >
+  <div class="flex flex-col gap-2">
     <div v-if="!hasExpressions" class="p-2 text-xs text-neutral-400">
       No expressions available. Load a VRM model first.
     </div>
@@ -141,67 +132,69 @@ const ACT_EMOJI: Record<string, string> = {
         </button>
       </div>
 
-      <!-- Presets -->
-      <div v-if="presets.length > 0" class="px-2 pt-2">
-        <div class="mb-1 text-xs text-neutral-500 font-medium dark:text-neutral-400">
-          Presets ({{ presets.length }})
-        </div>
-        <div class="flex flex-wrap gap-1">
-          <button
-            v-for="name in presets"
-            :key="name"
-            :class="[
-              'relative rounded-md px-2 py-1 text-xs transition-all duration-150',
-              'border border-solid select-none',
-              isActive(name)
-                ? 'bg-primary-500/20 border-primary-400 text-primary-600 dark:text-primary-300 font-medium'
-                : 'bg-neutral-50 dark:bg-neutral-800/60 border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700',
-            ]"
-            @pointerdown.prevent="onPointerDown(name)"
-            @pointerup="onPointerUp(name)"
-            @pointerleave="onPointerLeave()"
-          >
-            <span v-if="favoriteExpression === name" class="mr-0.5 text-[10px]">⭐</span>
-            {{ name }}
-            <span
-              v-if="getMappedEmotion(name)"
-              class="ml-0.5 text-[10px] opacity-70"
-            >{{ ACT_EMOJI[getMappedEmotion(name)!] || '🔗' }}</span>
-          </button>
-        </div>
-      </div>
-
       <!-- Custom Extensions -->
-      <div v-if="custom.length > 0" class="px-2 py-2">
-        <div class="mb-1 text-xs text-neutral-500 font-medium dark:text-neutral-400">
-          Custom Extensions ({{ custom.length }})
-        </div>
-        <div class="flex flex-wrap gap-1">
-          <button
-            v-for="name in custom"
-            :key="name"
-            :class="[
-              'relative rounded-md px-2 py-1 text-xs transition-all duration-150',
-              'border border-solid select-none',
-              isActive(name)
-                ? 'bg-lime-500/20 border-lime-400 text-lime-600 dark:text-lime-300 font-medium'
-                : 'bg-neutral-50 dark:bg-neutral-800/60 border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700',
-            ]"
-            @pointerdown.prevent="onPointerDown(name)"
-            @pointerup="onPointerUp(name)"
-            @pointerleave="onPointerLeave()"
-          >
-            <span v-if="favoriteExpression === name" class="mr-0.5 text-[10px]">⭐</span>
-            {{ name }}
-            <span
-              v-if="getMappedEmotion(name)"
-              class="ml-0.5 text-[10px] opacity-70"
-            >{{ ACT_EMOJI[getMappedEmotion(name)!] || '🔗' }}</span>
-          </button>
-        </div>
-      </div>
+      <Container
+        v-if="custom.length > 0"
+        :title="`Custom Extensions (${custom.length})`"
+        :expand="true"
+        inner-class="flex flex-wrap gap-1 p-2"
+        class="mt-2"
+      >
+        <button
+          v-for="name in custom"
+          :key="name"
+          :class="[
+            'relative rounded-md px-2 py-1 text-xs transition-all duration-150',
+            'border border-solid select-none',
+            isActive(name)
+              ? 'bg-lime-500/20 border-lime-400 text-lime-600 dark:text-lime-300 font-medium'
+              : 'bg-neutral-50 dark:bg-neutral-800/60 border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700',
+          ]"
+          @pointerdown.prevent="onPointerDown(name)"
+          @pointerup="onPointerUp(name)"
+          @pointerleave="onPointerLeave()"
+        >
+          <span v-if="favoriteExpression === name" class="mr-0.5 text-[10px]">⭐</span>
+          {{ name }}
+          <span
+            v-if="getMappedEmotion(name)"
+            class="ml-0.5 text-[10px] opacity-70"
+          >{{ ACT_EMOJI[getMappedEmotion(name)!] || '🔗' }}</span>
+        </button>
+      </Container>
+
+      <!-- Presets -->
+      <Container
+        v-if="presets.length > 0"
+        :title="`Presets (${presets.length})`"
+        :expand="false"
+        inner-class="flex flex-wrap gap-1 p-2"
+        class="mt-2"
+      >
+        <button
+          v-for="name in presets"
+          :key="name"
+          :class="[
+            'relative rounded-md px-2 py-1 text-xs transition-all duration-150',
+            'border border-solid select-none',
+            isActive(name)
+              ? 'bg-primary-500/20 border-primary-400 text-primary-600 dark:text-primary-300 font-medium'
+              : 'bg-neutral-50 dark:bg-neutral-800/60 border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700',
+          ]"
+          @pointerdown.prevent="onPointerDown(name)"
+          @pointerup="onPointerUp(name)"
+          @pointerleave="onPointerLeave()"
+        >
+          <span v-if="favoriteExpression === name" class="mr-0.5 text-[10px]">⭐</span>
+          {{ name }}
+          <span
+            v-if="getMappedEmotion(name)"
+            class="ml-0.5 text-[10px] opacity-70"
+          >{{ ACT_EMOJI[getMappedEmotion(name)!] || '🔗' }}</span>
+        </button>
+      </Container>
     </template>
-  </Container>
+  </div>
 
   <!-- ACT Mapping Modal -->
   <Teleport to="body">

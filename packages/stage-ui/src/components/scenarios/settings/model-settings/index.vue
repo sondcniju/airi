@@ -4,7 +4,7 @@ import type { DisplayModel } from '../../../../stores/display-models'
 import { Live2DScene, useLive2d } from '@proj-airi/stage-ui-live2d'
 import { ThreeScene, useModelStore } from '@proj-airi/stage-ui-three'
 import { Button, Callout } from '@proj-airi/ui'
-import { useMouse } from '@vueuse/core'
+import { useLocalStorage, useMouse } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
 
@@ -49,6 +49,23 @@ const {
 
 const currentSelectedDisplayModel = computed<DisplayModel | undefined>(() => stageModelSelectedDisplayModel.value)
 
+const modelSupportCalloutDismissed = useLocalStorage('airi-model-support-callout-dismissed', false)
+
+const live2dRef = ref<InstanceType<typeof Live2D>>()
+const threeSceneRef = ref<InstanceType<typeof ThreeScene>>()
+
+defineExpose({
+  captureFrame: async () => {
+    if (stageModelRenderer.value === 'live2d') {
+      return (live2dRef.value as any)?.captureFrame()
+    }
+    else if (stageModelRenderer.value === 'vrm') {
+      return threeSceneRef.value?.captureFrame()
+    }
+    return null
+  },
+})
+
 async function handleModelPick(selectedModel: DisplayModel | undefined) {
   stageModelSelected.value = selectedModel?.id ?? ''
   await settingsStore.updateStageModel()
@@ -68,17 +85,24 @@ async function handleModelPick(selectedModel: DisplayModel | undefined) {
         : []),
     ]"
   >
-    <Callout label="We support both 2D and 3D models">
-      <p>
-        Click <strong>Select Model</strong> to import different formats of
-        models into catalog, currently, <code>.zip</code> (Live2D) and <code>.vrm</code> (VRM) are supported.
-      </p>
-      <p>
-        Neuro-sama uses 2D model driven by Live2D Inc. developed framework.
-        While Grok Ani (first female character announced in Grok Companion)
-        uses 3D model that is driven by VRM / MMD open formats.
-      </p>
-    </Callout>
+    <div v-if="!modelSupportCalloutDismissed" class="relative">
+      <Callout label="We support both 2D and 3D models">
+        <p>
+          Click <strong>Select Model</strong> to import different formats of
+          models into catalog, currently, <code>.zip</code> (Live2D) and <code>.vrm</code> (VRM) are supported.
+        </p>
+        <p>
+          Neuro-sama uses 2D model driven by Live2D Inc. developed framework.
+          While Grok Ani (first female character announced in Grok Companion)
+          uses 3D model that is driven by VRM / MMD open formats.
+        </p>
+      </Callout>
+      <div
+        class="absolute right-2 top-2 cursor-pointer text-neutral-500 transition hover:text-neutral-700"
+        i-solar:eye-closed-bold-duotone
+        @click="modelSupportCalloutDismissed = true"
+      />
+    </div>
     <div :class="['flex flex-wrap gap-2']">
       <ModelSelectorDialog v-model:show="modelSelectorOpen" :selected-model="currentSelectedDisplayModel" @pick="handleModelPick">
         <Button variant="secondary">
@@ -88,11 +112,13 @@ async function handleModelPick(selectedModel: DisplayModel | undefined) {
     </div>
     <Live2D
       v-if="stageModelRenderer === 'live2d'"
+      ref="live2dRef"
       :palette="palette"
       @extract-colors-from-model="$emit('extractColorsFromModel')"
     />
     <VRM
       v-if="stageModelRenderer === 'vrm'"
+      ref="vrmRef"
       :palette="palette"
       @extract-colors-from-model="$emit('extractColorsFromModel')"
     />
@@ -120,7 +146,7 @@ async function handleModelPick(selectedModel: DisplayModel | undefined) {
   <!-- VRM component for 3D stage view -->
   <template v-if="stageModelRenderer === 'vrm'">
     <div :class="[...(props.vrmSceneClass ? (typeof props.vrmSceneClass === 'string' ? [props.vrmSceneClass] : props.vrmSceneClass) : [])]">
-      <ThreeScene :model-src="stageModelSelectedUrl" :model-identity="stageModelSelected" />
+      <ThreeScene ref="threeSceneRef" :model-src="stageModelSelectedUrl" :model-identity="stageModelSelected" />
     </div>
   </template>
 </template>

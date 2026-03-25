@@ -61,6 +61,9 @@ defineExpose({
   canvasElement: () => {
     return live2dCanvasRef.value?.canvasElement()
   },
+  captureFrame: () => {
+    return live2dCanvasRef.value?.captureFrame()
+  },
 })
 </script>
 
