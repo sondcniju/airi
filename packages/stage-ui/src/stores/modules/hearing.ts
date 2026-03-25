@@ -55,6 +55,8 @@ const STREAM_TRANSCRIPTION_EXECUTORS: Record<string, StreamTranscription> = {
   // Web Speech API is handled specially in transcribeForMediaStream since it works directly with MediaStream
 }
 
+let cachedDeepgramJWT: { token: string, expiresAt: number } | null = null
+
 export const useHearingStore = defineStore('hearing-store', () => {
   const providersStore = useProvidersStore()
   const { allAudioTranscriptionProvidersMetadata } = storeToRefs(providersStore)
@@ -209,6 +211,71 @@ export const useHearingStore = defineStore('hearing-store', () => {
       throw new Error('File input is required for transcription.')
     }
 
+    if (providerId === 'deepgram-transcription') {
+      const providerConfig = providersStore.getProviderConfig(providerId)
+      let baseUrl = (providerConfig.baseUrl as string) || 'https://api.deepgram.com/v1/'
+
+      if (baseUrl.includes('/openai')) {
+        baseUrl = baseUrl.replace(/\/openai\/?$/, '')
+        if (!baseUrl.endsWith('/'))
+          baseUrl += '/'
+      }
+
+      // Bypass CORS nicely using a temporary short-lived token generated from the project key
+      if (!cachedDeepgramJWT || Date.now() > cachedDeepgramJWT.expiresAt) {
+        console.info('[Hearing Store] Fetching new Deepgram temporary JWT to bypass CORS')
+        const authRes = await fetch('https://api.deepgram.com/v1/auth/grant', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Token ${providerConfig.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({}),
+        })
+
+        if (!authRes.ok) {
+          const errText = await authRes.text()
+          throw new Error(`Failed to fetch Deepgram temporary JWT: ${authRes.status} ${errText}`)
+        }
+
+        const authData = await authRes.json()
+        cachedDeepgramJWT = {
+          token: authData.access_token,
+          // expires_in is in seconds, subtract 5 seconds for safety margin
+          expiresAt: Date.now() + (authData.expires_in - 5) * 1000,
+        }
+      }
+
+      const activeToken = cachedDeepgramJWT.token
+
+      const res = await fetch(`${baseUrl}listen?model=${model}&smart_format=true`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${activeToken}`,
+          'Content-Type': normalizedInput.file.type || 'audio/webm',
+        },
+        body: normalizedInput.file,
+        signal: options?.providerOptions?.abortSignal as AbortSignal | undefined,
+      })
+
+      if (!res.ok) {
+        throw new Error(`Deepgram API error: ${res.status} ${res.statusText}`)
+      }
+
+      const data = await res.json()
+      const text = data.results?.channels?.[0]?.alternatives?.[0]?.transcript || ''
+
+      console.info('[Hearing Store] Deepgram native response received', {
+        text: text.substring(0, 50),
+      })
+
+      return {
+        mode: 'generate',
+        text,
+        raw: data,
+      } as any
+    }
+
     const response = await generateTranscription({
       ...provider.transcription(model, options?.providerOptions),
       file: normalizedInput.file,
@@ -302,6 +369,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
 
   async function createAudioStreamFromMediaStream(stream: MediaStream, sampleRate = DEFAULT_SAMPLE_RATE, onActivity?: () => void) {
     const audioContext = new AudioContext({ sampleRate, latencyHint: 'interactive' })
+    console.info(`[Hearing Pipeline] Created AudioContext. SampleRate: ${audioContext.sampleRate}Hz (Requested: ${sampleRate}Hz)`)
     await audioContext.audioWorklet.addModule(vadWorkletUrl)
     const workletNode = new AudioWorkletNode(audioContext, 'vad-audio-worklet-processor')
 
@@ -329,11 +397,10 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
     const mediaStreamSource = audioContext.createMediaStreamSource(stream)
     mediaStreamSource.connect(workletNode)
 
-    // Sink to avoid feedback/echo
-    const silentGain = audioContext.createGain()
-    silentGain.gain.value = 0
-    workletNode.connect(silentGain)
-    silentGain.connect(audioContext.destination)
+    // Sink to avoid feedback/echo - connect to a MediaStreamDestination instead of hardware destination
+    // This keeps the worklet active without any risk of audio leakage to speakers
+    const dest = audioContext.createMediaStreamDestination()
+    workletNode.connect(dest)
 
     return {
       audioContext,
@@ -418,6 +485,11 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
       clearTimeout(session.idleTimer)
 
     streamingSession.value = undefined
+    // NOTICE: Always reset the transcribing flag here. Previously it was only
+    // reset in the text stream reader's finally block (line ~759), which was
+    // unreliable when the stream errored or was aborted. This caused all
+    // subsequent calls to transcribeForMediaStream to bail at the guard.
+    hearingStore.isTranscribing = false
 
     if (session.result?.mode === 'stream') {
       try {
@@ -461,8 +533,12 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
       return
     }
 
-    if (hearingStore.isTranscribing) {
-      console.warn('[Hearing Pipeline] Transcription already in progress, skipping')
+    // NOTICE: We check isTranscribing here but allow re-entry when there's an
+    // existing session to restart (the restart logic below handles teardown).
+    // Previously this guard permanently blocked re-entry because
+    // stopStreamingTranscription did not reset isTranscribing.
+    if (hearingStore.isTranscribing && !streamingSession.value) {
+      console.warn('[Hearing Pipeline] Transcription already in progress (no session to restart), skipping')
       return
     }
 

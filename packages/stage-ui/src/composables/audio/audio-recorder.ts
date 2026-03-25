@@ -1,7 +1,7 @@
 import type { MaybeRefOrGetter } from 'vue'
 
 import { until } from '@vueuse/core'
-import { ref, shallowRef, toRef } from 'vue'
+import { ref, shallowRef, toRef, watch } from 'vue'
 
 /**
  * Encodes Float32 samples into a 16-bit PCM WAV Blob.
@@ -62,12 +62,19 @@ export function useAudioRecorder(
   const { sampleRate: requestedSampleRate } = options
   const mediaRef = toRef(media)
   const recording = shallowRef<Blob>()
+  const isRecording = ref(false)
 
+  // NOTICE: Keep AudioContext and source alive across recording cycles.
+  // On Windows Chromium, closing an AudioContext that owns a MediaStreamAudioSourceNode
+  // can corrupt the underlying MediaStream tracks, causing subsequent AudioContexts
+  // to receive silence. We only create/destroy them when the MediaStream itself changes.
   const recordingAudioContext = shallowRef<AudioContext>()
   const processor = shallowRef<ScriptProcessorNode>()
   const source = shallowRef<MediaStreamAudioSourceNode>()
   // Use a plain array for chunks to avoid Vue reactivity overhead in the audio thread
   let recordedChunks: Float32Array[] = []
+  // Track which MediaStream we have a source for, to detect stream changes
+  let currentStreamId: string | undefined
 
   const onStopRecordHooks = ref<Array<(recording: Blob | undefined) => Promise<void>>>([])
 
@@ -78,23 +85,65 @@ export function useAudioRecorder(
     }
   }
 
-  async function startRecord() {
-    await until(mediaRef).toBeTruthy()
-    const stream = mediaRef.value!
+  /**
+   * Ensures an AudioContext and MediaStreamAudioSourceNode exist for the current stream.
+   * Reuses the existing context/source if the stream hasn't changed.
+   */
+  async function ensureAudioContext(stream: MediaStream): Promise<AudioContext> {
+    const streamId = stream.id
 
-    // Initialize AudioContext.
-    // If a sampleRate was requested, we let the browser resample once here.
-    // Otherwise we use hardware native rate.
+    // If we already have a context for this stream, reuse it
+    if (recordingAudioContext.value && currentStreamId === streamId && recordingAudioContext.value.state !== 'closed') {
+      if (recordingAudioContext.value.state === 'suspended') {
+        await recordingAudioContext.value.resume()
+      }
+      return recordingAudioContext.value
+    }
+
+    // Clean up old context if stream changed
+    if (recordingAudioContext.value) {
+      console.info('[Audio Recorder] Stream changed, recreating AudioContext')
+      if (source.value) {
+        source.value.disconnect()
+        source.value = undefined
+      }
+      if (processor.value) {
+        processor.value.disconnect()
+        processor.value.onaudioprocess = null
+        processor.value = undefined
+      }
+      await recordingAudioContext.value.close()
+      recordingAudioContext.value = undefined
+    }
+
+    // Create new context
     const ctx = new AudioContext(requestedSampleRate ? { sampleRate: requestedSampleRate } : undefined)
     await ctx.resume()
     recordingAudioContext.value = ctx
+    currentStreamId = streamId
 
-    console.info(`[Audio Recorder] Started native capture. Context Rate: ${ctx.sampleRate}Hz, Requested: ${requestedSampleRate || 'Native'}`)
+    // Create persistent source node
+    source.value = ctx.createMediaStreamSource(stream)
+    console.info(`[Audio Recorder] Created AudioContext. Rate: ${ctx.sampleRate}Hz, Requested: ${requestedSampleRate || 'Native'}, Stream: ${streamId}`)
+
+    return ctx
+  }
+
+  async function startRecord() {
+    if (isRecording.value) {
+      console.warn('[Audio Recorder] Already recording, ignoring startRecord()')
+      return
+    }
+
+    await until(mediaRef).toBeTruthy()
+    const stream = mediaRef.value!
+
+    const ctx = await ensureAudioContext(stream)
 
     recordedChunks = []
-    source.value = ctx.createMediaStreamSource(stream)
+    isRecording.value = true
 
-    // ScriptProcessorNode for transparency/simplicity in this ninja-patch.
+    // Create a fresh processor node for this recording session
     processor.value = ctx.createScriptProcessor(4096, 1, 1)
 
     processor.value.onaudioprocess = (e) => {
@@ -102,30 +151,39 @@ export function useAudioRecorder(
       recordedChunks.push(new Float32Array(input))
     }
 
-    source.value.connect(processor.value)
+    // Connect: source -> processor -> destination (keeps audio graph active)
+    source.value!.connect(processor.value)
     processor.value.connect(ctx.destination)
+
+    console.info('[Audio Recorder] Recording started')
   }
 
   const finalizing = ref(false)
 
   async function stopRecord() {
-    if (!recordingAudioContext.value || finalizing.value)
+    if (!isRecording.value || finalizing.value)
       return
 
     finalizing.value = true
+    isRecording.value = false
     try {
       console.info('[Audio Recorder] Stopping capture and encoding WAV...')
 
-      // Stop nodes
+      // Disconnect processor but keep AudioContext and source alive
       if (processor.value) {
         processor.value.disconnect()
         processor.value.onaudioprocess = null
+        processor.value = undefined
       }
-      if (source.value) {
-        source.value.disconnect()
-      }
+      // NOTICE: Do NOT disconnect source or close AudioContext here.
+      // Closing the AudioContext corrupts the MediaStream on Windows.
 
       const ctx = recordingAudioContext.value
+      if (!ctx) {
+        console.warn('[Audio Recorder] No AudioContext available during stop')
+        return
+      }
+
       const sampleRate = ctx.sampleRate
 
       if (recordedChunks.length === 0) {
@@ -158,12 +216,8 @@ export function useAudioRecorder(
         }
       }
 
-      // Cleanup early to free memory
+      // Free chunk memory but keep context alive
       recordedChunks = []
-      await ctx.close()
-      recordingAudioContext.value = undefined
-      processor.value = undefined
-      source.value = undefined
 
       return audioBlob
     }
@@ -172,11 +226,48 @@ export function useAudioRecorder(
     }
   }
 
+  /**
+   * Fully dispose the AudioContext and all resources.
+   * Call this on component unmount only.
+   */
+  async function dispose() {
+    if (isRecording.value) {
+      await stopRecord()
+    }
+
+    if (source.value) {
+      source.value.disconnect()
+      source.value = undefined
+    }
+    if (processor.value) {
+      processor.value.disconnect()
+      processor.value.onaudioprocess = null
+      processor.value = undefined
+    }
+    if (recordingAudioContext.value && recordingAudioContext.value.state !== 'closed') {
+      await recordingAudioContext.value.close()
+    }
+    recordingAudioContext.value = undefined
+    currentStreamId = undefined
+    recordedChunks = []
+  }
+
+  // Auto-recreate source when the media stream changes
+  watch(mediaRef, async (newStream) => {
+    if (newStream && recordingAudioContext.value) {
+      // Stream changed while we have an active context — the old source is stale
+      console.info('[Audio Recorder] MediaStream ref changed, will use new stream on next startRecord()')
+      // Don't eagerly recreate; ensureAudioContext will handle it on next startRecord()
+    }
+  })
+
   return {
     startRecord,
     stopRecord,
     onStopRecord,
+    dispose,
 
     recording,
+    isRecording,
   }
 }

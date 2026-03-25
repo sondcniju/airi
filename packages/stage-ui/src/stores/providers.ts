@@ -1381,6 +1381,49 @@ export const useProvidersStore = defineStore('providers', () => {
         },
       },
     },
+    'deepgram-transcription': buildOpenAICompatibleProvider({
+      id: 'deepgram-transcription',
+      name: 'Deepgram STT (Nova)',
+      nameKey: 'settings.pages.providers.provider.deepgram-transcription.title',
+      descriptionKey: 'settings.pages.providers.provider.deepgram-transcription.description',
+      icon: 'i-simple-icons:deepgram',
+      description: 'deepgram.com (Configure Base URL to https://api.deepgram.com/v1/openai/ for OpenAI compatibility)',
+      category: 'transcription',
+      tasks: ['speech-to-text', 'automatic-speech-recognition', 'asr', 'stt'],
+      defaultBaseUrl: 'https://api.deepgram.com/v1/openai/',
+      creator: createOpenAI,
+      validation: [],
+      capabilities: {
+        listModels: async () => {
+          return [
+            {
+              id: 'nova-3',
+              name: 'Nova 3',
+              provider: 'deepgram-transcription',
+              description: 'Latest high-accuracy STT model',
+              contextLength: 0,
+              deprecated: false,
+            },
+            {
+              id: 'nova-2',
+              name: 'Nova 2',
+              provider: 'deepgram-transcription',
+              description: 'Previous generation Nova model',
+              contextLength: 0,
+              deprecated: false,
+            },
+            {
+              id: 'nova-2-general',
+              name: 'Nova 2 (General)',
+              provider: 'deepgram-transcription',
+              description: 'General purpose Nova 2 STT model',
+              contextLength: 0,
+              deprecated: false,
+            },
+          ] satisfies ModelInfo[]
+        },
+      },
+    }),
     'microsoft-speech': {
       id: 'microsoft-speech',
       category: 'speech',

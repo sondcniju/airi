@@ -29,6 +29,7 @@ export interface StreamOptions {
   temperature?: number
   top_p?: number
   max_tokens?: number
+  contextWidth?: number
   vision?: boolean
   requestOverrides?: Record<string, unknown>
 }
@@ -171,6 +172,7 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
         temperature: options?.temperature,
         top_p: options?.top_p,
         max_tokens: options?.max_tokens,
+        ...(options?.contextWidth ? { num_ctx: options.contextWidth } : {}),
         // TODO: we need Automatic tools discovery
         tools,
         onEvent,
@@ -235,6 +237,7 @@ async function generateFrom(model: string, chatProvider: ChatProvider, messages:
     temperature: options?.temperature,
     top_p: options?.top_p,
     max_tokens: options?.max_tokens,
+    ...(options?.contextWidth ? { num_ctx: options.contextWidth } : {}),
     tools,
   })
 }

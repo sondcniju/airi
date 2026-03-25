@@ -3,7 +3,7 @@ import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
 import type { ChatProvider } from '@xsai-ext/providers/utils'
 
 import { estimateTokens, formatTokenCount } from '@proj-airi/stage-shared'
-import { ChatHistory } from '@proj-airi/stage-ui/components'
+import { ChatHistory, MarkdownRenderer } from '@proj-airi/stage-ui/components'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatMaintenanceStore } from '@proj-airi/stage-ui/stores/chat/maintenance'
@@ -13,6 +13,7 @@ import { useShortTermMemoryStore } from '@proj-airi/stage-ui/stores/memory-short
 import { useTextJournalStore } from '@proj-airi/stage-ui/stores/memory-text-journal'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
+import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettingsChat } from '@proj-airi/stage-ui/stores/settings'
 import { BasicTextarea } from '@proj-airi/ui'
@@ -33,6 +34,9 @@ const chatStream = useChatStreamStore()
 const textJournalStore = useTextJournalStore()
 const backgroundStore = useBackgroundStore()
 const airiCardStore = useAiriCardStore()
+const proactivityStore = useProactivityStore()
+
+const { activeCard } = storeToRefs(airiCardStore)
 const shortTermMemory = useShortTermMemoryStore()
 
 const { cleanupMessages } = useChatMaintenanceStore()
@@ -52,8 +56,34 @@ const CHAT_WINDOW_TITLE = 'AIRI - Chat Window'
 const latestTextEntries = computed(() => {
   if (!activeCardId.value)
     return []
-  return textJournalStore.entries
+
+  const manualEntries = textJournalStore.entries
     .filter(e => e.characterId === activeCardId.value)
+    .map(e => ({
+      id: e.id,
+      type: 'manual' as const,
+      timestamp: e.createdAt,
+      title: e.title,
+      content: e.content,
+    }))
+
+  const autoEntries = shortTermMemory.getCharacterBlocks(activeCardId.value)
+    .map((b) => {
+      // Robust stripping of markdown code fences (``` or ~~~) with optional language tag
+      const fenceMatch = b.summary.trim().match(/^(?:`{3,}|~{3,})[\w-]*\n?([\s\S]*?)\n?(?:`{3,}|~{3,})$/)
+      const content = fenceMatch ? fenceMatch[1].trim() : b.summary.trim()
+
+      return ({
+        id: b.id,
+        type: 'auto' as const,
+        timestamp: b.updatedAt || b.createdAt,
+        title: `My thoughts after ${b.messageCount} messages together~`,
+        content,
+      })
+    })
+
+  return [...manualEntries, ...autoEntries]
+    .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, 2)
 })
 
@@ -202,7 +232,14 @@ async function handleSend() {
     return
   }
 
-  const textToSend = messageInput.value
+  let textToSend = messageInput.value
+  if (activeCard.value?.extensions?.airi?.groundingEnabled) {
+    const sensorData = proactivityStore.sensorPayload
+    if (sensorData) {
+      textToSend = `[Grounding Context]\n${sensorData}\n\n---\nUser Says:\n${textToSend}`
+    }
+  }
+
   const attachmentsToSend = attachments.value.map(att => ({ ...att }))
 
   // optimistic clear
@@ -314,6 +351,13 @@ const sessionTokenCount = computed(() => {
 
 const formattedTokenCount = computed(() => formatTokenCount(sessionTokenCount.value))
 
+const contextWidth = computed(() => activeCard.value?.extensions?.airi?.generation?.known?.contextWidth)
+const contextPercentage = computed(() => {
+  if (!contextWidth.value)
+    return 0
+  return (sessionTokenCount.value / contextWidth.value) * 100
+})
+
 onMounted(() => {
   updateWindowTitle()
   textJournalStore.load()
@@ -351,7 +395,7 @@ watch(messageInput, () => {
         v-for="entry in latestTextEntries"
         :key="entry.id"
         :class="[
-          'min-w-32 max-w-40 flex flex-col cursor-pointer',
+          'min-w-32 max-w-44 flex flex-col cursor-pointer',
           'border border-primary-200/30 rounded-lg bg-primary-50/50 p-2 text-xs',
           'transition-all hover:bg-primary-100/50',
           'dark:border-primary-800/30 dark:bg-primary-900/30 dark:hover:bg-primary-800/50',
@@ -359,8 +403,8 @@ watch(messageInput, () => {
         @click="openTextPreview(entry)"
       >
         <div :class="['flex items-center gap-1', 'text-primary-500 text-[10px] font-bold uppercase tracking-tighter']">
-          <div i-solar:notebook-bold-duotone />
-          <span>{{ formatDate(entry.createdAt) }}</span>
+          <div :class="entry.type === 'auto' ? 'i-solar:magic-stick-3-bold-duotone' : 'i-solar:notebook-bold-duotone'" />
+          <span>{{ formatDate(entry.timestamp) }}</span>
         </div>
         <div :class="['line-clamp-2', 'text-primary-900/70 dark:text-primary-100/70']">
           {{ entry.title }}
@@ -395,8 +439,25 @@ watch(messageInput, () => {
     </div>
 
     <div class="flex items-center justify-end gap-2 py-1">
-      <!-- Token Counter -->
       <div
+        v-if="contextWidth"
+        class="flex cursor-help items-center gap-1.5 px-2 py-1"
+        :title="`Context: ${formattedTokenCount} / ${formatTokenCount(contextWidth)} (${contextPercentage.toFixed(1)}%)`"
+      >
+        <div class="i-solar:graph-bold-duotone text-[10px] text-neutral-400 dark:text-neutral-500" />
+        <span class="text-[10px] text-neutral-400 font-bold leading-none tracking-tight uppercase dark:text-neutral-500">{{ formattedTokenCount }}</span>
+        <div class="h-1.5 w-12 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+          <div
+            class="h-full transition-all duration-300"
+            :class="[
+              contextPercentage > 85 ? 'bg-red-500' : contextPercentage > 60 ? 'bg-amber-500' : 'bg-emerald-500',
+            ]"
+            :style="{ width: `${Math.min(contextPercentage, 100)}%` }"
+          />
+        </div>
+      </div>
+      <div
+        v-else
         class="flex cursor-help items-center gap-1.5 px-2 py-1 text-[10px] font-bold tracking-tight uppercase"
         :class="[
           sessionTokenCount > 100000 ? 'text-amber-600 dark:text-amber-400' : 'text-neutral-400 dark:text-neutral-500',
@@ -406,6 +467,22 @@ watch(messageInput, () => {
         <div class="i-solar:graph-bold-duotone text-xs" />
         <span>{{ formattedTokenCount }}</span>
       </div>
+
+      <!-- Grounding Toggle -->
+      <button
+        :class="[
+          'max-h-[10lh] min-h-[1lh]',
+          'flex items-center justify-center rounded-md p-2 outline-none',
+          'transition-colors transition-transform active:scale-95',
+          activeCard?.extensions?.airi?.groundingEnabled
+            ? 'bg-amber-100 text-lg text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'
+            : 'bg-neutral-100 text-lg text-neutral-500 hover:text-primary-500 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:text-primary-400',
+        ]"
+        :title="activeCard?.extensions?.airi?.groundingEnabled ? 'Grounding Active — sensor data attached to messages' : 'Attach sensor data with each message (Visit Proactivity tab to preview)'"
+        @click="airiCardStore.toggleGrounding(activeCardId)"
+      >
+        <div :class="[activeCard?.extensions?.airi?.groundingEnabled ? 'i-solar:cpu-bolt-bold-duotone' : 'i-solar:cpu-bold-duotone']" />
+      </button>
 
       <!-- Save Memory Button -->
       <div class="relative">
@@ -614,9 +691,10 @@ watch(messageInput, () => {
 
             <!-- Content -->
             <div v-if="previewModal.type === 'text'" class="max-h-[60vh] overflow-y-auto px-4 py-3">
-              <p :class="['whitespace-pre-wrap text-sm leading-relaxed', 'text-neutral-700 dark:text-neutral-300']">
-                {{ previewModal.content }}
-              </p>
+              <MarkdownRenderer
+                :content="previewModal.content"
+                class="max-w-none prose prose-sm dark:prose-invert"
+              />
             </div>
             <div v-else class="flex items-center justify-center p-2">
               <img :src="previewModal.content" class="max-h-[60vh] w-auto rounded-lg object-contain">
