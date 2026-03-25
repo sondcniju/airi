@@ -209,6 +209,44 @@ export const useHearingStore = defineStore('hearing-store', () => {
       throw new Error('File input is required for transcription.')
     }
 
+    if (providerId === 'deepgram-transcription') {
+      const providerConfig = providersStore.getProviderConfig(providerId)
+      let baseUrl = (providerConfig.baseUrl as string) || 'https://api.deepgram.com/v1/'
+
+      if (baseUrl.includes('/openai')) {
+        baseUrl = baseUrl.replace(/\/openai\/?$/, '')
+        if (!baseUrl.endsWith('/'))
+          baseUrl += '/'
+      }
+
+      const res = await fetch(`${baseUrl}listen?model=${model}&smart_format=true`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${providerConfig.apiKey}`,
+          'Content-Type': normalizedInput.file.type || 'audio/webm',
+        },
+        body: normalizedInput.file,
+        signal: options?.providerOptions?.abortSignal as AbortSignal | undefined,
+      })
+
+      if (!res.ok) {
+        throw new Error(`Deepgram API error: ${res.status} ${res.statusText}`)
+      }
+
+      const data = await res.json()
+      const text = data.results?.channels?.[0]?.alternatives?.[0]?.transcript || ''
+
+      console.info('[Hearing Store] Deepgram native response received', {
+        text: text.substring(0, 50),
+      })
+
+      return {
+        mode: 'generate',
+        text,
+        raw: data,
+      } as any
+    }
+
     const response = await generateTranscription({
       ...provider.transcription(model, options?.providerOptions),
       file: normalizedInput.file,

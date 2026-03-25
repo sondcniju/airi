@@ -112,7 +112,7 @@ export function normalizeComponentProps(raw?: string | Record<string, any>) {
 function getArtistryConfig() {
   try {
     const store = useArtistryStore()
-    return {
+    const config = {
       provider: store.activeProvider,
       model: store.activeModel,
       promptPrefix: store.defaultPromptPrefix,
@@ -127,6 +127,7 @@ function getArtistryConfig() {
         replicateInferenceSteps: store.replicateInferenceSteps,
       },
     }
+    return JSON.parse(JSON.stringify(config))
   }
   catch (e) {
     return {}

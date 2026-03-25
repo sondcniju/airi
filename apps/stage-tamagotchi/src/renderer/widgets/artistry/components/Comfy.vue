@@ -45,12 +45,24 @@ watch([() => props.entryId, history], ([newId, newHistory]) => {
 const isFlipped = ref(false)
 const errorOccurred = ref(false)
 const isSettingBackground = ref(false)
+const isBrowsingGallery = ref(false)
+
+watch(() => props.status, (newStatus) => {
+  if (newStatus === 'generating') {
+    isBrowsingGallery.value = false
+  }
+})
 
 const hideWindow = useElectronEventaInvoke(widgetsHideWindow)
 const removeWidget = useElectronEventaInvoke(widgetsRemove)
 
 // The current image is either resolved from the collection or fallback to props
-const currentImage = computed(() => history.value[currentIndex.value])
+const currentImage = computed(() => {
+  if (!isBrowsingGallery.value && !props.entryId && props.imageUrl) {
+    return undefined
+  }
+  return history.value[currentIndex.value]
+})
 const resolvedImageUrl = computed(() => {
   if (currentImage.value)
     return backgroundStore.getBackgroundUrl(currentImage.value.id)
