@@ -84,16 +84,34 @@ async function executeCreateImageJournalEntry(params: { prompt?: string, title?:
 
     let blob: Blob
     if (artistryResult.base64) {
-      // Convert base64 to blob
-      const parts = artistryResult.base64.split(',')
-      const contentType = parts[0].split(':')[1].split(';')[0]
-      const byteCharacters = atob(parts[1])
-      const byteNumbers = new Array(byteCharacters.length)
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      // Handle both Data URL and raw base64
+      let data = artistryResult.base64
+      let contentType = 'image/png' // Default fallback
+
+      if (typeof data === 'string' && data.includes(',')) {
+        const parts = data.split(',')
+        const header = parts[0]
+        data = parts[1]
+
+        // Extract content type if available
+        if (header.includes(':') && header.includes(';')) {
+          contentType = header.split(':')[1]?.split(';')[0] || contentType
+        }
       }
-      const byteArray = new Uint8Array(byteNumbers)
-      blob = new Blob([byteArray], { type: contentType })
+
+      try {
+        const byteCharacters = atob(data)
+        const byteNumbers = new Array(byteCharacters.length)
+        for (let j = 0; j < byteCharacters.length; j++) {
+          byteNumbers[j] = byteCharacters.charCodeAt(j)
+        }
+        const byteArray = new Uint8Array(byteNumbers)
+        blob = new Blob([byteArray], { type: contentType })
+      }
+      catch (e) {
+        console.error('[ImageJournalTool] Failed to decode base64:', e)
+        throw new Error('Failed to decode generated image data.')
+      }
     }
     else {
       // Fallback to fetch if base64 is missing for some reason

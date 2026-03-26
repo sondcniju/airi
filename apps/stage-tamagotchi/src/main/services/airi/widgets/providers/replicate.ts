@@ -85,7 +85,10 @@ export class ReplicateProvider implements ArtistryProvider {
           result = result.replace(/\{\{IMAGE\}\}/g, dataUrl)
         }
         // Handle prompt replacement
-        result = result.replace(/\{\{PROMPT\}\}/g, request.prompt || '')
+        if (result.includes('{{PROMPT}}')) {
+          const truncatedPrompt = this.truncatePrompt(request.prompt || '')
+          result = result.replace(/\{\{PROMPT\}\}/g, truncatedPrompt)
+        }
         return result
       }
       if (Array.isArray(obj))
@@ -100,6 +103,11 @@ export class ReplicateProvider implements ArtistryProvider {
     }
 
     inputOptions = replacePlaceholders(inputOptions)
+
+    // Ensure main prompt is also truncated if not using a placeholder
+    if (inputOptions.prompt && !hasPromptPlaceholder) {
+      inputOptions.prompt = this.truncatePrompt(inputOptions.prompt)
+    }
 
     log.log(`[Replicate] Generating with model ${model}. Input keys: ${Object.keys(inputOptions).join(', ')}`)
 
@@ -174,5 +182,12 @@ export class ReplicateProvider implements ArtistryProvider {
 
   async getStatus(jobId: string): Promise<ArtistryJobStatus> {
     return this.jobResults.get(jobId) || { status: 'queued' }
+  }
+
+  private truncatePrompt(prompt: string, maxChars: number = 380): string {
+    if (prompt.length <= maxChars)
+      return prompt
+    log.log(`[Replicate] Truncating prompt from ${prompt.length} to ${maxChars} chars.`)
+    return `${prompt.slice(0, maxChars)}...`
   }
 }

@@ -45,11 +45,14 @@ async function downloadImageAsBase64(url: string): Promise<string> {
   }
 }
 
-// Maintain a registry of providers
+// Maintaining a registry of providers
 export const artistryProviders = new Map<string, ArtistryProvider>()
 artistryProviders.set('comfyui', new ComfyUIProvider())
 artistryProviders.set('replicate', new ReplicateProvider())
 artistryProviders.set('nanobanana', new NanoBananaProvider())
+
+// Deduplication map for headless requests
+const pendingHeadlessRequests = new Map<string, Promise<{ imageUrl?: string, base64?: string, error?: string }>>()
 
 export async function generateHeadless(params: {
   prompt: string
@@ -58,100 +61,129 @@ export async function generateHeadless(params: {
   options?: Record<string, any>
   globals?: any
 }): Promise<{ imageUrl?: string, base64?: string, error?: string }> {
-  const requestedProvider = (params.provider || 'replicate').trim().toLowerCase()
-  const provider = artistryProviders.get(requestedProvider)
-  if (!provider) {
-    log.error(`[Headless] CRITICAL: Provider '${requestedProvider}' not found in registry!`)
-    throw new Error(`Provider '${requestedProvider}' not found.`)
+  // Create a fingerprint for deduplication
+  const fingerprint = JSON.stringify({
+    p: params.prompt,
+    m: params.model,
+    pr: params.provider,
+    o: params.options,
+    g: { ...params.globals, image: params.globals?.image ? 'HAS_IMAGE' : undefined },
+  })
+
+  if (pendingHeadlessRequests.has(fingerprint)) {
+    log.log(`[Headless] Deduplicating identical request: ${params.prompt.slice(0, 30)}...`)
+    return pendingHeadlessRequests.get(fingerprint)!
   }
 
-  // Initialize the provider if globals are provided
-  if (provider.initialize && params.globals) {
-    log.log(`[Headless] Initializing provider ${requestedProvider} with globals...`)
-    await provider.initialize(params.globals)
-  }
-
-  log.log(`[Headless] Globals keys: ${Object.keys(params.globals || {}).join(', ')}`)
-  if (params.globals?.image)
-    log.log(`[Headless] Source image length: ${params.globals.image.length}`)
-
-  const request: ArtistryRequest = {
-    prompt: params.prompt,
-    negativePrompt: params.options?.negativePrompt,
-    width: params.options?.width,
-    height: params.options?.height,
-    model: params.model,
-    extra: {
-      ...params.options,
-      image: params.globals?.image,
-      internalJobId: createRunId('headless'),
-    },
-  }
-
-  log.log(`[Headless] Starting generation with provider: ${requestedProvider}, model: ${params.model || 'default'}`)
-  const job = await provider.generate(request)
-  log.log(`[Headless] Job created: ${job.jobId}`)
-
-  // Polling/Wait for result
-  if (!('setJobCallback' in provider)) {
-    let isDone = false
-    let lastStatus: any = {}
-    const start = Date.now()
-    const timeout = 1000 * 60 * 5 // 5 minutes timeout
-
-    while (!isDone) {
-      if (Date.now() - start > timeout) {
-        log.error(`[Headless] Job ${job.jobId} timed out after 5 minutes.`)
-        throw new Error('Image generation timed out after 5 minutes.')
-      }
-
-      log.log(`[Headless] Polling status for job: ${job.jobId}...`)
-      lastStatus = await provider.getStatus(job.jobId)
-      log.log(`[Headless] Status for job ${job.jobId}: ${lastStatus.status}`)
-
-      if (lastStatus.status === 'succeeded' || lastStatus.status === 'failed') {
-        isDone = true
-      }
-      if (!isDone) {
-        await new Promise(resolve => setTimeout(resolve, 2000))
-      }
+  const executionPromise = (async () => {
+    const requestedProvider = (params.provider || 'replicate').trim().toLowerCase()
+    const provider = artistryProviders.get(requestedProvider)
+    if (!provider) {
+      log.error(`[Headless] CRITICAL: Provider '${requestedProvider}' not found in registry!`)
+      throw new Error(`Provider '${requestedProvider}' not found.`)
     }
 
-    if (lastStatus.status === 'failed') {
-      log.error(`[Headless] Job ${job.jobId} failed: ${lastStatus.error || 'Unknown error'}`)
-      throw new Error(lastStatus.error || 'Generation failed')
+    // Initialize the provider if globals are provided
+    if (provider.initialize && params.globals) {
+      log.log(`[Headless] Initializing provider ${requestedProvider} with globals...`)
+      await provider.initialize(params.globals)
     }
 
-    log.log(`[Headless] Job ${job.jobId} succeeded. Image URL: ${lastStatus.imageUrl}`)
-    const base64 = lastStatus.imageUrl ? await downloadImageAsBase64(lastStatus.imageUrl) : undefined
-    return { imageUrl: lastStatus.imageUrl, base64 }
-  }
-  else {
-    // For providers with callbacks (like ComfyUI), we wait for the result via the callback
-    log.log(`[Headless] Using callback-based wait logic for provider: ${requestedProvider}`)
-    return new Promise<{ imageUrl?: string, base64?: string }>((resolve, reject) => {
+    log.log(`[Headless] Globals keys: ${Object.keys(params.globals || {}).join(', ')}`)
+    if (params.globals?.image)
+      log.log(`[Headless] Source image length: ${params.globals.image.length}`)
+
+    const request: ArtistryRequest = {
+      prompt: params.prompt,
+      negativePrompt: params.options?.negativePrompt,
+      width: params.options?.width,
+      height: params.options?.height,
+      model: params.model,
+      extra: {
+        ...params.options,
+        image: params.globals?.image,
+        internalJobId: createRunId('headless'),
+      },
+    }
+
+    log.log(`[Headless] Starting generation with provider: ${requestedProvider}, model: ${params.model || 'default'}`)
+    const job = await provider.generate(request)
+    log.log(`[Headless] Job created: ${job.jobId}`)
+
+    // Polling/Wait for result
+    if (!('setJobCallback' in provider)) {
+      let isDone = false
+      let lastStatus: any = {}
+      const start = Date.now()
       const timeout = 1000 * 60 * 5 // 5 minutes timeout
-      const timer = setTimeout(() => {
-        reject(new Error('Image generation timed out after 5 minutes.'))
-      }, timeout)
 
-      ;(provider as any).setJobCallback(request.extra?.internalJobId, async (status: any) => {
-        if (status.status === 'succeeded') {
-          clearTimeout(timer)
-          try {
-            const base64 = status.imageUrl ? await downloadImageAsBase64(status.imageUrl) : undefined
-            resolve({ imageUrl: status.imageUrl, base64 })
-          }
-          catch (e) {
-            reject(e)
-          }
+      while (!isDone) {
+        if (Date.now() - start > timeout) {
+          log.error(`[Headless] Job ${job.jobId} timed out after 5 minutes.`)
+          throw new Error('Image generation timed out after 5 minutes.')
         }
-        else if (status.status === 'failed') {
-          clearTimeout(timer)
-          reject(new Error(status.error || 'Generation failed'))
+
+        log.log(`[Headless] Polling status for job: ${job.jobId}...`)
+        lastStatus = await provider.getStatus(job.jobId)
+        log.log(`[Headless] Status for job ${job.jobId}: ${lastStatus.status}`)
+
+        if (lastStatus.status === 'succeeded' || lastStatus.status === 'failed') {
+          isDone = true
         }
+        if (!isDone) {
+          await new Promise(resolve => setTimeout(resolve, 2000))
+        }
+      }
+
+      if (lastStatus.status === 'failed') {
+        log.error(`[Headless] Job ${job.jobId} failed: ${lastStatus.error || 'Unknown error'}`)
+        throw new Error(lastStatus.error || 'Generation failed')
+      }
+
+      log.log(`[Headless] Job ${job.jobId} succeeded. Image URL: ${lastStatus.imageUrl}`)
+      const base64 = lastStatus.imageUrl ? await downloadImageAsBase64(lastStatus.imageUrl) : undefined
+      return { imageUrl: lastStatus.imageUrl, base64 }
+    }
+    else {
+      // For providers with callbacks (like ComfyUI), we wait for the result via the callback
+      log.log(`[Headless] Using callback-based wait logic for provider: ${requestedProvider}`)
+      return new Promise<{ imageUrl?: string, base64?: string }>((resolve, reject) => {
+        const timeout = 1000 * 60 * 5 // 5 minutes timeout
+        const timer = setTimeout(() => {
+          reject(new Error('Image generation timed out after 5 minutes.'))
+        }, timeout)
+
+        ;(provider as any).setJobCallback(request.extra?.internalJobId, async (status: any) => {
+          if (status.status === 'succeeded') {
+            clearTimeout(timer)
+            try {
+              const base64 = status.imageUrl ? await downloadImageAsBase64(status.imageUrl) : undefined
+              resolve({ imageUrl: status.imageUrl, base64 })
+            }
+            catch (e) {
+              reject(e)
+            }
+          }
+          else if (status.status === 'failed') {
+            clearTimeout(timer)
+            reject(new Error(status.error || 'Generation failed'))
+          }
+        })
       })
-    })
+    }
+  })()
+
+  pendingHeadlessRequests.set(fingerprint, executionPromise)
+
+  try {
+    return await executionPromise
+  }
+  catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) }
+  }
+  finally {
+    // Remove from map after completion so it can be re-triggered later
+    pendingHeadlessRequests.delete(fingerprint)
   }
 }
 

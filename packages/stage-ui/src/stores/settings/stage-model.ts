@@ -66,19 +66,20 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
       return
     }
 
-    switch (model.format) {
-      case DisplayModelFormat.Live2dZip:
-        stageModelRenderer.value = 'live2d'
-        break
-      case DisplayModelFormat.VRM:
-        stageModelRenderer.value = 'vrm'
-        break
-      default:
-        stageModelRenderer.value = 'disabled'
-        break
-    }
-
     if (model.type === 'file') {
+      // If we already have a URL for this exact file, don't re-create it.
+      // Re-creating the URL triggers replaceStageModelUrl which revokes the active one.
+      if (stageModelSelectedFile.value === model.file && stageModelSelectedUrl.value?.startsWith('blob:')) {
+        stageModelSelectedDisplayModel.value = model
+        // Update renderer just in case
+        switch (model.format) {
+          case DisplayModelFormat.Live2dZip: stageModelRenderer.value = 'live2d'; break
+          case DisplayModelFormat.VRM: stageModelRenderer.value = 'vrm'; break
+          default: stageModelRenderer.value = 'disabled'; break
+        }
+        return
+      }
+
       const nextUrl = URL.createObjectURL(model.file)
       if (requestId !== stageModelUpdateSequence) {
         URL.revokeObjectURL(nextUrl)
@@ -89,8 +90,23 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
       stageModelSelectedFile.value = model.file
     }
     else {
-      replaceStageModelUrl(model.url)
+      // For URL types, we only update if it actually changed
+      if (stageModelSelectedUrl.value !== model.url) {
+        replaceStageModelUrl(model.url)
+      }
       stageModelSelectedFile.value = undefined
+    }
+
+    switch (model.format) {
+      case DisplayModelFormat.Live2dZip:
+        stageModelRenderer.value = 'live2d'
+        break
+      case DisplayModelFormat.VRM:
+        stageModelRenderer.value = 'vrm'
+        break
+      default:
+        stageModelRenderer.value = 'disabled'
+        break
     }
 
     stageModelSelectedDisplayModel.value = model

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { artistryGenerateHeadless, REPLICATE_PRESETS } from '@proj-airi/stage-shared'
+import { ARTISTRY_PRESET_GROUPS, artistryGenerateHeadless, REPLICATE_PRESETS } from '@proj-airi/stage-shared'
 import { useModelStore } from '@proj-airi/stage-ui-three'
 import { Button } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
@@ -46,6 +46,13 @@ const isGenerating = ref(false)
 const isExporting = ref(false)
 const aiError = ref<string | null>(null)
 const showPresets = ref(false)
+const selectedCategory = ref<string | null>(null)
+
+const activePresets = computed(() => {
+  if (!selectedCategory.value)
+    return []
+  return ARTISTRY_PRESET_GROUPS.find(g => g.id === selectedCategory.value)?.presets || []
+})
 
 const availableProviders = [
   { id: 'nanobanana', name: 'Nano Banana', icon: 'i-solar:gallery-round-bold-duotone' },
@@ -53,14 +60,7 @@ const availableProviders = [
   { id: 'comfyui', name: 'ComfyUI', icon: 'i-solar:settings-bold-duotone' },
 ]
 
-// Preset Palette Data
-const presets = [
-  { id: 'gothic', label: 'Midnight Gothic', icon: 'i-solar:ghost-bold-duotone', text: 'Midnight Gothic style. Deep matte black fabric, crimson lace ruffles, dark leather straps, silver scrollwork embroidery.' },
-  { id: 'cyber', label: 'Cyber Tech', icon: 'i-solar:cpu-bold-duotone', text: 'Cyberpunk Techwear aesthetic. Dark charcoal grey fabric, glowing neon cyan trim, tactical utility buckles, hexagonal digital camo.' },
-  { id: 'royal', label: 'Royal Porcelain', icon: 'i-solar:crown-minimalistic-bold-duotone', text: 'Royal Porcelain style. White silk base, hand-painted cobalt blue patterns, golden silk sashes, jade ornaments.' },
-  { id: 'demon', label: 'Demon Eyes', icon: 'i-solar:mask-h-bold-duotone', text: 'Demonic eye transformation. Neon yellow scleras, glowing crimson red irises, sharp vertical black slit pupils.' },
-  { id: 'gold', label: 'Gold Leaf', icon: 'i-solar:star-bold-duotone', text: 'Divine Golden transformation. Pure white velvet fabric with thick 24k gold leaf embroidery and glowing white celestial patterns.' },
-]
+// Preset Palette moved to shared artistry.ts
 
 function injectPreset(text: string) {
   aiPrompt.value = text
@@ -816,16 +816,38 @@ onMounted(() => {
             <div class="space-y-2">
               <button class="group w-full flex items-center justify-between border border-white/10 rounded-lg bg-white/5 p-2 transition hover:border-emerald-500/30" @click="showPresets = !showPresets">
                 <div class="flex items-center gap-2">
-                  <div i-solar:palette-bold-duotone class="text-xs text-emerald-400" /><span class="text-[10px] text-neutral-300 font-bold tracking-wider uppercase">Preset Palette</span>
+                  <div i-solar:palette-bold-duotone class="text-xs text-emerald-400" />
+                  <span class="text-[10px] text-neutral-300 font-bold tracking-wider uppercase">
+                    {{ selectedCategory ? ARTISTRY_PRESET_GROUPS.find(g => g.id === selectedCategory)?.label : 'Preset Palette' }}
+                  </span>
                 </div>
                 <div :class="[showPresets ? 'i-solar:alt-arrow-down-bold-duotone' : 'i-solar:alt-arrow-right-bold-duotone']" class="text-neutral-500 transition group-hover:text-emerald-400" />
               </button>
-              <div v-if="showPresets" class="animate-in fade-in slide-in-from-top-1 grid grid-cols-2 gap-2 border border-white/5 rounded-lg bg-black/40 p-2">
-                <button v-for="preset in presets" :key="preset.id" class="flex items-center gap-2 border border-transparent rounded-md bg-white/5 p-2 text-left transition hover:border-emerald-500/30 hover:bg-emerald-500/20" @click="injectPreset(preset.text)">
-                  <div :class="preset.icon" class="shrink-0 text-xs text-emerald-400" /><div class="truncate text-[9px] text-neutral-300 font-bold leading-tight">
-                    {{ preset.label }}
+
+              <div v-if="showPresets" class="animate-in fade-in slide-in-from-top-2 border border-white/5 rounded-lg bg-black/40 p-2 space-y-2">
+                <!-- Category Selection -->
+                <div v-if="!selectedCategory" class="grid grid-cols-2 gap-2">
+                  <button v-for="group in ARTISTRY_PRESET_GROUPS" :key="group.id" class="group/cat relative h-12 flex flex-col items-center justify-center gap-1 overflow-hidden border border-white/5 rounded-lg bg-white/5 transition hover:border-emerald-500/30 hover:bg-emerald-500/10" @click="selectedCategory = group.id">
+                    <div :class="group.icon" class="text-lg text-neutral-500 transition group-hover/cat:text-emerald-400" />
+                    <span class="text-[7px] text-neutral-400 font-bold tracking-tighter uppercase group-hover/cat:text-white">{{ group.label }}</span>
+                  </button>
+                </div>
+
+                <!-- Preset Selection -->
+                <div v-else class="space-y-2">
+                  <button class="w-full flex items-center gap-2 border-b border-white/5 pb-2 text-[8px] text-neutral-500 font-bold uppercase transition hover:text-white" @click="selectedCategory = null">
+                    <div i-solar:alt-arrow-left-bold-duotone class="text-xs" />
+                    Back to Categories
+                  </button>
+                  <div class="grid grid-cols-2 gap-2">
+                    <button v-for="preset in activePresets" :key="preset.id" class="group/preset flex items-center gap-2 border border-transparent rounded-md bg-white/5 p-2 text-left transition hover:border-emerald-500/30 hover:bg-emerald-500/20" @click="injectPreset(preset.text)">
+                      <div :class="preset.icon" class="shrink-0 text-xs text-neutral-500 transition group-hover/preset:text-emerald-400" />
+                      <div class="truncate text-[9px] text-neutral-300 font-bold leading-tight group-hover/preset:text-white">
+                        {{ preset.label }}
+                      </div>
+                    </button>
                   </div>
-                </button>
+                </div>
               </div>
             </div>
 
