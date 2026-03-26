@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n'
 
 import VRMExpressions from './vrm-expressions.vue'
 
+import { useVHackStore } from '../../../../stores/vhack'
 import { Container, PropertyColor, PropertyNumber } from '../../../data-pane'
 import { ColorPalette } from '../../../widgets'
 
@@ -21,6 +22,7 @@ defineEmits<{
 const { t } = useI18n()
 
 const modelStore = useModelStore()
+const vhackStore = useVHackStore()
 const customVrmAnimationsStore = useCustomVrmAnimationsStore()
 const {
   modelSize,
@@ -316,6 +318,23 @@ const envOptions = computed(() => [
     >
       <div flex="~ col gap-4" p-2 :class="settingsLockClass">
         <div flex="~ col gap-2">
+          <div class="px-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
+            V-HACK Editor
+          </div>
+          <Button
+            :variant="vhackStore.isHackerModeActive ? 'primary' : 'secondary'"
+            :disabled="sceneMutationLocked"
+            @click="vhackStore.toggleHackerMode"
+          >
+            <template #icon>
+              <div i-solar:mask-h-bold-duotone />
+            </template>
+            V-HACK Dashboard
+          </Button>
+          <p class="mb-2 px-1 text-[10px] text-neutral-400">
+            Open the Hacker Inspector for real-time mesh and material modding.
+          </p>
+
           <div class="px-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
             Theme Extraction
           </div>

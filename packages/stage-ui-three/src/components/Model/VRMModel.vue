@@ -219,6 +219,9 @@ function componentCleanUp() {
   airiIblProbe = null
   initialHipWorldPosition.value = null
 
+  modelStore.activeVrm = null
+  modelStore.activeVrmIdentity = ''
+
   vrmAnimationMixer.value?.removeEventListener('finished', onAnimationFinished)
 }
 
@@ -323,6 +326,8 @@ async function loadModel() {
       */
       vrm.value = _vrm
       vrmGroup.value = _vrmGroup
+      modelStore.activeVrm = _vrm
+      modelStore.activeVrmIdentity = currentModelIdentity
       // If it's first load
       if (isFirstLoad) {
         emit('cameraPosition', {

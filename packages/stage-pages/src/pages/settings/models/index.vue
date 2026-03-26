@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ModelSettings } from '@proj-airi/stage-ui/components/scenarios/settings/model-settings'
+import { HackerPanel, ModelSettings } from '@proj-airi/stage-ui/components/scenarios/settings/model-settings'
 import { Vibrant } from 'node-vibrant/browser'
 import { ref } from 'vue'
 
@@ -39,6 +39,7 @@ async function extractColorsFromModel() {
       vrm-scene-class="absolute max-h-[calc(100dvh-100px-56px)] w-full h-full"
       :palette="palette" @extract-colors-from-model="extractColorsFromModel"
     />
+    <HackerPanel />
   </div>
 
   <div

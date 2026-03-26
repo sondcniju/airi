@@ -97,16 +97,22 @@ electronApp.setAppUserModelId('ai.moeru.airi')
 initScreenCaptureForMain()
 
 app.whenReady().then(async () => {
-  // NOTICE: Deepgram's API does not send CORS headers for browser-origin requests
-  // authenticated with project API keys. Since the renderer is a Chromium context,
-  // we inject permissive CORS response headers at the Electron session level for
-  // any requests to api.deepgram.com. This avoids needing a dedicated proxy backend.
+  // NOTICE: Deepgram and Qwen Portal APIs do not send CORS headers for browser-origin requests
+  // authenticated with project API keys or OAuth tokens. Since the renderer is a
+  // Chromium context, we inject permissive CORS response headers at the Electron
+  // session level for these specific domains. This avoids needing a dedicated proxy backend.
   session.defaultSession.webRequest.onHeadersReceived(
-    { urls: ['https://api.deepgram.com/*'] },
+    {
+      urls: [
+        'https://api.deepgram.com/*',
+        'https://chat.qwen.ai/*',
+        'https://portal.qwen.ai/*',
+      ],
+    },
     (details, callback) => {
       const headers = { ...details.responseHeaders }
       headers['access-control-allow-origin'] = ['*']
-      headers['access-control-allow-headers'] = ['Authorization, Content-Type']
+      headers['access-control-allow-headers'] = ['Authorization, Content-Type, x-request-id']
       headers['access-control-allow-methods'] = ['GET, POST, OPTIONS']
 
       // NOTICE: Deepgram returns 401/405 for preflight OPTIONS requests.

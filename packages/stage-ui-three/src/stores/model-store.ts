@@ -60,6 +60,8 @@ interface BroadcastChannelEventShouldUpdateView {
 }
 
 export const useModelStore = defineStore('modelStore', () => {
+  const activeVrm = ref<any>(null)
+  const activeVrmIdentity = ref<string>('')
   const { post, data } = useBroadcastChannel<BroadcastChannelEvents, BroadcastChannelEvents>({ name: 'airi-stores-live2d' })
   const shouldUpdateViewHooks = ref(new Set<() => void>())
 
@@ -128,6 +130,8 @@ export const useModelStore = defineStore('modelStore', () => {
     favoriteExpression.value = ''
     vrmIdleAnimation.value = 'idleLoop'
     vrmIdleCycleEnabled.value = false
+    activeVrm.value = null
+    activeVrmIdentity.value = ''
   }
 
   // === Lighting ===
@@ -209,6 +213,9 @@ export const useModelStore = defineStore('modelStore', () => {
     favoriteExpression,
     vrmIdleAnimation,
     vrmIdleCycleEnabled,
+
+    activeVrm,
+    activeVrmIdentity,
 
     onShouldUpdateView,
     shouldUpdateView,

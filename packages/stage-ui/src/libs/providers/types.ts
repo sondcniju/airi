@@ -141,7 +141,7 @@ export interface ProviderDefinition<TConfig extends any = any> {
   isAvailableBy?: () => Promise<boolean> | boolean
 
   createProviderConfig: (contextOptions: { t: ComposerTranslation }) => $ZodType<TConfig>
-  createProvider: (config: TConfig) => ProviderInstance
+  createProvider: (config: TConfig) => MaybePromise<ProviderInstance>
   extraMethods?: ProviderExtraMethods<TConfig>
   validationRequiredWhen?: (config: TConfig) => boolean
   validators?: {
