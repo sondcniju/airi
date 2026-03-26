@@ -20,6 +20,7 @@ export async function loadVrm(model: string, options?: {
   modelCenter: Vector3
   modelSize: Vector3
   initialCameraOffset: Vector3
+  parser: any
 } | undefined> {
   const loader = useVRMLoader()
   const gltf = await loader.loadAsync(model, progress => options?.onProgress?.(progress))
@@ -153,5 +154,6 @@ export async function loadVrm(model: string, options?: {
     modelCenter,
     modelSize,
     initialCameraOffset,
+    parser: gltf.parser,
   }
 }

@@ -48,6 +48,18 @@ const allArtistryProvidersMetadata = computed(() => {
       configured: !!artistryStore.replicateApiKey,
       to: '/settings/providers/artistry/replicate',
     },
+    {
+      id: 'nanobanana',
+      category: 'artistry',
+      icon: 'i-solar:gallery-round-bold-duotone',
+      iconColor: 'text-amber-500',
+      name: 'Nano Banana',
+      localizedName: 'Nano Banana',
+      description: 'Google AI Studio Image Preview.',
+      localizedDescription: 'Google AI Studio Image Preview.',
+      configured: !!artistryStore.nanobananaApiKey,
+      to: '/settings/providers/artistry/nanobanana',
+    },
   ]
 })
 

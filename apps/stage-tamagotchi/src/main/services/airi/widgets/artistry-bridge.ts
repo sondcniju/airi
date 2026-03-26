@@ -4,6 +4,7 @@ import type { ArtistryProvider, ArtistryRequest } from './providers/base'
 import { useLogg } from '@guiiai/logg'
 
 import { ComfyUIProvider } from './providers/comfyui'
+import { NanoBananaProvider } from './providers/nanobanana'
 import { ReplicateProvider } from './providers/replicate'
 
 const log = useLogg('artistry-bridge').useGlobalConfig()
@@ -36,9 +37,7 @@ async function downloadImageAsBase64(url: string): Promise<string> {
     if (!response.ok)
       throw new Error(`Failed to fetch image: ${response.statusText}`)
     const buffer = await response.arrayBuffer()
-    const contentType = response.headers.get('content-type') || 'image/png'
-    const base64 = Buffer.from(buffer).toString('base64')
-    return `data:${contentType};base64,${base64}`
+    return Buffer.from(buffer).toString('base64')
   }
   catch (error: any) {
     log.error(`[Artistry Bridge] Failed to download image: ${error.message}`)
@@ -50,6 +49,7 @@ async function downloadImageAsBase64(url: string): Promise<string> {
 export const artistryProviders = new Map<string, ArtistryProvider>()
 artistryProviders.set('comfyui', new ComfyUIProvider())
 artistryProviders.set('replicate', new ReplicateProvider())
+artistryProviders.set('nanobanana', new NanoBananaProvider())
 
 export async function generateHeadless(params: {
   prompt: string
@@ -58,27 +58,37 @@ export async function generateHeadless(params: {
   options?: Record<string, any>
   globals?: any
 }): Promise<{ imageUrl?: string, base64?: string, error?: string }> {
-  const providerId = params.provider || 'replicate'
-  const provider = artistryProviders.get(providerId)
+  const requestedProvider = (params.provider || 'replicate').trim().toLowerCase()
+  const provider = artistryProviders.get(requestedProvider)
   if (!provider) {
-    throw new Error(`Provider '${providerId}' not found.`)
+    log.error(`[Headless] CRITICAL: Provider '${requestedProvider}' not found in registry!`)
+    throw new Error(`Provider '${requestedProvider}' not found.`)
   }
 
   // Initialize the provider if globals are provided
   if (provider.initialize && params.globals) {
+    log.log(`[Headless] Initializing provider ${requestedProvider} with globals...`)
     await provider.initialize(params.globals)
   }
 
+  log.log(`[Headless] Globals keys: ${Object.keys(params.globals || {}).join(', ')}`)
+  if (params.globals?.image)
+    log.log(`[Headless] Source image length: ${params.globals.image.length}`)
+
   const request: ArtistryRequest = {
     prompt: params.prompt,
+    negativePrompt: params.options?.negativePrompt,
+    width: params.options?.width,
+    height: params.options?.height,
     model: params.model,
     extra: {
       ...params.options,
+      image: params.globals?.image,
       internalJobId: createRunId('headless'),
     },
   }
 
-  log.log(`[Headless] Starting generation with provider: ${providerId}, model: ${params.model || 'default'}`)
+  log.log(`[Headless] Starting generation with provider: ${requestedProvider}, model: ${params.model || 'default'}`)
   const job = await provider.generate(request)
   log.log(`[Headless] Job created: ${job.jobId}`)
 
@@ -118,7 +128,7 @@ export async function generateHeadless(params: {
   }
   else {
     // For providers with callbacks (like ComfyUI), we wait for the result via the callback
-    log.log(`[Headless] Using callback-based wait logic for provider: ${providerId}`)
+    log.log(`[Headless] Using callback-based wait logic for provider: ${requestedProvider}`)
     return new Promise<{ imageUrl?: string, base64?: string }>((resolve, reject) => {
       const timeout = 1000 * 60 * 5 // 5 minutes timeout
       const timer = setTimeout(() => {

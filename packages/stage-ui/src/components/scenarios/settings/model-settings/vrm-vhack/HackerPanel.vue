@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
+import { artistryGenerateHeadless, REPLICATE_PRESETS } from '@proj-airi/stage-shared'
 import { useModelStore } from '@proj-airi/stage-ui-three'
 import { Button } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
@@ -12,9 +14,10 @@ import { useVHackStore } from '../../../../../stores/vhack'
 
 const vhackStore = useVHackStore()
 const modelStore = useModelStore()
-// @ts-ignore
 const artistryStore = useArtistryStore()
-const { activeVrm } = storeToRefs(modelStore)
+const { activeVrm, activeVrmParser } = storeToRefs(modelStore)
+
+const generateInvoke = useElectronEventaInvoke(artistryGenerateHeadless)
 
 const activeTab = ref<'tree' | 'material' | 'texture'>('tree')
 const scrollContainer = ref<HTMLElement | null>(null)
@@ -29,10 +32,26 @@ const sourceTextureUrl = ref<string | null>(null)
 const lastGeneratedUrl = ref<string | null>(null)
 
 // AI State
+// AI State
 const aiPrompt = ref('')
+const aiNegativePrompt = ref('nsfw, naked, lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry')
+const aiGuidanceScale = ref(7.5)
+const aiSteps = ref(25)
+const aiReplicateModelId = ref('black-forest-labs/flux-schnell')
+const aiReplicateParams = ref('{}')
+const selectedReplicatePreset = ref('')
+const aiComfyParams = ref('{}')
+
 const isGenerating = ref(false)
+const isExporting = ref(false)
 const aiError = ref<string | null>(null)
 const showPresets = ref(false)
+
+const availableProviders = [
+  { id: 'nanobanana', name: 'Nano Banana', icon: 'i-solar:gallery-round-bold-duotone' },
+  { id: 'replicate', name: 'Replicate', icon: 'i-solar:cloud-bold-duotone' },
+  { id: 'comfyui', name: 'ComfyUI', icon: 'i-solar:settings-bold-duotone' },
+]
 
 // Preset Palette Data
 const presets = [
@@ -46,6 +65,18 @@ const presets = [
 function injectPreset(text: string) {
   aiPrompt.value = text
   showPresets.value = false
+}
+
+function getGltfImageIndex(texture: any) {
+  if (!activeVrmParser.value || !texture)
+    return null
+  const assoc = activeVrmParser.value.associations.get(texture)
+  if (assoc && assoc.textures !== undefined) {
+    const texIndex = assoc.textures
+    const gltfTex = activeVrmParser.value.json.textures[texIndex]
+    return gltfTex?.source ?? null
+  }
+  return null
 }
 
 function getTextureUrl(tex: any) {
@@ -88,6 +119,37 @@ function takeGlobalSnapshot() {
     }
   })
 }
+
+// Watchers
+watch(() => artistryStore.comfyuiActiveWorkflow, (newWorkflowId) => {
+  if (artistryStore.activeProvider === 'comfyui' && newWorkflowId) {
+    const workflow = artistryStore.comfyuiSavedWorkflows.find(w => w.id === newWorkflowId)
+    if (workflow) {
+      const example: Record<string, any> = {}
+      for (const [nodeTitle, fields] of Object.entries(workflow.exposedFields)) {
+        example[nodeTitle] = {}
+        for (const field of fields) {
+          const nodeId = Object.keys(workflow.workflow).find(id => (workflow.workflow[id]._meta?.title || workflow.workflow[id].class_type) === nodeTitle)
+          const val = nodeId ? workflow.workflow[nodeId].inputs[field] : '...'
+          example[nodeTitle][field] = val
+        }
+      }
+      aiComfyParams.value = JSON.stringify(example, null, 2)
+    }
+  }
+})
+
+watch(selectedReplicatePreset, (newPresetId) => {
+  if (artistryStore.activeProvider === 'replicate' && newPresetId) {
+    const preset = REPLICATE_PRESETS.find(p => p.id === newPresetId)
+    if (preset) {
+      aiReplicateModelId.value = preset.model
+      aiReplicateParams.value = preset.json
+      if (preset.prompt)
+        aiPrompt.value = preset.prompt
+    }
+  }
+})
 
 // Tree View Logic
 const nodes = computed(() => {
@@ -224,16 +286,24 @@ function selectTexture(item: any) {
 
 function jumpToNode(nodeItem: any) { selectNode(nodeItem); activeTab.value = 'material' }
 
-// Gemini AI Generation
+// Unified Artistry Generation
 async function generateAndSwap() {
-  if (!selectedMaterial.value || !aiPrompt.value || !vhackStore.geminiApiKey)
+  if (!selectedMaterial.value || !aiPrompt.value)
     return
+
+  vhackStore.isGeneratingTexture = true
+  vhackStore.generationProgress = 10
+  vhackStore.generationActionLabel = 'Preparing Canvas'
+  vhackStore.lastGenerationError = null
   isGenerating.value = true
   aiError.value = null
+
   try {
     const map = selectedMaterial.value.map
     if (!map)
       throw new Error('No texture found on material')
+
+    // 1. Prepare base64 from current texture
     const canvas = document.createElement('canvas')
     const img = map.image
     canvas.width = img.width
@@ -243,35 +313,83 @@ async function generateAndSwap() {
       throw new Error('Failed to create canvas context')
     ctx.drawImage(img, 0, 0)
     const base64Data = canvas.toDataURL('image/jpeg', 0.8).split(',')[1]
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${vhackStore.geminiModel}:generateContent?key=${vhackStore.geminiApiKey}`
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: aiPrompt.value },
-            { inline_data: { mime_type: 'image/jpeg', data: base64Data } },
-          ],
-        }],
-        generationConfig: { imageConfig: { aspectRatio: '1:1', imageSize: vhackStore.geminiResolution || '1K' } },
-      }),
+
+    // 2. Call Headless Artistry Bridge
+    let options: Record<string, any> = {}
+    const globals: Record<string, any> = {
+      ...JSON.parse(JSON.stringify(artistryStore.$state)),
+      image: base64Data,
+    }
+    let model: string | undefined
+
+    if (artistryStore.activeProvider === 'nanobanana') {
+      options = {
+        resolution: artistryStore.nanobananaResolution,
+        model: artistryStore.nanobananaModel,
+      }
+    }
+    else if (artistryStore.activeProvider === 'replicate') {
+      options = JSON.parse(aiReplicateParams.value || '{}')
+      model = aiReplicateModelId.value
+    }
+    else if (artistryStore.activeProvider === 'comfyui') {
+      try {
+        options = JSON.parse(aiComfyParams.value || '{}')
+      }
+      catch (e) {
+        options = {}
+      }
+      model = artistryStore.comfyuiActiveWorkflow
+    }
+
+    const result = await generateInvoke({
+      prompt: aiPrompt.value,
+      provider: artistryStore.activeProvider,
+      options,
+      globals,
+      model,
     })
-    const json = await response.json()
-    if (json.error) {
-      aiError.value = json.error.message || 'Gemini API Error'
+
+    if (result?.error) {
+      aiError.value = result.error
+      vhackStore.lastGenerationError = result.error
       return
     }
-    const inlineData = json.candidates?.[0]?.content?.parts?.[0]?.inlineData
-    if (inlineData?.data) {
-      const newUrl = `data:${inlineData.mimeType};base64,${inlineData.data}`
+
+    if (result?.base64) {
+      vhackStore.generationProgress = 90
+      vhackStore.generationActionLabel = 'Applying Result'
+
+      const newUrl = result.base64.startsWith('data:') ? result.base64 : `data:image/png;base64,${result.base64}`
       lastGeneratedUrl.value = newUrl
       swapTexture(newUrl)
+
+      // Register mutation for surgical persistence
+      const imgIndex = getGltfImageIndex(selectedMaterial.value.map)
+      if (imgIndex !== null) {
+        vhackStore.registerMutation(imgIndex, result.base64, 'image/png')
+      }
+
+      vhackStore.generationProgress = 100
+      vhackStore.generationActionLabel = 'Success'
     }
-    else { aiError.value = 'No image data returned from Gemini' }
+    else {
+      aiError.value = 'No image data returned from provider'
+      vhackStore.lastGenerationError = aiError.value
+    }
   }
-  catch (e: any) { aiError.value = e.message || 'Generation failed' }
-  finally { isGenerating.value = false }
+  catch (e: any) {
+    aiError.value = e.message || 'Generation failed'
+    vhackStore.lastGenerationError = aiError.value
+  }
+  finally {
+    isGenerating.value = false
+    vhackStore.isGeneratingTexture = false
+    setTimeout(() => {
+      vhackStore.generationProgress = 0
+      vhackStore.generationActionLabel = null
+    }, 2000)
+  }
 }
 
 function handleFileUpload(event: Event) {
@@ -296,6 +414,163 @@ function swapTexture(url: string) {
     selectedMaterial.value.map = tex
     selectedMaterial.value.needsUpdate = true
   })
+}
+
+// Binary Export Logic
+// Binary Export Logic (Surgical)
+async function exportVrm() {
+  if (!activeVrm.value || !vhackStore.sourceArrayBuffer) {
+    aiError.value = 'No source binary found (Reload model?)'
+    return
+  }
+  isExporting.value = true
+  try {
+    const originalBuffer = vhackStore.sourceArrayBuffer
+    const dataView = new DataView(originalBuffer)
+
+    // GLB Header
+    const magic = dataView.getUint32(0, true)
+    if (magic !== 0x46546C67)
+      throw new Error('Invalid GLB magic')
+
+    // JSON Chunk
+    const jsonLen = dataView.getUint32(12, true)
+    const jsonContent = new TextDecoder().decode(new Uint8Array(originalBuffer, 20, jsonLen))
+    const gltf = JSON.parse(jsonContent)
+
+    // BIN Chunk Info
+    const binOffset = 20 + jsonLen + 8
+    const binLen = dataView.getUint32(20 + jsonLen, true)
+    const originalBin = new Uint8Array(originalBuffer, binOffset, binLen)
+
+    // Mutation map: offset -> new data
+    // We only mutate if the texture exists in both our registry and the original file
+    const mutations: { offset: number, oldLen: number, newData: Uint8Array }[] = []
+
+    vhackStore.mutatedTextures.forEach((val, imgIndex) => {
+      const img = gltf.images[imgIndex]
+      if (img && img.bufferView !== undefined) {
+        const bv = gltf.bufferViews[img.bufferView]
+        const binaryString = atob(val.data)
+        const bytes = new Uint8Array(binaryString.length)
+        for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i)
+        mutations.push({ offset: bv.byteOffset, oldLen: bv.byteLength, newData: bytes })
+        // Update JSON with new length
+        bv.byteLength = bytes.length
+      }
+    })
+
+    // Sort mutations by offset so we can splice sequentially
+    mutations.sort((a, b) => a.offset - b.offset)
+
+    // Reconstruction logic: Building a NEW BIN chunk and updating all bufferView offsets
+    let currentShift = 0
+    let lastOriginalOffset = 0
+    const newBinParts: Uint8Array[] = []
+
+    // We need to update ALL bufferViews, not just mutated ones, because their offsets shift
+    const sortedBufferViews = gltf.bufferViews.map((bv: any, idx: number) => ({ ...bv, idx })).sort((a: any, b: any) => a.byteOffset - b.byteOffset)
+
+    sortedBufferViews.forEach((bvProxy: any) => {
+      const originalBv = gltf.bufferViews[bvProxy.idx]
+      const mutation = mutations.find(m => m.offset === originalBv.byteOffset)
+
+      // 1. Copy original data from last offset to current offset
+      if (originalBv.byteOffset > lastOriginalOffset) {
+        newBinParts.push(originalBin.slice(lastOriginalOffset, originalBv.byteOffset))
+      }
+
+      // Update this bufferView's offset in the final JSON
+      originalBv.byteOffset += currentShift
+
+      if (mutation) {
+        // 2. Inject mutated data
+        newBinParts.push(mutation.newData)
+        currentShift += (mutation.newData.length - mutation.oldLen)
+        lastOriginalOffset = mutation.offset + mutation.oldLen
+      }
+      else {
+        // 3. Copy original bufferView data
+        newBinParts.push(originalBin.slice(originalBv.byteOffset - currentShift, originalBv.byteOffset - currentShift + originalBv.byteLength))
+        lastOriginalOffset = originalBv.byteOffset - currentShift + originalBv.byteLength
+      }
+
+      // 4. Handle alignment (GLB requires 4-byte padding for bufferViews)
+      const currentTotalLen = newBinParts.reduce((acc, curr) => acc + curr.length, 0)
+      const padding = (4 - (currentTotalLen % 4)) % 4
+      if (padding > 0) {
+        newBinParts.push(new Uint8Array(padding).fill(0x20)) // Padding with spaces or zeros
+        currentShift += padding
+        // Note: we don't increment lastOriginalOffset here because padding is "fresh"
+      }
+    })
+
+    // Copy remaining original BIN data if any
+    if (lastOriginalOffset < originalBin.length) {
+      newBinParts.push(originalBin.slice(lastOriginalOffset))
+    }
+
+    // Final JSON Stringification and Padding (Surgical UTF-8 Fix)
+    const jsonEncoder = new TextEncoder()
+    const jsonStr = JSON.stringify(gltf)
+    let jsonBytes = jsonEncoder.encode(jsonStr)
+
+    const jsonPadding = (4 - (jsonBytes.length % 4)) % 4
+    if (jsonPadding > 0) {
+      const paddedBytes = new Uint8Array(jsonBytes.length + jsonPadding)
+      paddedBytes.set(jsonBytes)
+      for (let i = 0; i < jsonPadding; i++) paddedBytes[jsonBytes.length + i] = 0x20 // Pad with spaces
+      jsonBytes = paddedBytes
+    }
+
+    const finalBinLen = newBinParts.reduce((acc, curr) => acc + curr.length, 0)
+    const finalTotalLen = 12 + 8 + jsonBytes.length + 8 + finalBinLen
+
+    // Assembly
+    const outputBuffer = new ArrayBuffer(finalTotalLen)
+    const outView = new DataView(outputBuffer)
+    const outBytes = new Uint8Array(outputBuffer)
+
+    // Header
+    outView.setUint32(0, 0x46546C67, true)
+    outView.setUint32(4, 2, true)
+    outView.setUint32(8, finalTotalLen, true)
+
+    // JSON Chunk Header
+    outView.setUint32(12, jsonBytes.length, true)
+    outView.setUint32(16, 0x4E4F534A, true) // "JSON"
+
+    // JSON Content
+    outBytes.set(jsonBytes, 20)
+
+    // BIN Chunk Header
+    const binChunkHeaderOffset = 20 + jsonBytes.length
+    outView.setUint32(binChunkHeaderOffset, finalBinLen, true)
+    outView.setUint32(binChunkHeaderOffset + 4, 0x004E4942, true) // "BIN"
+
+    // BIN Content
+    let currentOutOffset = binChunkHeaderOffset + 8
+    newBinParts.forEach((part) => {
+      outBytes.set(part, currentOutOffset)
+      currentOutOffset += part.length
+    })
+
+    // Download
+    const blob = new Blob([outputBuffer], { type: 'application/octet-stream' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `V-HACK_${activeVrm.value?.meta?.name || 'Surgical'}.vrm`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+  catch (e: any) {
+    console.error('Surgical export failed:', e)
+    aiError.value = `Export failed: ${e.message}`
+  }
+  finally {
+    isExporting.value = false
+  }
 }
 
 function revert() {
@@ -367,7 +642,7 @@ onMounted(() => {
 
     <!-- Content -->
     <div ref="scrollContainer" class="custom-scrollbar flex-1 overflow-y-auto p-4">
-      <!-- Tree View -->
+      <!-- Tree View (no changes) -->
       <div v-if="activeTab === 'tree'" class="space-y-1">
         <div v-for="node in nodes" :key="node.uuid" class="group flex cursor-pointer items-center justify-between border border-transparent rounded-lg p-2 text-xs transition hover:border-white/5 hover:bg-white/5" :class="{ 'bg-emerald-500/10 border-emerald-500/30': vhackStore.selectedNodeName === node.name }" @click="selectNode(node)">
           <div class="flex items-center gap-2 truncate">
@@ -397,38 +672,101 @@ onMounted(() => {
             </div>
 
             <!-- AI Settings -->
-            <div v-if="vhackStore.showAiSettings" class="animate-in fade-in slide-in-from-top-2 border border-emerald-500/20 rounded-xl bg-emerald-500/5 p-3 space-y-3">
-              <div class="space-y-1">
-                <div class="text-[8px] text-emerald-400 font-bold uppercase">
-                  Gemini API Key
-                </div><input v-model="vhackStore.geminiApiKey" type="password" placeholder="AIpk..." class="w-full border border-white/10 rounded-md bg-black/40 p-2 text-[10px] text-white outline-none">
+            <div v-if="vhackStore.showAiSettings" class="animate-in fade-in slide-in-from-top-2 border border-emerald-500/20 rounded-xl bg-emerald-500/5 p-3 space-y-4">
+              <!-- Provider Selector -->
+              <div class="space-y-2">
+                <div class="px-1 text-[8px] text-emerald-400 font-black tracking-widest uppercase">
+                  Network Provider
+                </div>
+                <div class="grid grid-cols-3 gap-1">
+                  <button v-for="p in availableProviders" :key="p.id" :class="[artistryStore.activeProvider === p.id ? 'bg-emerald-500 text-black border-emerald-400' : 'bg-white/5 text-neutral-400 border-white/5 hover:bg-white/10']" class="flex flex-col items-center gap-1 border rounded-lg p-2 text-[8px] font-bold uppercase transition" @click="artistryStore.activeProvider = p.id">
+                    <div :class="p.icon" class="text-sm" />{{ p.name }}
+                  </button>
+                </div>
               </div>
-              <div class="grid grid-cols-2 gap-2">
+
+              <!-- Provider Specific Fields -->
+              <div v-if="artistryStore.activeProvider === 'nanobanana'" class="animate-in fade-in slide-in-from-top-1 space-y-3">
                 <div class="space-y-1">
                   <div class="text-[8px] text-neutral-400 font-bold uppercase">
-                    Model
-                  </div><select v-model="vhackStore.geminiModel" class="w-full border border-white/10 rounded-md bg-black/40 p-1 text-[8px] text-white">
+                    Model Name
+                  </div>
+                  <select v-model="artistryStore.nanobananaModel" class="w-full border border-white/10 rounded-md bg-black/40 p-1 text-[8px] text-white outline-none">
                     <option value="gemini-3.1-flash-image-preview">
-                      Flash 2.0
-                    </option><option value="gemini-3-pro-image-preview">
-                      Pro 2.0
-                    </option><option value="gemini-2.5-flash-image">
-                      Flash 1.5
+                      Nano Banana 2 (Gemini 3.1 Flash Image)
+                    </option>
+                    <option value="gemini-3-pro-image-preview">
+                      Nano Banana Pro (Gemini 3 Pro Image)
+                    </option>
+                    <option value="gemini-2.5-flash-image">
+                      Nano Banana (Gemini 2.5 Flash Image)
                     </option>
                   </select>
                 </div>
                 <div class="space-y-1">
                   <div class="text-[8px] text-neutral-400 font-bold uppercase">
-                    Res
-                  </div><select v-model="vhackStore.geminiResolution" class="w-full border border-white/10 rounded-md bg-black/40 p-1 text-[8px] text-white">
+                    Default Resolution
+                  </div>
+                  <select v-model="artistryStore.nanobananaResolution" class="w-full border border-white/10 rounded-md bg-black/40 p-1 text-[8px] text-white outline-none">
                     <option value="1K">
-                      1K
-                    </option><option value="2K">
-                      2K
-                    </option><option value="4K">
-                      4K
+                      1,024 x 1,024
+                    </option>
+                    <option value="2K">
+                      2,048 x 2,048
+                    </option>
+                    <option value="4K">
+                      4,096 x 4,096
                     </option>
                   </select>
+                </div>
+              </div>
+
+              <div v-else-if="artistryStore.activeProvider === 'replicate'" class="animate-in fade-in slide-in-from-top-1 space-y-3">
+                <div class="space-y-1">
+                  <div class="text-[8px] text-neutral-400 font-bold uppercase">
+                    Model Template
+                  </div>
+                  <select v-model="selectedReplicatePreset" class="w-full border border-white/10 rounded-md bg-black/40 p-1 text-[8px] text-white outline-none">
+                    <option value="">
+                      Manual Config
+                    </option>
+                    <option v-for="p in REPLICATE_PRESETS" :key="p.id" :value="p.id">
+                      {{ p.label }}
+                    </option>
+                  </select>
+                </div>
+                <div class="space-y-1">
+                  <div class="text-[8px] text-neutral-400 font-bold uppercase">
+                    Model ID
+                  </div>
+                  <input v-model="aiReplicateModelId" placeholder="owner/model-name..." class="w-full border border-white/10 rounded-md bg-black/40 p-2 text-[10px] text-white outline-none focus:border-emerald-500/50">
+                </div>
+                <div class="space-y-1">
+                  <div class="text-[8px] text-neutral-400 font-bold uppercase">
+                    JSON Parameters
+                  </div>
+                  <textarea v-model="aiReplicateParams" class="h-16 w-full resize-none border border-white/10 rounded-md bg-black/40 p-2 text-[8px] text-white font-mono outline-none" />
+                </div>
+              </div>
+
+              <div v-else-if="artistryStore.activeProvider === 'comfyui'" class="animate-in fade-in slide-in-from-top-1 space-y-3">
+                <div class="space-y-1">
+                  <div class="text-[8px] text-neutral-400 font-bold uppercase">
+                    Active Workflow
+                  </div>
+                  <select v-model="artistryStore.comfyuiActiveWorkflow" class="w-full border border-white/10 rounded-md bg-black/40 p-1 text-[8px] text-white outline-none">
+                    <option value="">
+                      Default Bridge
+                    </option>
+                    <option v-for="w in artistryStore.comfyuiSavedWorkflows" :key="w.id" :value="w.id">
+                      {{ w.name }}
+                    </option>
+                  </select>
+                </div>
+                <div class="space-y-1">
+                  <div class="text-[8px] text-neutral-400 font-bold uppercase">
+                    JSON Parameters
+                  </div><textarea v-model="aiComfyParams" class="h-16 w-full resize-none border border-white/10 rounded-md bg-black/40 p-2 text-[8px] text-white font-mono outline-none" />
                 </div>
               </div>
             </div>
@@ -450,9 +788,16 @@ onMounted(() => {
                   {{ lastGeneratedUrl ? 'Result' : 'Idle' }}
                 </div>
                 <div class="relative aspect-square flex items-center justify-center overflow-hidden border border-emerald-500/20 rounded-lg border-dashed bg-emerald-500/5">
-                  <img v-if="lastGeneratedUrl" :src="lastGeneratedUrl" class="animate-in fade-in zoom-in-95 h-full w-full object-cover"><div v-else-if="isGenerating" class="flex flex-col items-center gap-2">
-                    <div i-solar:spinner-bold class="animate-spin text-xl text-emerald-500" /><span class="animate-pulse text-[7px] text-emerald-500 font-bold uppercase">Painting...</span>
-                  </div><div v-else i-solar:ghost-bold-duotone class="text-2xl text-white/5" />
+                  <img v-if="lastGeneratedUrl" :src="lastGeneratedUrl" class="animate-in fade-in zoom-in-95 h-full w-full object-cover">
+                  <div v-else-if="isGenerating" class="flex flex-col items-center gap-2 px-4 text-center">
+                    <div i-solar:spinner-bold class="animate-spin text-xl text-emerald-500" />
+                    <span class="animate-pulse text-[7px] text-emerald-500 font-bold uppercase">{{ vhackStore.generationActionLabel || 'Generating...' }}</span>
+                    <!-- Progress Bar -->
+                    <div class="mt-1 h-1 w-full overflow-hidden rounded-full bg-white/5">
+                      <div class="h-full bg-emerald-500 transition-all duration-500" :style="{ width: `${vhackStore.generationProgress}%` }" />
+                    </div>
+                  </div>
+                  <div v-else i-solar:ghost-bold-duotone class="text-2xl text-white/5" />
                 </div>
               </div>
             </div>
@@ -461,23 +806,17 @@ onMounted(() => {
               {{ aiError }}
             </div>
 
-            <!-- PRESET PALETTE (New) -->
+            <!-- PRESET PALETTE -->
             <div class="space-y-2">
               <button class="group w-full flex items-center justify-between border border-white/10 rounded-lg bg-white/5 p-2 transition hover:border-emerald-500/30" @click="showPresets = !showPresets">
                 <div class="flex items-center gap-2">
-                  <div i-solar:palette-bold-duotone class="text-xs text-emerald-400" />
-                  <span class="text-[10px] text-neutral-300 font-bold tracking-wider uppercase">Preset Palette</span>
+                  <div i-solar:palette-bold-duotone class="text-xs text-emerald-400" /><span class="text-[10px] text-neutral-300 font-bold tracking-wider uppercase">Preset Palette</span>
                 </div>
                 <div :class="[showPresets ? 'i-solar:alt-arrow-down-bold-duotone' : 'i-solar:alt-arrow-right-bold-duotone']" class="text-neutral-500 transition group-hover:text-emerald-400" />
               </button>
               <div v-if="showPresets" class="animate-in fade-in slide-in-from-top-1 grid grid-cols-2 gap-2 border border-white/5 rounded-lg bg-black/40 p-2">
-                <button
-                  v-for="preset in presets" :key="preset.id"
-                  class="flex items-center gap-2 border border-transparent rounded-md bg-white/5 p-2 text-left transition hover:border-emerald-500/30 hover:bg-emerald-500/20"
-                  @click="injectPreset(preset.text)"
-                >
-                  <div :class="preset.icon" class="shrink-0 text-xs text-emerald-400" />
-                  <div class="truncate text-[9px] text-neutral-300 font-bold leading-tight">
+                <button v-for="preset in presets" :key="preset.id" class="flex items-center gap-2 border border-transparent rounded-md bg-white/5 p-2 text-left transition hover:border-emerald-500/30 hover:bg-emerald-500/20" @click="injectPreset(preset.text)">
+                  <div :class="preset.icon" class="shrink-0 text-xs text-emerald-400" /><div class="truncate text-[9px] text-neutral-300 font-bold leading-tight">
                     {{ preset.label }}
                   </div>
                 </button>
@@ -485,8 +824,8 @@ onMounted(() => {
             </div>
 
             <textarea v-model="aiPrompt" placeholder="Describe the style change..." class="h-20 w-full resize-none border border-white/10 rounded-xl bg-white/5 p-3 text-xs text-white font-mono outline-none transition focus:border-emerald-500/50" />
-            <Button variant="primary" class="w-full font-bold uppercase shadow-emerald-500/10 shadow-lg" :disabled="!aiPrompt || isGenerating || !vhackStore.geminiApiKey" @click="generateAndSwap">
-              {{ isGenerating ? 'Inscribing...' : 'Paint New Texture' }}
+            <Button variant="primary" class="w-full font-bold uppercase shadow-emerald-500/10 shadow-lg" :disabled="!aiPrompt || isGenerating || !artistryStore.activeProvider" @click="generateAndSwap">
+              {{ isGenerating ? (vhackStore.generationActionLabel || 'Inscribing...') : 'Paint New Texture' }}
             </Button>
           </div>
 
@@ -551,7 +890,11 @@ onMounted(() => {
       <div class="flex items-center justify-between px-1 text-[10px] text-neutral-500 font-bold uppercase">
         <span>Status</span><span :class="activeVrm ? 'text-emerald-500' : 'text-red-500'">{{ activeVrm ? 'CONNECTED' : 'OFFLINE' }}</span>
       </div>
-      <Button variant="secondary" size="sm" class="w-full bg-white/5 text-xs font-bold tracking-widest" :disabled="!activeVrm" @click="revert">
+      <Button variant="primary" size="sm" class="w-full bg-emerald-500 text-xs text-black font-black tracking-widest uppercase shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:bg-emerald-400" :disabled="!activeVrm || isExporting" @click="exportVrm">
+        <div v-if="isExporting" i-solar:spinner-bold class="mr-2 animate-spin" />
+        {{ isExporting ? 'Packaging...' : 'Download Modified VRM' }}
+      </Button>
+      <Button variant="secondary" size="sm" class="w-full border-white/5 bg-white/5 text-[10px] font-bold tracking-widest" :disabled="!activeVrm" @click="revert">
         REVERT ALL CHANGES
       </Button>
     </div>

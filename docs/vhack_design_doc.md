@@ -89,22 +89,27 @@ Because AIRI is an Electron app, it has the file-system access required to execu
 
 ## 4. MVP Prioritization 🎯
 
-To ensure a stable and viral release, we will prioritize features in the following order:
-
-1.  **The Tree View (Foundation)**: Parse and display the VRM's `nodes`, `meshes`, and `primitives`. This allows the user to see exactly "what" they are editing.
-2.  **Basic Material Lab**: Implement sliders for `_RimWidth`, `_ShadeShift`, and the `_SphereAdd` (MatCap) ID. This alone solves the "Waxy Skin" and "Glowing Fabric" problems.
+1.  **The Tree View (Foundation)**: Parse and display the VRM's `nodes`, `meshes`, and `primitives`.
+2.  **Basic Material Lab**: Implement sliders for `_RimWidth`, `_ShadeShift`.
 3.  **Texture Deck (Preview)**: View embedded images and allow manual texture overrides.
-4.  **AI Studio (V-HACK Prime)**: The high-value generation loop using existing Artistry providers.
+4.  **AI Studio (V-HACK Prime)**: Decoupled generation loop using unified Artistry providers.
+5.  **Surgical Persistence (The Repacker)**: [x] COMPLETED byte-level GLB splicing (UTF-8 Fix).
 
 ---
 
-## 4. Pending Questions & Unknowns ❓
+## 5. Future Wishlist (Phase 11+) 🌟
+
+*   **MatCap Swaps**: A boutique library of high-quality MatCap textures (Silk, Latex, Gold Leaf, Holographic) to swap the model's material finish in real-time.
+*   **Semantic Overrides**: Map cryptic mesh names (e.g., `Hair_001_A`) to friendly names (`Bangs`) for easier natural language prompting.
+
+---
+
+## 6. Pending Questions & Unknowns ❓
 
 | Unknown | Impact | Resolution Path |
 | :--- | :--- | :--- |
-| **NBP Resolution Param** | High | Confirm the exact API field name for setting 1k/2k/4k output in the NBP/OpenAI-compatible request. |
-| **Binary Bloat** | Medium | Should we add a Web-Worker based compression (e.g., `mozjpeg`) for 4k textures to keep the final `.vrm` size under 50MB? |
-| **Undo Stack** | Low | Determine if we need a full `Command Pattern` undo/redo system for the initial MVP, or if a "Revert to Original" button is sufficient. |
+| **Binary Bloat** | Medium | Should we add a Web-Worker based compression (e.g., `mozjpeg`) for 4k textures? |
+| **Undo Stack** | Low | "Revert to Original" button is currently the MVP solution. |
 
 ---
 

@@ -39,6 +39,7 @@ import { useSpeechStore } from '../../stores/modules/speech'
 import { useProvidersStore } from '../../stores/providers'
 import { useSettings } from '../../stores/settings'
 import { useSpeechRuntimeStore } from '../../stores/speech-runtime'
+import { useVHackStore } from '../../stores/vhack'
 
 withDefaults(defineProps<{
   paused?: boolean
@@ -57,6 +58,7 @@ const vrmViewerRef = ref<InstanceType<typeof ThreeScene>>()
 const live2dSceneRef = ref<InstanceType<typeof Live2DScene>>()
 
 const settingsStore = useSettings()
+const vhackStore = useVHackStore()
 const {
   stageModelRenderer,
   stageViewControlsEnabled,
@@ -850,7 +852,7 @@ defineExpose({
         :show-axes="stageViewControlsEnabled"
         :current-audio-source="currentAudioSource"
         @error="console.error"
-        @finished="handleAnimationFinished"
+        @binary-loaded="vhackStore.setSourceArrayBuffer" @finished="handleAnimationFinished"
       />
     </div>
   </div>

@@ -632,6 +632,10 @@ pages:
         title: ComfyUI
         settings:
           title: ComfyUI User Configuration
+      nanobanana:
+        title: Nano Banana
+        settings:
+          title: Nano Banana User Configuration
       alibaba-cloud-model-studio:
         description: bailian.console.aliyun.com
         title: Alibaba Cloud Model Studio

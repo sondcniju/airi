@@ -1,7 +1,7 @@
-<script setup lang="ts">
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { FieldInput } from '@proj-airi/ui'
 import { Select } from '@proj-airi/ui/components/form'
+import { REPLICATE_PRESETS } from '@proj-airi/stage-shared'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -19,85 +19,6 @@ const { t } = useI18n()
 
 const artistryStore = useArtistryStore()
 const comfyuiWorkflows = computed(() => artistryStore.comfyuiSavedWorkflows || [])
-
-const REPLICATE_MODELS = [
-  {
-    id: 'prunaai/p-image',
-    label: 'p-image',
-    cost: '$1 / 200 imgs',
-    prompt: 'A high-quality anime-style illustration with professional shading, vibrant colors, hand-drawn aesthetic, highly detailed,',
-    preset: {
-      aspect_ratio: '16:9',
-    },
-  },
-  {
-    id: 'prunaai/z-image-turbo',
-    label: 'z-turbo',
-    cost: '$1 / 200 imgs',
-    prompt: 'A highly detailed anime illustration, crisp lines, vibrant color palette, professional digital art style, nicely shaded,',
-    preset: {
-      width: 1024,
-      height: 768,
-      output_format: 'jpg',
-      guidance_scale: 0,
-      output_quality: 80,
-      num_inference_steps: 8,
-    },
-  },
-  {
-    id: 'black-forest-labs/flux-schnell',
-    label: 'flux-schnell',
-    cost: '$1 / 333 imgs',
-    prompt: 'A stunning, high-definition anime scene, professional cel-shading, vibrant atmosphere, hand-drawn quality,',
-    preset: {
-      go_fast: true,
-      num_outputs: 1,
-      aspect_ratio: '1:1',
-      output_format: 'webp',
-      output_quality: 80,
-    },
-  },
-  {
-    id: 'prunaai/z-image-turbo-lora:197b2db2015aa366d2bc61a941758adf4c31ac66b18573f5c66dc388ab081ca2',
-    label: 'z-turbo-lora',
-    cost: '$1 / 217 imgs',
-    prompt: 'A beautifully rendered anime illustration in a classic hand-drawn style, rich textures, vibrant colors, masterpiece quality,',
-    preset: {
-      width: 1024,
-      height: 1024,
-      lora_scales: [1],
-      lora_weights: ['https://huggingface.co/renderartist/Technically-Color-Z-Image-Turbo/resolve/main/Technically_Color_Z_Image_Turbo_v1_renderartist_2000.safetensors'],
-      output_format: 'jpg',
-      guidance_scale: 0,
-      output_quality: 80,
-      num_inference_steps: 8,
-    },
-  },
-  {
-    id: 'aisha-ai-official/wai-nsfw-illustrious-v11:c1d5b02687df6081c7953c74bcc527858702e8c153c9382012ccc3906752d3ec',
-    label: 'wai-ilx',
-    cost: '$1 / 151 imgs',
-    prompt: 'high quality, masterpiece, hirez, absurdres, anime style, highly detailed, vibrant colors, aesthetic,',
-    preset: {
-      vae: 'default',
-      seed: -1,
-      model: 'WAI-NSFW-illustrious-SDXL-v11',
-      steps: 30,
-      width: 1024,
-      height: 1024,
-      cfg_scale: 7,
-      clip_skip: 2,
-      pag_scale: 3,
-      scheduler: 'Euler a',
-      batch_size: 1,
-      negative_prompt: 'nsfw, naked',
-      guidance_rescale: 0.5,
-      prepend_preprompt: true,
-    },
-  },
-  {
-    id: 'aisha-ai-official/anillustrious-v4:80441e2c32a55f2fcf9b77fa0a74c6c86ad7deac51eed722b9faedb253265cb4',
-    label: 'anillustrious',
     cost: '$1 / 188 imgs',
     prompt: 'high quality, masterpiece, hirez, absurdres, anime style, detailed background, atmospheric, beautifully shaded,',
     preset: {
@@ -226,7 +147,7 @@ function openReplicateModel() {
 
       <div v-if="selectedArtistryProvider === 'replicate'" class="grid grid-cols-3 mb-2 gap-3">
         <button
-          v-for="model in REPLICATE_MODELS"
+          v-for="model in REPLICATE_PRESETS"
           :key="model.id"
           type="button"
           :class="[

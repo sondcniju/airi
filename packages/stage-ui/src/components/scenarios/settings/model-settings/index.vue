@@ -13,6 +13,7 @@ import VRM from './vrm.vue'
 
 import { DisplayModelFormat } from '../../../../stores/display-models'
 import { useSettings } from '../../../../stores/settings'
+import { useVHackStore } from '../../../../stores/vhack'
 import { ModelSelectorDialog } from '../../dialogs/model-selector'
 
 const props = defineProps<{
@@ -30,6 +31,7 @@ defineEmits<{
 const modelSelectorOpen = ref(false)
 const positionCursor = useMouse()
 const settingsStore = useSettings()
+const vhackStore = useVHackStore()
 const { scale: live2dScale } = storeToRefs(useLive2d())
 const {
   live2dDisableFocus,
@@ -146,7 +148,12 @@ async function handleModelPick(selectedModel: DisplayModel | undefined) {
   <!-- VRM component for 3D stage view -->
   <template v-if="stageModelRenderer === 'vrm'">
     <div :class="[...(props.vrmSceneClass ? (typeof props.vrmSceneClass === 'string' ? [props.vrmSceneClass] : props.vrmSceneClass) : [])]">
-      <ThreeScene ref="threeSceneRef" :model-src="stageModelSelectedUrl" :model-identity="stageModelSelected" />
+      <ThreeScene
+        ref="threeSceneRef"
+        :model-src="stageModelSelectedUrl"
+        :model-identity="stageModelSelected"
+        @binary-loaded="vhackStore.setSourceArrayBuffer"
+      />
     </div>
   </template>
 </template>

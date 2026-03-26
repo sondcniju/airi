@@ -46,7 +46,7 @@ export class ComfyUIProvider implements ArtistryProvider {
     const jobId = request.extra?.internalJobId || Math.random().toString(36).slice(2)
 
     // Resolve which workflow template to use
-    const templateId = request.extra?.template || this.activeWorkflowId
+    const templateId = request.model || request.extra?.template || this.activeWorkflowId
     const template = this.savedWorkflows.find(w => w.id === templateId)
 
     if (!template) {

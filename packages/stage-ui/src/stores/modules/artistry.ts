@@ -47,6 +47,17 @@ export const useArtistryStore = defineStore('artistry', () => {
     4,
   )
 
+  // --- Nano Banana (Google AI Studio) provider settings ---
+  const nanobananaApiKey = useLocalStorageManualReset<string>('artistry-nanobanana-api-key', '')
+  const nanobananaModel = useLocalStorageManualReset<string>(
+    'artistry-nanobanana-model',
+    'gemini-3.1-flash-image-preview',
+  )
+  const nanobananaResolution = useLocalStorageManualReset<string>(
+    'artistry-nanobanana-resolution',
+    '1K',
+  )
+
   function resetState() {
     activeProvider.reset()
     activeModel.reset()
@@ -59,6 +70,9 @@ export const useArtistryStore = defineStore('artistry', () => {
     replicateDefaultModel.reset()
     replicateAspectRatio.reset()
     replicateInferenceSteps.reset()
+    nanobananaApiKey.reset()
+    nanobananaModel.reset()
+    nanobananaResolution.reset()
   }
 
   const configured = computed(() => {
@@ -71,6 +85,10 @@ export const useArtistryStore = defineStore('artistry', () => {
 
     if (activeProvider.value === 'comfyui') {
       return !!comfyuiServerUrl.value
+    }
+
+    if (activeProvider.value === 'nanobanana') {
+      return !!nanobananaApiKey.value
     }
 
     return true
@@ -95,7 +113,11 @@ export const useArtistryStore = defineStore('artistry', () => {
     replicateAspectRatio,
     replicateInferenceSteps,
 
+    // Nano Banana provider config
+    nanobananaApiKey,
+    nanobananaModel,
+    nanobananaResolution,
+
     resetState,
   }
 })
-

@@ -52,19 +52,44 @@ export class ReplicateProvider implements ArtistryProvider {
     }
 
     const model = (request.model || request.extra?.model || this.defaultModel) as `${string}/${string}`
-    const inputOptions = {
+    const base64Image = request.extra?.image || ''
+
+    // 1. Start with defaults
+    let inputOptions: Record<string, any> = {
       prompt: request.prompt || '',
       go_fast: request.extra?.go_fast ?? true,
-      megapixels: request.extra?.megapixels ?? '1',
-      num_outputs: request.extra?.num_outputs ?? 1,
       aspect_ratio: request.extra?.aspect_ratio ?? this.aspectRatio,
-      output_format: request.extra?.output_format ?? 'jpg',
+      output_format: request.extra?.output_format ?? 'webp',
       output_quality: request.extra?.output_quality ?? 80,
       num_inference_steps: request.extra?.num_inference_steps ?? this.inferenceSteps,
-      ...request.extra?.providerOptions, // Allow direct passthrough from AiriCard options
     }
 
-    log.log(`[Replicate] Generating with model ${model} (Inputs: ${JSON.stringify(inputOptions)})`)
+    // 2. Merge overrides from the "JSON Parameters" textarea if present
+    if (request.extra) {
+      const { image, ...rest } = request.extra
+      inputOptions = { ...inputOptions, ...rest }
+    }
+
+    // 3. Recursive placeholder replacement for {{IMAGE}}
+    const injectImage = (obj: any): any => {
+      if (typeof obj === 'string') {
+        if (obj === '{{IMAGE}}')
+          return base64Image.startsWith('data:') ? base64Image : `data:image/jpeg;base64,${base64Image}`
+        return obj
+      }
+      if (Array.isArray(obj))
+        return obj.map(injectImage)
+      if (typeof obj === 'object' && obj !== null) {
+        const newObj: any = {}
+        for (const key in obj) newObj[key] = injectImage(obj[key])
+        return newObj
+      }
+      return obj
+    }
+
+    inputOptions = injectImage(inputOptions)
+
+    log.log(`[Replicate] Generating with model ${model}. Input keys: ${Object.keys(inputOptions).join(', ')}`)
 
     // We don't await the result here because the interface expects us to return an ArtistryJob immediately.
     // However, replicate.run() blocks until completion. We'll run it in the background and store the result.

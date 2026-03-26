@@ -5,6 +5,7 @@ export const useVHackStore = defineStore('vhack', () => {
   const isHackerModeActive = ref(false)
   const selectedNodeName = ref<string | null>(null)
   const selectedMaterialName = ref<string | null>(null)
+  const hiddenNodeUuids = ref<Set<string>>(new Set())
 
   // AI Settings (Persistent)
   const geminiApiKey = ref(localStorage.getItem('vhack_gemini_api_key') || '')
@@ -12,8 +13,16 @@ export const useVHackStore = defineStore('vhack', () => {
   const geminiResolution = ref(localStorage.getItem('vhack_gemini_res') || '1K')
   const showAiSettings = ref(false)
 
-  // Visibility Tracking
-  const hiddenNodeUuids = ref<Set<string>>(new Set())
+  // Surgical persistence state
+  const sourceArrayBuffer = ref<ArrayBuffer | null>(null)
+  const mutatedTextures = ref<Map<number, { data: string, mimeType: string }>>(new Map())
+
+  // Unified AI Generation State
+  const isGeneratingTexture = ref(false)
+  const generationProgress = ref(0)
+  const generationActionLabel = ref<string | null>(null)
+  const lastGenerationError = ref<string | null>(null)
+  const selectedTextureIndex = ref<number | null>(null)
 
   // Snapshots
   const snapshotMap = ref<Map<string, any>>(new Map())
@@ -42,6 +51,16 @@ export const useVHackStore = defineStore('vhack', () => {
     }
   }
 
+  function setSourceArrayBuffer(buffer: ArrayBuffer) {
+    sourceArrayBuffer.value = buffer
+    // Reset mutations when a new model is loaded
+    mutatedTextures.value.clear()
+  }
+
+  function registerMutation(index: number, data: string, mimeType: string) {
+    mutatedTextures.value.set(index, { data, mimeType })
+  }
+
   function resetState() {
     selectedNodeName.value = null
     selectedMaterialName.value = null
@@ -57,8 +76,20 @@ export const useVHackStore = defineStore('vhack', () => {
     geminiModel,
     geminiResolution,
     showAiSettings,
+    isGeneratingTexture,
+    generationProgress,
+    generationActionLabel,
+    lastGenerationError,
+    selectedTextureIndex,
+
     hiddenNodeUuids,
     snapshotMap,
+
+    sourceArrayBuffer,
+    mutatedTextures,
+    setSourceArrayBuffer,
+    registerMutation,
+
     toggleHackerMode,
     closeHackerMode,
     toggleNodeVisibility,

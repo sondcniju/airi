@@ -61,6 +61,7 @@ interface BroadcastChannelEventShouldUpdateView {
 
 export const useModelStore = defineStore('modelStore', () => {
   const activeVrm = ref<any>(null)
+  const activeVrmParser = ref<any>(null)
   const activeVrmIdentity = ref<string>('')
   const { post, data } = useBroadcastChannel<BroadcastChannelEvents, BroadcastChannelEvents>({ name: 'airi-stores-live2d' })
   const shouldUpdateViewHooks = ref(new Set<() => void>())
@@ -131,6 +132,7 @@ export const useModelStore = defineStore('modelStore', () => {
     vrmIdleAnimation.value = 'idleLoop'
     vrmIdleCycleEnabled.value = false
     activeVrm.value = null
+    activeVrmParser.value = null
     activeVrmIdentity.value = ''
   }
 
@@ -215,6 +217,7 @@ export const useModelStore = defineStore('modelStore', () => {
     vrmIdleCycleEnabled,
 
     activeVrm,
+    activeVrmParser,
     activeVrmIdentity,
 
     onShouldUpdateView,

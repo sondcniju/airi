@@ -113,6 +113,7 @@ const emit = defineEmits<{
 
   (e: 'error', value: unknown): void
   (e: 'loaded', value: { modelIdentity?: string, modelSrc: string }): void
+  (e: 'binaryLoaded', value: ArrayBuffer): void
   (e: 'finished'): void
 }>()
 
@@ -301,6 +302,17 @@ async function loadModel() {
           Number((100 * progress.loaded / progress.total).toFixed(2)),
         ),
       })
+
+      // Phase A: Binary Capture for Surgical Persistence
+      try {
+        const response = await fetch(modelSrc.value)
+        const buffer = await response.arrayBuffer()
+        emit('binaryLoaded', buffer)
+      }
+      catch (e) {
+        console.warn('[VRMModel] Precise binary capture failed:', e)
+      }
+
       if (!_vrmInfo || !_vrmInfo._vrm || !_vrmInfo?._vrmGroup) {
         console.warn('VRM model loading failure!')
         return
@@ -311,6 +323,7 @@ async function loadModel() {
         modelCenter: vrmModelCenter,
         modelSize: vrmModelSize,
         initialCameraOffset: vrmInitialCameraOffset,
+        parser: vrmParser,
       } = _vrmInfo
 
       // ASYNC GUARD: If we unmounted or a new load started, dispose this model immediately
@@ -327,6 +340,7 @@ async function loadModel() {
       vrm.value = _vrm
       vrmGroup.value = _vrmGroup
       modelStore.activeVrm = _vrm
+      modelStore.activeVrmParser = vrmParser
       modelStore.activeVrmIdentity = currentModelIdentity
       // If it's first load
       if (isFirstLoad) {

@@ -6,3 +6,7 @@ export { useCustomVrmAnimationsStore } from './stores/custom-vrm-animations'
 export { useModelStore } from './stores/model-store'
 export * from './trace'
 export * from './utils/vrm-preview'
+
+// Utils
+// @ts-ignore
+export { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
