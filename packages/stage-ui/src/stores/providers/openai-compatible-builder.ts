@@ -1,4 +1,4 @@
-import type { ModelInfo, ProviderMetadata } from '../providers'
+import type { ModelInfo, ProviderMetadata } from './types'
 
 import { generateSpeech } from '@xsai/generate-speech'
 import { generateText } from '@xsai/generate-text'
