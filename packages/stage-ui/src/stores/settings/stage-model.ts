@@ -3,7 +3,7 @@ import type { DisplayModel } from '../display-models'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { refManualReset, useEventListener } from '@vueuse/core'
 import { defineStore } from 'pinia'
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { DisplayModelFormat, useDisplayModelsStore } from '../display-models'
 
@@ -27,6 +27,7 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
   const stageModelRenderer = refManualReset<StageModelRenderer>(undefined)
 
   const stageViewControlsEnabled = refManualReset<boolean>(false)
+  const lastReloadReason = ref<string | undefined>(undefined)
 
   function isSameFile(f1?: File, f2?: File) {
     if (f1 === f2)
@@ -49,7 +50,9 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
     stageModelSelectedUrl.value = nextUrl
   }
 
-  async function updateStageModel() {
+  async function updateStageModel(reason?: string) {
+    if (reason)
+      lastReloadReason.value = reason
     const requestId = ++stageModelUpdateSequence
     const selectedModelId = stageModelSelectedState.value
 
@@ -121,8 +124,8 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
     stageModelSelectedDisplayModel.value = model
   }
 
-  async function initializeStageModel() {
-    await updateStageModel()
+  async function initializeStageModel(reason?: string) {
+    await updateStageModel(reason || 'initialization')
   }
 
   useEventListener('unload', () => {
@@ -130,7 +133,7 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
   })
 
   watch(stageModelSelectedState, (_newValue, _oldValue) => {
-    void updateStageModel()
+    void updateStageModel('manual selection')
   })
 
   async function resetState() {
@@ -143,7 +146,7 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
     stageModelRenderer.reset()
     stageViewControlsEnabled.reset()
 
-    await updateStageModel()
+    await updateStageModel('reset state')
   }
 
   return {
@@ -153,6 +156,7 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
     stageModelSelectedFile,
     stageModelSelectedDisplayModel,
     stageViewControlsEnabled,
+    lastReloadReason,
 
     initializeStageModel,
     updateStageModel,

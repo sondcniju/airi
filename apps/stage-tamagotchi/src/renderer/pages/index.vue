@@ -99,6 +99,7 @@ const isAroundWindowBorderForInstant = isAroundWindowBorder
 const setIgnoreMouseEvents = useElectronEventaInvoke(electron.window.setIgnoreMouseEvents)
 
 const { scale, positionInPercentageString } = storeToRefs(useLive2d())
+const { lastReloadReason } = storeToRefs(useSettings())
 const { live2dLookAtX, live2dLookAtY } = storeToRefs(useWindowStore())
 const { fadeOnHoverEnabled } = storeToRefs(useControlsIslandStore())
 
@@ -536,7 +537,12 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
               'animate-flash animate-duration-5s animate-count-infinite',
             ]"
           >
-            Loading...
+            <div class="flex flex-col items-center gap-1">
+              <div>Loading...</div>
+              <div v-if="lastReloadReason" class="text-1rem font-normal opacity-50">
+                Triggered by: {{ lastReloadReason }}
+              </div>
+            </div>
           </div>
         </div>
       </div>
