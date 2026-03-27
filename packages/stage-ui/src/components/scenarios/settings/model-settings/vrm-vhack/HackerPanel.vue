@@ -48,6 +48,7 @@ const aiError = ref<string | null>(null)
 const showPresets = ref(false)
 const selectedCategory = ref<string | null>(null)
 const nodeFilter = ref('')
+const textureUploader = ref<HTMLInputElement | null>(null)
 
 const activePresets = computed(() => {
   if (!selectedCategory.value)
@@ -424,6 +425,33 @@ function handleFileUpload(event: Event) {
     const url = e.target?.result as string
     swapTexture(url)
     lastGeneratedUrl.value = url
+  }
+  reader.readAsDataURL(file)
+}
+
+function triggerManualUpload() {
+  textureUploader.value?.click()
+}
+
+async function handleManualUpload(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file || !selectedMaterial.value)
+    return
+
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    const url = e.target?.result as string
+    const base64 = url.split(',')[1]
+
+    // 1. Swap in viewport
+    swapTexture(url)
+    lastGeneratedUrl.value = url
+
+    // 2. Register mutation for surgical persistence (Export parity)
+    const imgIndex = getGltfImageIndex(selectedMaterial.value.map)
+    if (imgIndex !== null) {
+      vhackStore.registerMutation(imgIndex, base64, 'image/png')
+    }
   }
   reader.readAsDataURL(file)
 }
@@ -879,9 +907,15 @@ onMounted(() => {
             </div>
 
             <textarea v-model="aiPrompt" placeholder="Describe the style change..." class="h-20 w-full resize-none border border-white/10 rounded-xl bg-white/5 p-3 text-xs text-white font-mono outline-none transition focus:border-emerald-500/50" />
-            <Button variant="primary" class="w-full font-bold uppercase shadow-emerald-500/10 shadow-lg" :disabled="!aiPrompt || isGenerating || !artistryStore.activeProvider" @click="generateAndSwap">
-              {{ isGenerating ? (vhackStore.generationActionLabel || 'Inscribing...') : 'Paint New Texture' }}
-            </Button>
+            <div class="grid grid-cols-2 gap-2">
+              <Button variant="primary" class="font-bold uppercase shadow-emerald-500/10 shadow-lg" :disabled="!aiPrompt || isGenerating || !artistryStore.activeProvider" @click="generateAndSwap">
+                {{ isGenerating ? (vhackStore.generationActionLabel || 'Inscribing...') : 'Paint New Texture' }}
+              </Button>
+              <Button variant="secondary" class="border-emerald-500/20 bg-emerald-500/5 font-bold uppercase hover:bg-emerald-500/10" :disabled="isGenerating" @click="triggerManualUpload">
+                Upload PNG
+              </Button>
+              <input ref="textureUploader" type="file" accept="image/png" class="hidden" @change="handleManualUpload">
+            </div>
           </div>
 
           <!-- PHYSICAL SHADERS -->
