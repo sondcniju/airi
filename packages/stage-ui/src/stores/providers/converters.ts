@@ -2,7 +2,7 @@ import type { ComposerTranslation } from 'vue-i18n'
 
 import type { ProviderDefinition } from '../../libs/providers/types'
 import type { ProviderValidationPlan } from '../../libs/providers/validators/run'
-import type { ProviderMetadata } from '../providers'
+import type { ProviderMetadata } from './types'
 
 import { listModels } from '@xsai/model'
 

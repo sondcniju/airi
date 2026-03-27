@@ -19,6 +19,7 @@ import type {
 } from 'unspeech'
 
 import type { AliyunRealtimeSpeechExtraOptions } from './providers/aliyun/stream-transcription'
+import type { ModelInfo, ProviderMetadata, ProviderRuntimeState, SpeechCapabilitiesInfo, VoiceInfo } from './providers/types'
 
 import { isStageTamagotchi, isUrl } from '@proj-airi/stage-shared'
 import { computedAsync, useLocalStorage } from '@vueuse/core'
@@ -48,7 +49,6 @@ import {
 } from '@xsai-ext/providers/utils'
 import { listModels } from '@xsai/model'
 import { debounce, uniqBy } from 'es-toolkit'
-import { isWebGPUSupported } from 'gpuu/webgpu'
 import { defineStore } from 'pinia'
 import {
   createUnAlibabaCloud,
@@ -61,47 +61,15 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
-import { listProviders as listDefinedProviders } from '../libs/providers'
-import { getProviderValidationIntervalMs } from '../libs/providers/validators/run'
 import { getKokoroWorker } from '../workers/kokoro'
 import { getDefaultKokoroModel, KOKORO_MODELS, kokoroModelsToModelInfo } from '../workers/kokoro/constants'
 import { createAliyunNLSProvider as createAliyunNlsStreamProvider } from './providers/aliyun/stream-transcription'
-import { convertProviderDefinitionsToMetadata } from './providers/converters'
 import { models as elevenLabsModels } from './providers/elevenlabs/list-models'
 import { createNativeElevenLabsProvider } from './providers/elevenlabs/native'
+import { isBrowserAndMemoryEnough, logWarn, toProviderRootBaseUrl, toV1SpeechBaseUrl, validateProviderBaseUrl } from './providers/helpers'
 import { buildOpenAICompatibleProvider } from './providers/openai-compatible-builder'
+import { createProviderRegistry } from './providers/registry'
 import { createWebSpeechAPIProvider } from './providers/web-speech-api'
-
-function logWarn(...args: unknown[]) {
-  try {
-    if (typeof localStorage !== 'undefined' && localStorage.getItem('airi:debug') === '1') {
-      console.warn(...args)
-    }
-  }
-  catch {
-    // Ignore
-  }
-}
-
-function normalizeProviderBaseUrl(value: unknown): string {
-  const trimmed = typeof value === 'string' ? value.trim() : ''
-  if (!trimmed)
-    return ''
-
-  return trimmed.endsWith('/') ? trimmed : `${trimmed}/`
-}
-
-function toV1SpeechBaseUrl(value: unknown): string {
-  const normalized = normalizeProviderBaseUrl(value)
-  if (!normalized)
-    return ''
-
-  return normalized.endsWith('/v1/') ? normalized : `${normalized}v1/`
-}
-
-function toProviderRootBaseUrl(value: unknown): string {
-  return toV1SpeechBaseUrl(value).replace(/\/v1\/$/, '/')
-}
 
 const ALIYUN_NLS_REGIONS = [
   'cn-shanghai',
@@ -114,211 +82,23 @@ const ALIYUN_NLS_REGIONS = [
 
 type AliyunNlsRegion = typeof ALIYUN_NLS_REGIONS[number]
 
-export interface ProviderMetadata {
-  id: string
-  order?: number
-  category: 'chat' | 'embed' | 'speech' | 'transcription' | 'vision'
-  tasks: string[]
-  nameKey: string // i18n key for provider name
-  name: string // Default name (fallback)
-  localizedName?: string
-  descriptionKey: string // i18n key for description
-  description: string // Default description (fallback)
-  localizedDescription?: string
-  configured?: boolean
-  /**
-   * Indicates whether the provider is available.
-   * If not specified, the provider is always available.
-   *
-   * May be specified when any of the following criteria is required:
-   *
-   * Platform requirements:
-   *
-   * - app-* providers are only available on desktop, this is responsible for Tauri runtime checks
-   * - web-* providers are only available on web, this means Node.js and Tauri should not be imported or used
-   *
-   * System spec requirements:
-   *
-   * - may requires WebGPU / NVIDIA / other types of GPU,
-   *   on Web, WebGPU will automatically compiled to use targeting GPU hardware
-   * - may requires significant amount of GPU memory to run, especially for
-   *   using of small language models within browser or Tauri app
-   * - may requires significant amount of memory to run, especially for those
-   *   non-WebGPU supported environments.
-   */
-  isAvailableBy?: () => Promise<boolean> | boolean
-  /**
-   * Iconify JSON icon name for the provider.
-   *
-   * Icons are available for most of the AI provides under @proj-airi/lobe-icons.
-   */
-  icon?: string
-  iconColor?: string
-  /**
-   * In case of having image instead of icon, you can specify the image URL here.
-   */
-  iconImage?: string
-  pricing?: 'free' | 'paid'
-  deployment?: 'local' | 'cloud'
-  beginnerRecommended?: boolean
-  defaultOptions?: () => Record<string, unknown>
-  createProvider: (
-    config: Record<string, unknown>,
-  ) =>
-    | ChatProvider
-    | ChatProviderWithExtraOptions
-    | EmbedProvider
-    | EmbedProviderWithExtraOptions
-    | SpeechProvider
-    | SpeechProviderWithExtraOptions
-    | TranscriptionProvider
-    | TranscriptionProviderWithExtraOptions
-    | Promise<ChatProvider>
-    | Promise<ChatProviderWithExtraOptions>
-    | Promise<EmbedProvider>
-    | Promise<EmbedProviderWithExtraOptions>
-    | Promise<SpeechProvider>
-    | Promise<SpeechProviderWithExtraOptions>
-    | Promise<TranscriptionProvider>
-    | Promise<TranscriptionProviderWithExtraOptions>
-  capabilities: {
-    listModels?: (config: Record<string, unknown>) => Promise<ModelInfo[]>
-    listVoices?: (config: Record<string, unknown>) => Promise<VoiceInfo[]>
-    getSpeechCapabilities?: (config: Record<string, unknown>) => Promise<SpeechCapabilitiesInfo | null>
-    loadModel?: (config: Record<string, unknown>, hooks?: { onProgress?: (progress: ProgressInfo) => Promise<void> | void }) => Promise<void>
-  }
-  validators: {
-    validateProviderConfig: (config: Record<string, unknown>) => Promise<{
-      errors: unknown[]
-      reason: string
-      valid: boolean
-    }> | {
-      errors: unknown[]
-      reason: string
-      valid: boolean
-    }
-    runManualValidation?: (config: Record<string, unknown>) => Promise<{
-      errors: unknown[]
-      reason: string
-      valid: boolean
-    }> | {
-      errors: unknown[]
-      reason: string
-      valid: boolean
-    }
-  }
-  transcriptionFeatures?: {
-    supportsGenerate: boolean
-    supportsStreamOutput: boolean
-    supportsStreamInput: boolean
-  }
-}
-
-export interface ModelInfo {
-  id: string
-  name: string
-  provider: string
-  description?: string
-  capabilities?: string[]
-  contextLength?: number
-  deprecated?: boolean
-  [key: string]: any // Ensure extra field data from providers is preserved
-}
-
-export interface VoiceInfo {
-  id: string
-  name: string
-  provider: string
-  compatibleModels?: string[]
-  description?: string
-  gender?: string
-  deprecated?: boolean
-  previewURL?: string
-  languages: {
-    code: string
-    title: string
-  }[]
-}
-
-export interface SpeechExpressionTagInfo {
-  category: string
-  tag: string
-  description?: string
-}
-
-export interface SpeechMannerismInfo {
-  id: string
-  label: string
-  description?: string
-}
-
-export interface SpeechCapabilitiesInfo {
-  supportsPresets?: boolean
-  supportsExpressionTags?: boolean
-  supportsMannerisms?: boolean
-  expressionTags?: SpeechExpressionTagInfo[]
-  mannerisms?: SpeechMannerismInfo[]
-}
-
-export interface ProviderRuntimeState {
-  isConfigured: boolean
-  validatedCredentialHash?: string
-  models: ModelInfo[]
-  isLoadingModels: boolean
-  modelLoadError: string | null
-}
+export type {
+  ModelInfo,
+  ProviderMetadata,
+  ProviderRuntimeState,
+  SpeechCapabilitiesInfo,
+  VoiceInfo,
+} from './providers/types'
 
 export const useProvidersStore = defineStore('providers', () => {
   const providerCredentials = useLocalStorage<Record<string, Record<string, unknown>>>('settings/credentials/providers', {})
   const addedProviders = useLocalStorage<Record<string, boolean>>('settings/providers/added', {})
   const providerInstanceCache = ref<Record<string, unknown>>({})
   const { t } = useI18n()
-  const baseUrlValidator = computed(() => (baseUrl: unknown) => {
-    let msg = ''
-    if (!baseUrl) {
-      msg = 'Base URL is required.'
-    }
-    else if (typeof baseUrl !== 'string') {
-      msg = 'Base URL must be a string.'
-    }
-    else if (!isUrl(baseUrl) || new URL(baseUrl).host.length === 0) {
-      msg = 'Base URL is not absolute. Try to include a scheme (http:// or https://).'
-    }
-    else if (!baseUrl.endsWith('/')) {
-      msg = 'Base URL must end with a trailing slash (/).'
-    }
-    if (msg) {
-      return {
-        errors: [new Error(msg)],
-        reason: msg,
-        valid: false,
-      }
-    }
-    return null
-  })
-
-  async function isBrowserAndMemoryEnough() {
-    if (isStageTamagotchi())
-      return false
-
-    const webGPUAvailable = await isWebGPUSupported()
-    if (webGPUAvailable) {
-      return true
-    }
-
-    if ('navigator' in globalThis && globalThis.navigator != null && 'deviceMemory' in globalThis.navigator && typeof globalThis.navigator.deviceMemory === 'number') {
-      const memory = globalThis.navigator.deviceMemory
-      // Check if the device has at least 8GB of RAM
-      if (memory >= 8) {
-        return true
-      }
-    }
-
-    return false
-  }
+  const baseUrlValidator = { value: validateProviderBaseUrl }
 
   // Centralized provider metadata with provider factory functions
-  const providerMetadata: Record<string, ProviderMetadata> = {
+  const legacyProviderMetadata: Record<string, ProviderMetadata> = {
     'speech-noop': {
       id: 'speech-noop',
       category: 'speech',
@@ -2832,43 +2612,7 @@ export const useProvidersStore = defineStore('providers', () => {
     },
   }
 
-  // Progressive migration bridge:
-  // translate unified provider definitions from libs/providers to legacy store metadata.
-  // Existing metadata remains as fallback for providers not yet migrated.
-  const definedProviders = listDefinedProviders()
-
-  const translatedProviderMetadata = convertProviderDefinitionsToMetadata(
-    definedProviders,
-    t,
-    providerMetadata,
-  )
-
-  const providerValidationIntervalMsById = new Map<string, number>()
-  for (const definition of definedProviders) {
-    const intervalMs = getProviderValidationIntervalMs({
-      definition,
-      contextOptions: { t },
-    })
-    if (intervalMs && intervalMs > 0) {
-      providerValidationIntervalMsById.set(definition.id, intervalMs)
-    }
-  }
-
-  // Keep only legacy ASR/TTS providers as hand-written metadata.
-  // All other categories are sourced from unified definitions in libs/providers.
-  for (const [providerId, existing] of Object.entries(providerMetadata)) {
-    if (existing.category !== 'speech' && existing.category !== 'transcription') {
-      delete providerMetadata[providerId]
-    }
-  }
-
-  // Populate non-speech providers from unified registry translation.
-  for (const [providerId, translated] of Object.entries(translatedProviderMetadata)) {
-    if (translated.category === 'speech' || translated.category === 'transcription') {
-      continue
-    }
-    providerMetadata[providerId] = translated
-  }
+  const providerMetadata = createProviderRegistry(t, legacyProviderMetadata)
 
   // const validatedCredentials = ref<Record<string, string>>({})
   const providerRuntimeState = ref<Record<string, ProviderRuntimeState>>({})
