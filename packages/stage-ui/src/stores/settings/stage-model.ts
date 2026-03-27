@@ -28,6 +28,14 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
 
   const stageViewControlsEnabled = refManualReset<boolean>(false)
 
+  function isSameFile(f1?: File, f2?: File) {
+    if (f1 === f2)
+      return true
+    if (!f1 || !f2)
+      return false
+    return f1.name === f2.name && f1.size === f2.size && f1.lastModified === f2.lastModified
+  }
+
   function revokeStageModelUrl(url?: string) {
     if (url?.startsWith('blob:'))
       URL.revokeObjectURL(url)
@@ -69,7 +77,8 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
     if (model.type === 'file') {
       // If we already have a URL for this exact file, don't re-create it.
       // Re-creating the URL triggers replaceStageModelUrl which revokes the active one.
-      if (stageModelSelectedFile.value === model.file && stageModelSelectedUrl.value?.startsWith('blob:')) {
+      // NOTICE: IndexedDB returns clones of File objects, so we must compare properties.
+      if (isSameFile(stageModelSelectedFile.value, model.file) && stageModelSelectedUrl.value?.startsWith('blob:')) {
         stageModelSelectedDisplayModel.value = model
         // Update renderer just in case
         switch (model.format) {

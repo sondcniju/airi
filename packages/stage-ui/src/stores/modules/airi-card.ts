@@ -279,32 +279,45 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     if (!extension)
       return
 
-    activeConsciousnessProvider.value = extension.modules?.consciousness?.provider
-    activeConsciousnessModel.value = extension.modules?.consciousness?.model
+    // 1. Sync Consciousness with stability guards
+    if (activeConsciousnessProvider.value !== extension.modules?.consciousness?.provider)
+      activeConsciousnessProvider.value = extension.modules?.consciousness?.provider
+    if (activeConsciousnessModel.value !== extension.modules?.consciousness?.model)
+      activeConsciousnessModel.value = extension.modules?.consciousness?.model
 
-    activeSpeechProvider.value = extension.modules?.speech?.provider
-    activeSpeechModel.value = extension.modules?.speech?.model
-    activeSpeechVoiceId.value = extension.modules?.speech?.voice_id
+    // 2. Sync Speech with stability guards
+    if (activeSpeechProvider.value !== extension.modules?.speech?.provider)
+      activeSpeechProvider.value = extension.modules?.speech?.provider
+    if (activeSpeechModel.value !== extension.modules?.speech?.model)
+      activeSpeechModel.value = extension.modules?.speech?.model
+    if (activeSpeechVoiceId.value !== extension.modules?.speech?.voice_id)
+      activeSpeechVoiceId.value = extension.modules?.speech?.voice_id
 
+    // 3. Sync Models & Parameters
     const newModelId = extension.modules?.displayModelId
-    if (newModelId && (force || newModelId !== stageModelStore.stageModelSelected)) {
-      stageModelStore.stageModelSelected = newModelId
-      await stageModelStore.updateStageModel()
+    const modelChanged = newModelId && newModelId !== stageModelStore.stageModelSelected
 
-      const selectedModel = await displayModelsStore.getDisplayModel(newModelId)
-      if (selectedModel?.format === DisplayModelFormat.Live2dZip) {
-        // Sync Live2D parameters from card to store
-        if (extension.modules?.live2d) {
-          if (extension.modules.live2d.activeExpressions)
-            live2dStore.activeExpressions = { ...extension.modules.live2d.activeExpressions }
-          if (extension.modules.live2d.modelParameters)
-            live2dStore.modelParameters = { ...extension.modules.live2d.modelParameters }
-        }
+    if (newModelId && (force || modelChanged)) {
+      stageModelStore.stageModelSelected = newModelId
+      // updateStageModel has internal stability guards for blob URL creation
+      await stageModelStore.updateStageModel()
+    }
+
+    // Surgical sync of Live2D parameters if they belong to the active model
+    const selectedModel = await displayModelsStore.getDisplayModel(stageModelStore.stageModelSelected)
+    if (selectedModel?.format === DisplayModelFormat.Live2dZip && extension.modules?.live2d) {
+      if (extension.modules.live2d.activeExpressions)
+        live2dStore.activeExpressions = { ...extension.modules.live2d.activeExpressions }
+      if (extension.modules.live2d.modelParameters)
+        live2dStore.modelParameters = { ...extension.modules.live2d.modelParameters }
+
+      // Only trigger full view update if the model profile itself changed or forced
+      if (force || modelChanged) {
         live2dStore.shouldUpdateView()
       }
-      else if (selectedModel?.format === DisplayModelFormat.VRM) {
-        vrmStore.shouldUpdateView()
-      }
+    }
+    else if (selectedModel?.format === DisplayModelFormat.VRM && (force || modelChanged)) {
+      vrmStore.shouldUpdateView()
     }
 
     // Background syncing to a global store is no longer needed manually.
