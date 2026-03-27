@@ -18,6 +18,7 @@ import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettingsChat } from '@proj-airi/stage-ui/stores/settings'
 import { BasicTextarea } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
+import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
 import { computed, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -642,6 +643,61 @@ watch(messageInput, () => {
       >
         <div class="i-solar:trash-bin-2-bold-duotone" />
       </button>
+
+      <!-- Send (Dual Use) -->
+      <div
+        class="flex items-center gap-0.5 overflow-hidden rounded-lg shadow-sm transition-colors"
+        bg="primary-500 hover:primary-600"
+        max-h="[10lh]"
+      >
+        <button
+          class="h-9 flex items-center justify-center px-3 outline-none transition-transform active:scale-95"
+          text="white"
+          title="Send Message"
+          @click="handleSend"
+        >
+          <div class="i-solar:plain-2-bold-duotone mr-1.5 text-lg" />
+          <span class="text-xs font-bold leading-none tracking-tighter uppercase">Send</span>
+        </button>
+
+        <PopoverRoot>
+          <PopoverTrigger as-child>
+            <button
+              class="h-9 w-6 flex items-center justify-center border-l border-white/20 outline-none hover:bg-white/10"
+              text="white"
+              title="Change Send Key Mode"
+            >
+              <div class="i-solar:alt-arrow-down-linear text-xs" />
+            </button>
+          </PopoverTrigger>
+          <PopoverPortal>
+            <PopoverContent
+              class="z-100 flex flex-col gap-1 border border-neutral-200 rounded-xl bg-white/95 p-1.5 shadow-2xl backdrop-blur-md dark:border-neutral-700 dark:bg-neutral-900/95"
+              side="top"
+              align="end"
+              :side-offset="12"
+            >
+              <div class="px-2 py-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
+                Send Key Mode
+              </div>
+              <button
+                v-for="mode in (['enter', 'ctrl-enter', 'double-enter'] as const)"
+                :key="mode"
+                :class="[
+                  'px-3 py-2 text-xs font-semibold rounded-lg transition-all text-left flex items-center justify-between gap-4',
+                  settingsChat.sendMode === mode
+                    ? 'bg-primary-100 text-primary-600 dark:bg-primary-900/50 dark:text-primary-300'
+                    : 'text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800',
+                ]"
+                @click="settingsChat.sendMode = mode"
+              >
+                <span>{{ mode === 'enter' ? 'Enter' : mode === 'ctrl-enter' ? 'Ctrl + Enter' : 'Double Enter' }}</span>
+                <div v-if="settingsChat.sendMode === mode" class="i-solar:check-circle-bold text-sm" />
+              </button>
+            </PopoverContent>
+          </PopoverPortal>
+        </PopoverRoot>
+      </div>
     </div>
     <BasicTextarea
       v-model="messageInput"

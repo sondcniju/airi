@@ -8,6 +8,7 @@ import kebabcase from '@stdlib/string-base-kebabcase'
 import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { animations } from '@proj-airi/stage-ui-three/assets/vrm'
 import { DEFAULT_ARTISTRY_WIDGET_INSTRUCTION } from '@proj-airi/stage-ui/constants/prompts/artistry-instruction'
+import { DEFAULT_ACTING_MODEL_EXPRESSION_PROMPT, DEFAULT_ACTING_SPEECH_EXPRESSION_PROMPT, DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT, DEFAULT_HEARTBEATS_PROMPT } from '@proj-airi/stage-ui/constants/prompts/character-defaults'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { DisplayModelFormat, useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
@@ -102,32 +103,7 @@ const selectedActingIdleAnimations = ref<string[]>([])
 const actingSpeechCapabilities = ref<SpeechCapabilitiesInfo | null>(null)
 const actingSpeechCapabilitiesLoading = ref<boolean>(false)
 
-const DEFAULT_ACTING_MODEL_PROMPT = `## Instruction: ACT Tokens
-Start every reply with an ACT token to indicate your initial mood or action. If your synchronization or focus changes, insert a new ACT token. One token lasts until you use a new one.
-
-**ACT JSON format (all fields optional):**
-\`<|ACT:"emotion":{"name": expression_name, "intensity": 1}|>\`
-
-## Available Expressions (Keys)
-Use these EXACT names in your ACT tokens:
-`
-
-const DEFAULT_ACTING_SPEECH_EXPRESSION_PROMPT = `## Instruction: Speech Tags
-When the active voice provider supports expressive speech tags, you may use them inline to shape delivery.
-
-Use square-bracket tags like \`[whisper]\` or \`[gasp]\` only when they improve the line.
-- Keep them sparse and readable.
-- Prefer one strong tag over many weak ones.
-- Match the tag to the emotional beat of the sentence.
-`
-
-const DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT = `## Instruction: Speech Mannerisms
-Use provider-supported speech mannerisms only when they help communicate tone or attitude.
-
-- Keep them occasional and intentional.
-- Use them to reinforce personality, not every line.
-- Favor clarity first, style second.
-`
+const DEFAULT_ACTING_MODEL_PROMPT = DEFAULT_ACTING_MODEL_EXPRESSION_PROMPT
 
 const MANNERISM_HELPER_SNIPPETS: Record<string, string> = {
   tilde: `## Tilde Replacements
@@ -638,7 +614,7 @@ function initializeCard(): Card {
 
   heartbeatsEnabled.value = airiExt?.heartbeats?.enabled ?? false
   heartbeatsIntervalMinutes.value = airiExt?.heartbeats?.intervalMinutes ?? 30
-  heartbeatsPrompt.value = airiExt?.heartbeats?.prompt ?? ''
+  heartbeatsPrompt.value = airiExt?.heartbeats?.prompt ?? DEFAULT_HEARTBEATS_PROMPT
   heartbeatsInjectIntoPrompt.value = airiExt?.heartbeats?.injectIntoPrompt ?? true
   heartbeatsUseAsLocalGate.value = airiExt?.heartbeats?.useAsLocalGate ?? true
   heartbeatsScheduleStart.value = airiExt?.heartbeats?.schedule?.start ?? '09:00'

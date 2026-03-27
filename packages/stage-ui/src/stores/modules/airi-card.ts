@@ -12,6 +12,7 @@ import { useI18n } from 'vue-i18n'
 import SystemPromptV2 from '../../constants/prompts/system-v2'
 
 import { DEFAULT_ARTISTRY_WIDGET_INSTRUCTION } from '../../constants/prompts/artistry-instruction'
+import { DEFAULT_ACTING_MODEL_EXPRESSION_PROMPT, DEFAULT_ACTING_SPEECH_EXPRESSION_PROMPT, DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT, DEFAULT_HEARTBEATS_PROMPT } from '../../constants/prompts/character-defaults'
 import { AiriCardSchema } from '../../types/card.schema'
 import { useBackgroundStore } from '../background'
 import { DisplayModelFormat, useDisplayModelsStore } from '../display-models'
@@ -357,7 +358,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     const defaultHeartbeats: HeartbeatConfig = {
       enabled: false,
       intervalMinutes: 30,
-      prompt: '',
+      prompt: DEFAULT_HEARTBEATS_PROMPT,
       injectIntoPrompt: true,
       useAsLocalGate: true,
       contextOptions: {
@@ -387,30 +388,9 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     }
 
     const defaultActing: ActingConfig = {
-      modelExpressionPrompt: `## Instruction: ACT Tokens
-Start every reply with an ACT token to indicate your initial mood or action. If your synchronization or focus changes, insert a new ACT token. One token lasts until you use a new one.
-
-**ACT JSON format (all fields optional):**
-\`<|ACT:"emotion":{"name": expression_name, "intensity": 1},"motion":"action cue"|>\`
-
-## Available Expressions (Keys)
-Use these EXACT names in your ACT tokens:
-`,
-      speechExpressionPrompt: `## Instruction: Speech Tags
-When the active voice provider supports expressive speech tags, you may use them inline to shape delivery.
-
-Use square-bracket tags like \`[whisper]\` or \`[gasp]\` only when they improve the line.
-- Keep them sparse and readable.
-- Prefer one strong tag over many weak ones.
-- Match the tag to the emotional beat of the sentence.
-`,
-      speechMannerismPrompt: `## Instruction: Speech Mannerisms
-Use provider-supported speech mannerisms only when they help communicate tone or attitude.
-
-- Keep them occasional and intentional.
-- Use them to reinforce personality, not every line.
-- Favor clarity first, style second.
-`,
+      modelExpressionPrompt: DEFAULT_ACTING_MODEL_EXPRESSION_PROMPT,
+      speechExpressionPrompt: DEFAULT_ACTING_SPEECH_EXPRESSION_PROMPT,
+      speechMannerismPrompt: DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT,
     }
 
     // Return default if no extension exists
