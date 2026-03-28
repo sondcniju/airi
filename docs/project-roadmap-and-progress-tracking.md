@@ -72,8 +72,12 @@ This document tracks the current development state of the AIRI project, specific
 ## Pending Items (Roadmap)
 - **AIRI Card Export Preview Modes**: Explore an optional export mode that bakes the currently selected stage background into the composed PNG preview, while keeping the current transparent/framed export as the default. This should stay optional so card portability and predictable framing are not lost.
 - **Character Photo Mode / Saved Shots**: Explore a lightweight "photo mode" for capturing stills of the current character pose/frame directly from stage. Initial scope should be simple one-click image capture and download; a later extension could allow cards to keep a preferred preview shot for export. Keep this intentionally small to avoid overengineering into a full screenshot studio too early.
-- **Onboarding Flow Repackaging (Phase 1)**: (Current Focus) Redesign the initial setup to include a character picker and import links (e.g., character hubs) early in the flow. Move character settings to be more approachable, ensuring users know how to edit personality/behavior immediately after import.
-- **Browser-Integrated Card Imports (Phase 2)**: Deep integration with external character sites via an in-app Electron browser. Hooks for direct importing while respecting site ads/iframes.
+- **Onboarding Flow Repackaging (Phase 1)**: (Completed) Redesigned the initial setup to include a high-fidelity character selection grid, restored the logical step order (Providers -> Config -> Model -> Character), and refined the seeded 'Founder' profiles (ReLU, Dr. Aria, Lupin).
+- **The Integrated Character Bazaar (Phase 2)**: Deep integration with external character sites (JannyAI, Chub.ai, etc.) via an in-app Electron browser view.
+  - **Download Interception**: System-level hooks to catch `.png` character cards and auto-import them into the character list.
+  - **Task Guidance**: In-view overlays to help users find and "capture" new souls.
+  - **Quick Association**: A "Vessel Picker" to instantly link imported souls to built-in VRM/Live2D models.
+  - **Magical Flow**: The onboarding "Start Your Journey" button only unlocks once a character has been successfully associated.
 - **Agentic Asset Creation (Continued)**:
   - **Outfits (textures)**: (Coming soon)
   - **Simple 3D Props**: (Coming eventually)

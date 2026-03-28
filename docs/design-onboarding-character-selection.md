@@ -65,5 +65,40 @@ location.reload()
 ## Open Questions
 
 1. **JannyAI Priority**: JannyAI is now the primary recommendation. JanitorAI is removed from the "Cleanest Experience" list due to export friction.
+
 2. **First Greeting Preview**: I will use the first greeting (`greetings[0]`) as the descriptive sub-text in the selection card.
+
+---
+
+## Phase 2: The Integrated Character Bazaar (Concept)
+
+We want to move from a manual "Upload" feel to a "Magical Discovery" feel.
+
+### 1. Interactive Browse View
+Instead of just external links, clicking a community site (JannyAI, Chub.ai, etc.) will open a **New View** (likely an Electron-managed iframe or webview) with:
+- **Navigation Controls**: A simple "Back" button to return to the selection grid.
+- **Task Guidance**: A overlay or header explaining: *"Find a character you like and click their download (PNG) button."*
+
+### 2. Download Interception
+The core technical "magic" is intercepting the `.png` download from the browser view:
+- **Electron Hook**: Listen for download events targeting `.png` files with `chara_card_v2` metadata.
+- **Immediate Ingestion**: Automatically call `cardStore.addCard()` as soon as the download starts/finishes.
+- **Dynamic Update**: The Onboarding UI detects this new card and automatically selects it.
+
+### 3. Quick Association Layer
+Once a "soul" (PNG) is found, the user is prompted to:
+- **Choose a Vessel**: Select which built-in VRM or Live2D model to associate with this custom character.
+- **Model Palette**: A small gallery of our premium models (ReLU, Hiyori, etc.) simplified for quick association.
+
+### 4. Completion Flow
+- **Locked State**: The "Start Your Journey" button remains disabled or "unlit" until a character is successfully selected or imported.
+- **Flow**: `Click Website -> Find Character -> Click Download -> Character Auto-Imports -> Select Model Vessel -> Finish button lights up -> Start Journey.`
+
+---
+
+## Upcoming Tasks (Phase 2)
+- [ ] Research Electron `session.on('will-download')` for iframe/webview interception.
+- [ ] Implement the "Character Bazaar" fullscreen iframe layout in `OnboardingDialog`.
+- [ ] Add the "Model Association" mini-gallery to the import success state.
+- [ ] Update character selection logic to support an "Unlocked-by-Action" finish state.
 
