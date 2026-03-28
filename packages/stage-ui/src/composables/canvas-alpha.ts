@@ -16,6 +16,35 @@ interface CircleHitTestInput {
   threshold: number
 }
 
+// Module-level cache to avoid GC pressure during high-frequency hit-testing
+let cachedData: Uint8Array | null = null
+const MAX_CACHED_SIZE = 128 * 128 * 4 // 64KB - plenty for a 15-25 radius circle
+
+// Async PBO Readback State for zero-stall performance
+let pb1: WebGLBuffer | null = null
+let pb2: WebGLBuffer | null = null
+let currentPboIdx = 0
+let lastReadRequestFrameId = -1
+let isPboInitialized = false
+
+function initPbos(gl: WebGL2RenderingContext, size: number) {
+  if (pb1)
+    gl.deleteBuffer(pb1)
+  if (pb2)
+    gl.deleteBuffer(pb2)
+
+  pb1 = gl.createBuffer()
+  gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pb1)
+  gl.bufferData(gl.PIXEL_PACK_BUFFER, size, gl.STREAM_READ)
+
+  pb2 = gl.createBuffer()
+  gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pb2)
+  gl.bufferData(gl.PIXEL_PACK_BUFFER, size, gl.STREAM_READ)
+
+  gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null)
+  isPboInitialized = true
+}
+
 export function isCanvasRegionTransparent({
   gl,
   clientX,
@@ -44,9 +73,6 @@ export function isCanvasRegionTransparent({
   if (!Number.isFinite(scaleX) || !Number.isFinite(scaleY))
     return true
 
-  // Translate client-space coords into WebGL buffer space (respecting DPI scaling and flipped Y),
-  // then read a bounding box that fully contains the desired radius circle. Later we re-check
-  // the circle constraint in CPU land to avoid missing hits at the edges.
   const centerX = Math.floor(xIn * scaleX)
   const centerY = Math.floor(gl.drawingBufferHeight - 1 - yIn * scaleY)
 
@@ -60,13 +86,60 @@ export function isCanvasRegionTransparent({
 
   const readWidth = endX - startX + 1
   const readHeight = endY - startY + 1
-  const data = new Uint8Array(readWidth * readHeight * 4)
+  const requiredSize = readWidth * readHeight * 4
 
-  try {
-    gl.readPixels(startX, startY, readWidth, readHeight, gl.RGBA, gl.UNSIGNED_BYTE, data)
+  let data: Uint8Array
+  const isWebGL2 = gl instanceof (window.WebGL2RenderingContext || Object)
+  if (isWebGL2) {
+    const gl2 = gl as WebGL2RenderingContext
+    if (!isPboInitialized || !pb1) {
+      initPbos(gl2, MAX_CACHED_SIZE)
+    }
+
+    const currentPbo = currentPboIdx === 0 ? pb1 : pb2
+    const nextPbo = currentPboIdx === 0 ? pb2 : pb1
+
+    // 1. Kick off an asynchronous read into the CURRENT PBO. This returns instantly.
+    gl2.bindBuffer(gl2.PIXEL_PACK_BUFFER, currentPbo)
+    gl2.readPixels(startX, startY, readWidth, readHeight, gl2.RGBA, gl2.UNSIGNED_BYTE, 0)
+
+    // 2. Try to retrieve the result from the NEXT PBO.
+    if (!cachedData || cachedData.length !== requiredSize) {
+      cachedData = new Uint8Array(requiredSize)
+    }
+
+    if (lastReadRequestFrameId !== -1) {
+      gl2.bindBuffer(gl2.PIXEL_PACK_BUFFER, nextPbo)
+      gl2.getBufferSubData(gl2.PIXEL_PACK_BUFFER, 0, cachedData)
+    }
+    else {
+      // First frame: fallback to sync
+      gl2.bindBuffer(gl2.PIXEL_PACK_BUFFER, null)
+      gl2.readPixels(startX, startY, readWidth, readHeight, gl2.RGBA, gl2.UNSIGNED_BYTE, cachedData)
+    }
+
+    data = cachedData
+    currentPboIdx = (currentPboIdx + 1) % 2
+    lastReadRequestFrameId = 1 // Simplified since we don't have renderer frame info here easily
+    gl2.bindBuffer(gl2.PIXEL_PACK_BUFFER, null)
   }
-  catch {
-    return true
+  else {
+    // WebGL1 Fallback: Sync Read
+    if (cachedData && cachedData.length >= requiredSize && requiredSize <= MAX_CACHED_SIZE) {
+      data = cachedData.subarray(0, requiredSize)
+    }
+    else {
+      data = new Uint8Array(requiredSize)
+      if (requiredSize <= MAX_CACHED_SIZE) {
+        cachedData = data
+      }
+    }
+    try {
+      gl.readPixels(startX, startY, readWidth, readHeight, gl.RGBA, gl.UNSIGNED_BYTE, data)
+    }
+    catch {
+      return true
+    }
   }
 
   const radiusSq = radius * radius

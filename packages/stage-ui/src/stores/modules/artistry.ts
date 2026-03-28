@@ -98,4 +98,3 @@ export const useArtistryStore = defineStore('artistry', () => {
     resetState,
   }
 })
-
