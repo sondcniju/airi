@@ -3,7 +3,7 @@ import type { DisplayModel } from '../display-models'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { refManualReset, useEventListener } from '@vueuse/core'
 import { defineStore } from 'pinia'
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { DisplayModelFormat, useDisplayModelsStore } from '../display-models'
 
@@ -27,6 +27,15 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
   const stageModelRenderer = refManualReset<StageModelRenderer>(undefined)
 
   const stageViewControlsEnabled = refManualReset<boolean>(false)
+  const lastReloadReason = ref<string | undefined>(undefined)
+
+  function isSameFile(f1?: File, f2?: File) {
+    if (f1 === f2)
+      return true
+    if (!f1 || !f2)
+      return false
+    return f1.name === f2.name && f1.size === f2.size && f1.lastModified === f2.lastModified
+  }
 
   function revokeStageModelUrl(url?: string) {
     if (url?.startsWith('blob:'))
@@ -41,7 +50,9 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
     stageModelSelectedUrl.value = nextUrl
   }
 
-  async function updateStageModel() {
+  async function updateStageModel(reason?: string) {
+    if (reason)
+      lastReloadReason.value = reason
     const requestId = ++stageModelUpdateSequence
     const selectedModelId = stageModelSelectedState.value
 
@@ -64,6 +75,38 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
       stageModelSelectedFile.value = undefined
       stageModelRenderer.value = 'disabled'
       return
+    }
+
+    if (model.type === 'file') {
+      // If we already have a URL for this exact file, don't re-create it.
+      // Re-creating the URL triggers replaceStageModelUrl which revokes the active one.
+      // NOTICE: IndexedDB returns clones of File objects, so we must compare properties.
+      if (isSameFile(stageModelSelectedFile.value, model.file) && stageModelSelectedUrl.value?.startsWith('blob:')) {
+        stageModelSelectedDisplayModel.value = model
+        // Update renderer just in case
+        switch (model.format) {
+          case DisplayModelFormat.Live2dZip: stageModelRenderer.value = 'live2d'; break
+          case DisplayModelFormat.VRM: stageModelRenderer.value = 'vrm'; break
+          default: stageModelRenderer.value = 'disabled'; break
+        }
+        return
+      }
+
+      const nextUrl = URL.createObjectURL(model.file)
+      if (requestId !== stageModelUpdateSequence) {
+        URL.revokeObjectURL(nextUrl)
+        return
+      }
+
+      replaceStageModelUrl(nextUrl)
+      stageModelSelectedFile.value = model.file
+    }
+    else {
+      // For URL types, we only update if it actually changed
+      if (stageModelSelectedUrl.value !== model.url) {
+        replaceStageModelUrl(model.url)
+      }
+      stageModelSelectedFile.value = undefined
     }
 
     switch (model.format) {
@@ -96,8 +139,8 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
     stageModelSelectedDisplayModel.value = model
   }
 
-  async function initializeStageModel() {
-    await updateStageModel()
+  async function initializeStageModel(reason?: string) {
+    await updateStageModel(reason || 'initialization')
   }
 
   useEventListener('unload', () => {
@@ -105,7 +148,7 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
   })
 
   watch(stageModelSelectedState, (_newValue, _oldValue) => {
-    void updateStageModel()
+    void updateStageModel('manual selection')
   })
 
   async function resetState() {
@@ -118,7 +161,7 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
     stageModelRenderer.reset()
     stageViewControlsEnabled.reset()
 
-    await updateStageModel()
+    await updateStageModel('reset state')
   }
 
   return {
@@ -128,6 +171,7 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
     stageModelSelectedFile,
     stageModelSelectedDisplayModel,
     stageViewControlsEnabled,
+    lastReloadReason,
 
     initializeStageModel,
     updateStageModel,

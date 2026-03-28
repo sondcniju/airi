@@ -101,12 +101,16 @@ type PresentEvent
     | { type: 'assistant-append', text: string }
 const { post: postPresent } = useBroadcastChannel<PresentEvent, PresentEvent>({ name: 'airi-chat-present' })
 
-viewUpdateCleanups.push(live2dStore.onShouldUpdateView(() => {
+viewUpdateCleanups.push(live2dStore.onShouldUpdateView((reason) => {
   // Live2D models already handle their own reload path inside the scene package.
+  // We just sync the reason to the stage-model store for UI observability.
+  if (reason)
+    settingsStore.lastReloadReason = reason
 }))
 
-viewUpdateCleanups.push(vrmStore.onShouldUpdateView(() => {
+viewUpdateCleanups.push(vrmStore.onShouldUpdateView((reason) => {
   // VRM reloads are driven by modelSrc changes after updateStageModel().
+  void settingsStore.updateStageModel(reason || 'vrm store update')
 }))
 
 const audioAnalyser = ref<AnalyserNode>()

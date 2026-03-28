@@ -108,18 +108,53 @@ onStopRecord(async (recording) => {
       audios.value.push(recording)
       // Clear any previous error message
       errorMessage.value = ''
-      const result = await props.generateTranscription(new File([recording], 'recording.wav'))
+
+      const file = new File([recording], 'recording.wav')
+      console.info('[Transcription Playground] Sending recording for transcription:', {
+        size: recording.size,
+        type: recording.type,
+        fileName: file.name,
+      })
+
+      const result = await props.generateTranscription(file)
+      console.info('[Transcription Playground] Received result:', result)
+
+      if (!result) {
+        throw new Error('Transcription result is undefined')
+      }
+
       const text = result.mode === 'stream'
-        ? await result.text
+        ? await (result as any).text
         : result.text
-      transcriptions.value.push(text)
+
+      if (typeof text !== 'string') {
+        console.warn('[Transcription Playground] Result text is not a string:', text)
+      }
+
+      transcriptions.value.push(text || '')
       // Clear error message on success
       errorMessage.value = ''
     }
   }
-  catch (err) {
-    errorMessage.value = err instanceof Error ? err.message : String(err)
-    console.error('Error generating transcription:', errorMessage.value)
+  catch (err: any) {
+    // String(err) can throw if err is an object with a broken toString() or if it's null/undefined in some weird way
+    try {
+      errorMessage.value = err instanceof Error ? err.message : String(err)
+    }
+    catch (sErr) {
+      errorMessage.value = 'Unknown error (failed to stringify error)'
+      console.error('Critical: Error stringification failed', sErr)
+    }
+
+    console.error('Error generating transcription:', {
+      message: errorMessage.value,
+      originalError: err,
+      stack: err?.stack,
+      name: err?.name,
+      // Some errors (like DOMException) have extra properties
+      code: err?.code,
+      details: err?.details,
+    })
   }
 })
 

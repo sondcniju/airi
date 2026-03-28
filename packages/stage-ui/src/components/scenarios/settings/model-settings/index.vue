@@ -2,7 +2,7 @@
 import type { DisplayModel } from '../../../../stores/display-models'
 
 import { Live2DScene, useLive2d } from '@proj-airi/stage-ui-live2d'
-import { ThreeScene, useModelStore } from '@proj-airi/stage-ui-three'
+import { ThreeScene } from '@proj-airi/stage-ui-three'
 import { Button, Callout } from '@proj-airi/ui'
 import { useMouse } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
@@ -11,7 +11,6 @@ import { computed, ref } from 'vue'
 import Live2D from './live2d.vue'
 import VRM from './vrm.vue'
 
-import { DisplayModelFormat } from '../../../../stores/display-models'
 import { useSettings } from '../../../../stores/settings'
 import { ModelSelectorDialog } from '../../dialogs/model-selector'
 
@@ -52,11 +51,6 @@ const currentSelectedDisplayModel = computed<DisplayModel | undefined>(() => sta
 async function handleModelPick(selectedModel: DisplayModel | undefined) {
   stageModelSelected.value = selectedModel?.id ?? ''
   await settingsStore.updateStageModel()
-
-  if (selectedModel?.format === DisplayModelFormat.Live2dZip)
-    useLive2d().shouldUpdateView()
-  else if (selectedModel?.format === DisplayModelFormat.VRM)
-    useModelStore().shouldUpdateView()
 }
 </script>
 

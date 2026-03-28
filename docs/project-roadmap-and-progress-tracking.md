@@ -20,12 +20,27 @@ This document tracks the current development state of the AIRI project, specific
 
 ## Recent Changes (in `airi-rebase-scratch`)
 
+#### 2026-03-28 - Neural Memory & Interface Refinement
+- **Semantic Brain Sandbox (PoC)**: Validated a high-performance, hybrid (BM25 + Vector + Reranking) memory retrieval pipeline. Verified sub-15ms retrieval across a 5,000-chunk dataset (100M token sample).
+- **Stabilized Local Whisper Anchor**: Hardened the local transcription pipeline for "always-on" reliable speech recognition.
+- **Split Artistry Presets**: Restored and bifurcated Replicate presets to support distinct "Generation" vs. "Editing" workflows in the Artistry tab.
+- **Dual-Purpose Send Button**: Implemented a context-aware send button and improved Enter key reliability for intuitive chat interactions.
+
+#### 2026-03-27 - Reload Accountability & Asset Autonomy
+
+- **Reload Accountability (Stage UI)**: Implemented tracking and display of "reload reasons" (e.g., manual selection, initial load) in the loading overlay to improve observability of redundant scene resets.
+- **Journal Background Awareness**: Successfully implemented proactivity sensor awareness of the active stage background chosen from the `image_journal`.
+- **CUIPP Standalone Extraction**: Transitioned the bridge into a clean standalone generation worker architecture.
+- **Agentic Asset Creation (Stage/Widgets)**: AIRI can now proactively generate her own stage backgrounds and widget images.
+- **Scenic Background Starter Pack**: Integrated the initial collection of default scenic backgrounds.
+- **Image Journal Integration**: Successfully implemented the `image_journal` as a first-class tool and persistent UI component, replacing ephemeral widget-based generation.
+
 ### 2026-03-20 - Memory Milestone: Short-Term + Long-Term Foundations
 - **Short-Term Memory Rebuild Prototype**: Implemented per-character rebuild-from-history that groups chat logs by local day, generates one summary block per day, stores those blocks durably, and injects recent blocks into new/reset sessions for continuity.
 - **Long-Term Memory / `text_journal`**: Implemented a first-class append-only journal tool with:
   - `create`
   - `search`
-  Both are scoped to the active character and backed by IndexedDB-style local storage.
+  - Both are scoped to the active character and backed by IndexedDB-style local storage.
 - **Real Long-Term Memory UI**: Replaced the mock long-term memory page with a real archive view that reads stored entries, supports per-character filtering, and supports keyword search.
 - **Toolchain Alignment Across Pipelines**: Confirmed and documented that typed chat, STT-triggered chat, and proactivity in Tamagotchi now all consume the shared `builtinTools` surface, so new builtin tools like `text_journal` do not need to be manually re-wired into each pipeline.
 - **Chat Presentation Polish for Journal Writes**: Added a custom presentation layer for `text_journal` create calls so journal saves render as a formatted memory card in chat rather than raw JSON tool arguments.
@@ -55,20 +70,15 @@ This document tracks the current development state of the AIRI project, specific
   - Used for isolating features into clean PR branches.
 
 ## Pending Items (Roadmap)
-- **Model Centering**: Investigating off-center loading for VRM/Live2D.
-- **VRM Idle Hairball**: Evolving static loops into dynamic weighted samplers.
-- **Live2D ZIP Repackaging**: Intercepting oversized ZIP imports on the Electron side.
 - **AIRI Card Export Preview Modes**: Explore an optional export mode that bakes the currently selected stage background into the composed PNG preview, while keeping the current transparent/framed export as the default. This should stay optional so card portability and predictable framing are not lost.
 - **Character Photo Mode / Saved Shots**: Explore a lightweight "photo mode" for capturing stills of the current character pose/frame directly from stage. Initial scope should be simple one-click image capture and download; a later extension could allow cards to keep a preferred preview shot for export. Keep this intentionally small to avoid overengineering into a full screenshot studio too early.
-- **Imported Card Customization Guidance**: Continue improving the onboarding/discovery copy around imported SillyTavern cards so users understand these are starter assets and still need AIRI-specific tuning, especially in the **Acting** tab to align expressions, speech tags, and motion cues with the currently selected VRM/Live2D model.
-- **Bundled Scenic Background Starter Pack**: Evaluate shipping a curated set of roughly 8 default scenic backgrounds with the app so new installs have a stronger out-of-box Scene Manager experience. Current rough size is about 28 MB total, so the open question is whether these should be true built-in assets, optional downloadable content, or a smaller starter subset. Current source reference is the scenic PNG collection in `C:\Users\h4rdc\Documents\Github\coding-agent\VRMs`.
-- **CUIPP Standalone Backend / Agentic Asset Creation**: Treat the current CUIPP bridge as proof-of-concept only and plan a cleaner standalone backend modeled more like the Discord-style service architecture. Longer term, the goal is broader AIRI autonomy around visual asset creation: generating widget images on demand, generating new stage backgrounds for itself, and eventually producing lightweight 3D props/assets that can be used inside stage workflows.
-- **`image_journal` First-Class Tool**: Replace the current `stage_widgets`-style spawn/update/id-management flow for generated art with a dedicated `image_journal` tool. The journal should keep the same successful carousel-style UI concept AIRI already has, but make it durable and append-only instead of tying history to a single ephemeral widget id. Detailed design in [`docs/image-journal-proposal.md`](./image-journal-proposal.md).
-- **Image Journal MVP Scope**: Keep the first version intentionally small. MVP actions should be:
-  - `create`: route through the provider's normal generate/create capability and append the finished image into the persistent journal carousel
-  - `set_as_background`: allow the currently focused journal image to be promoted into the stage background system so the redesign adds new end-user value instead of only rebuilding existing behavior
-- **Journal Background Awareness in Proactivity**: If AIRI can set one of her journal images as the active stage background, that active background should also become part of the proactivity/sensor context. AIRI should be able to "know" what visual environment she currently chose for herself so later heartbeat logic and ambient comments can reason about where she is "at" aesthetically.
-- **Journal-Friendly Titles / Filenames**: The LLM should provide both a `title` and a `prompt` when creating a new image. The app should then sanitize, slugify, dedupe, and persist the filename automatically. This avoids UUID-centric interactions and gives AIRI a path toward richer future references based on human-readable labels.
-- **AIRI Image Journal / Character Picture Books**: Move image history ownership out of the widget lifecycle and into a persistent journal system. The long-term direction is for generated images to survive widget/window turnover, be associated with characters/cards, and support a per-character "picture book" feel. `localStorage` is not appropriate for this; a durable metadata store plus real file/blob storage is the intended direction.
-- **CUIPP MVP Extraction Scope**: Do not frame the future CUIPP work as "port the whole app." The more realistic goal is to extract a narrow standalone generation worker with a stable CLI or local API contract: prompt in, optional remix/source id, progress/status events out, final asset out. `remix` should be treated as a CUIPP-first capability that can later expand to other providers (for example via image-to-image style flows) rather than a day-one universal requirement.
-- **Long-Term Memory Semantic Search**: Current long-term memory search is intentionally keyword-first. A promising future direction is to use a QMD CLI-backed manager layer for embeddings and semantic retrieval while keeping AIRI responsible for storage, tooling, and per-character scoping. That would let users explicitly own the install/runtime burden for the semantic engine instead of AIRI fully absorbing that operational complexity.
+- **Onboarding Flow Repackaging (Phase 1)**: (Current Focus) Redesign the initial setup to include a character picker and import links (e.g., character hubs) early in the flow. Move character settings to be more approachable, ensuring users know how to edit personality/behavior immediately after import.
+- **Browser-Integrated Card Imports (Phase 2)**: Deep integration with external character sites via an in-app Electron browser. Hooks for direct importing while respecting site ads/iframes.
+- **Agentic Asset Creation (Continued)**:
+  - **Outfits (textures)**: (Coming soon)
+  - **Simple 3D Props**: (Coming eventually)
+- **Long-Term Memory Semantic Search**: Verified (See `docs/blueprint-semantic-search-integration.md`). Ready for full store integration.
+
+
+## Defunct / Scrapped Ideas
+- **Live2D ZIP Repackaging**: Intercepting oversized ZIP imports on the Electron side (Scrapped; focus shifted to asset autonomy).

@@ -24,7 +24,7 @@ function emitSubmit() {
 }
 
 function onKeyDown(e: KeyboardEvent) {
-  if (e.isComposing || e.code !== 'Enter')
+  if (e.isComposing || e.key !== 'Enter')
     return
 
   const sendMode = props.sendMode || 'enter'

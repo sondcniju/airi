@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { REPLICATE_IMAGEGEN_PRESETS } from '@proj-airi/stage-shared'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { FieldInput } from '@proj-airi/ui'
 import { Select } from '@proj-airi/ui/components/form'
@@ -226,7 +227,7 @@ function openReplicateModel() {
 
       <div v-if="selectedArtistryProvider === 'replicate'" class="grid grid-cols-3 mb-2 gap-3">
         <button
-          v-for="model in REPLICATE_MODELS"
+          v-for="model in REPLICATE_IMAGEGEN_PRESETS"
           :key="model.id"
           type="button"
           :class="[

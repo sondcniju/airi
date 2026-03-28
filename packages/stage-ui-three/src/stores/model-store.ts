@@ -57,27 +57,28 @@ type BroadcastChannelEvents
 
 interface BroadcastChannelEventShouldUpdateView {
   type: 'should-update-view'
+  reason?: string
 }
 
 export const useModelStore = defineStore('modelStore', () => {
   const { post, data } = useBroadcastChannel<BroadcastChannelEvents, BroadcastChannelEvents>({ name: 'airi-stores-live2d' })
-  const shouldUpdateViewHooks = ref(new Set<() => void>())
+  const shouldUpdateViewHooks = ref(new Set<(reason?: string) => void>())
 
-  const onShouldUpdateView = (hook: () => void) => {
+  const onShouldUpdateView = (hook: (reason?: string) => void) => {
     shouldUpdateViewHooks.value.add(hook)
     return () => {
       shouldUpdateViewHooks.value.delete(hook)
     }
   }
 
-  function shouldUpdateView() {
-    post({ type: 'should-update-view' })
-    shouldUpdateViewHooks.value.forEach(hook => hook())
+  function shouldUpdateView(reason?: string) {
+    post({ type: 'should-update-view', reason })
+    shouldUpdateViewHooks.value.forEach(hook => hook(reason))
   }
 
   watch(data, (event) => {
     if (event.type === 'should-update-view') {
-      shouldUpdateViewHooks.value.forEach(hook => hook())
+      shouldUpdateViewHooks.value.forEach(hook => hook(event.reason))
     }
   })
 

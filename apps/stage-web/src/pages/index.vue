@@ -15,15 +15,18 @@ import { useAudioRecorder } from '@proj-airi/stage-ui/composables/audio/audio-re
 import { useVAD } from '@proj-airi/stage-ui/stores/ai/models/vad'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useLive2d } from '@proj-airi/stage-ui/stores/live2d'
+import { useLLM } from '@proj-airi/stage-ui/stores/llm'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useHearingSpeechInputPipeline } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
-import { useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
+import { useSettings, useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
 import { breakpointsTailwind, useBreakpoints, useMouse } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
 
 const paused = ref(false)
+const componentStateStage = ref<'pending' | 'loading' | 'mounted'>('pending')
+const isLoading = computed(() => componentStateStage.value !== 'mounted')
 
 function handleSettingsOpen(open: boolean) {
   paused.value = open
@@ -31,6 +34,7 @@ function handleSettingsOpen(open: boolean) {
 
 const positionCursor = useMouse()
 const { scale, position, positionInPercentageString } = storeToRefs(useLive2d())
+const { lastReloadReason } = storeToRefs(useSettings())
 const breakpoints = useBreakpoints(breakpointsTailwind)
 const isMobile = breakpoints.smaller('md')
 
@@ -176,6 +180,7 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
       <!-- page -->
       <div relative flex="~ 1 row gap-y-0 gap-x-2 <md:col">
         <WidgetStage
+          v-model:state="componentStateStage"
           flex-1 min-w="1/2"
           :paused="paused"
           :focus-at="{
@@ -186,6 +191,35 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
           :y-offset="positionInPercentageString.y"
           :scale="scale"
         />
+        <div v-if="isLoading" class="pointer-events-none absolute left-0 top-0 z-100 h-full w-full">
+          <div class="absolute left-0 top-0 z-99 h-full w-full flex cursor-grab items-center justify-center overflow-hidden">
+            <div
+              :class="[
+                'absolute h-24 w-full overflow-hidden rounded-xl',
+                'flex items-center justify-center',
+                'bg-white/80 dark:bg-neutral-950/80',
+                'backdrop-blur-md',
+              ]"
+            >
+              <div
+                :class="[
+                  'absolute left-0 top-0',
+                  'h-full w-full flex items-center justify-center',
+                  'text-1.5rem text-primary-600 dark:text-primary-400 font-normal',
+                  'select-none',
+                  'animate-flash animate-duration-5s animate-count-infinite',
+                ]"
+              >
+                <div class="flex flex-col items-center gap-1">
+                  <div>Loading...</div>
+                  <div v-if="lastReloadReason" class="text-1rem font-normal opacity-50">
+                    Triggered by: {{ lastReloadReason }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         <InteractiveArea v-if="!isMobile" h="85dvh" absolute right-4 flex flex-1 flex-col max-w="500px" min-w="30%" />
         <MobileInteractiveArea v-if="isMobile" @settings-open="handleSettingsOpen" />
       </div>

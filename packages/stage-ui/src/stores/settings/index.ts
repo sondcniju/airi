@@ -1,4 +1,5 @@
-import { defineStore, storeToRefs } from 'pinia'
+import { defineStore } from 'pinia'
+import { toRef } from 'vue'
 
 import { useSettingsChat } from './chat'
 import { useSettingsControlsIsland } from './controls-island'
@@ -42,48 +43,41 @@ export const useSettings = defineStore('settings', () => {
     controlsIsland.resetState()
   }
 
-  // Extract refs from sub-stores to maintain proper reactivity
-  const chatRefs = storeToRefs(chat)
-  const generalRefs = storeToRefs(general)
-  const stageModelRefs = storeToRefs(stageModel)
-  const live2dRefs = storeToRefs(live2d)
-  const themeRefs = storeToRefs(theme)
-  const controlsIslandRefs = storeToRefs(controlsIsland)
-
   return {
     // Core settings
-    disableTransitions: generalRefs.disableTransitions,
-    usePageSpecificTransitions: generalRefs.usePageSpecificTransitions,
-    language: generalRefs.language,
-    remoteSyncEnabled: generalRefs.remoteSyncEnabled,
-    websocketSecureEnabled: generalRefs.websocketSecureEnabled,
-    sendMode: chatRefs.sendMode,
-    streamIdleTimeoutMs: chatRefs.streamIdleTimeoutMs,
+    disableTransitions: toRef(general, 'disableTransitions'),
+    usePageSpecificTransitions: toRef(general, 'usePageSpecificTransitions'),
+    language: toRef(general, 'language'),
+    remoteSyncEnabled: toRef(general, 'remoteSyncEnabled'),
+    websocketSecureEnabled: toRef(general, 'websocketSecureEnabled'),
+    sendMode: toRef(chat, 'sendMode'),
+    streamIdleTimeoutMs: toRef(chat, 'streamIdleTimeoutMs'),
 
     // Stage model settings
-    stageModelRenderer: stageModelRefs.stageModelRenderer,
-    stageModelSelected: stageModelRefs.stageModelSelected,
-    stageModelSelectedUrl: stageModelRefs.stageModelSelectedUrl,
-    stageModelSelectedFile: stageModelRefs.stageModelSelectedFile,
-    stageModelSelectedDisplayModel: stageModelRefs.stageModelSelectedDisplayModel,
-    stageViewControlsEnabled: stageModelRefs.stageViewControlsEnabled,
+    stageModelRenderer: toRef(stageModel, 'stageModelRenderer'),
+    stageModelSelected: toRef(stageModel, 'stageModelSelected'),
+    stageModelSelectedUrl: toRef(stageModel, 'stageModelSelectedUrl'),
+    stageModelSelectedFile: toRef(stageModel, 'stageModelSelectedFile'),
+    stageModelSelectedDisplayModel: toRef(stageModel, 'stageModelSelectedDisplayModel'),
+    stageViewControlsEnabled: toRef(stageModel, 'stageViewControlsEnabled'),
+    lastReloadReason: toRef(stageModel, 'lastReloadReason'),
 
     // Live2D settings
-    live2dDisableFocus: live2dRefs.live2dDisableFocus,
-    live2dIdleAnimationEnabled: live2dRefs.live2dIdleAnimationEnabled,
-    live2dAutoBlinkEnabled: live2dRefs.live2dAutoBlinkEnabled,
-    live2dForceAutoBlinkEnabled: live2dRefs.live2dForceAutoBlinkEnabled,
-    live2dShadowEnabled: live2dRefs.live2dShadowEnabled,
-    live2dMaxFps: live2dRefs.live2dMaxFps,
+    live2dDisableFocus: toRef(live2d, 'live2dDisableFocus'),
+    live2dIdleAnimationEnabled: toRef(live2d, 'live2dIdleAnimationEnabled'),
+    live2dAutoBlinkEnabled: toRef(live2d, 'live2dAutoBlinkEnabled'),
+    live2dForceAutoBlinkEnabled: toRef(live2d, 'live2dForceAutoBlinkEnabled'),
+    live2dShadowEnabled: toRef(live2d, 'live2dShadowEnabled'),
+    live2dMaxFps: toRef(live2d, 'live2dMaxFps'),
 
     // Theme settings
-    themeColorsHue: themeRefs.themeColorsHue,
-    themeColorsHueDynamic: themeRefs.themeColorsHueDynamic,
+    themeColorsHue: toRef(theme, 'themeColorsHue'),
+    themeColorsHueDynamic: toRef(theme, 'themeColorsHueDynamic'),
 
     // UI settings
-    allowVisibleOnAllWorkspaces: controlsIslandRefs.allowVisibleOnAllWorkspaces,
-    alwaysOnTop: controlsIslandRefs.alwaysOnTop,
-    controlsIslandIconSize: controlsIslandRefs.controlsIslandIconSize,
+    allowVisibleOnAllWorkspaces: toRef(controlsIsland, 'allowVisibleOnAllWorkspaces'),
+    alwaysOnTop: toRef(controlsIsland, 'alwaysOnTop'),
+    controlsIslandIconSize: toRef(controlsIsland, 'controlsIslandIconSize'),
 
     // Methods
     setThemeColorsHue: theme.setThemeColorsHue,

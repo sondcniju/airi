@@ -11,15 +11,17 @@ export const useServerChannelSettingsStore = defineStore('tamagotchi-server-chan
   const getServerChannelConfig = useElectronEventaInvoke(electronGetServerChannelConfig)
   const applyServerChannelConfig = useElectronEventaInvoke(electronApplyServerChannelConfig)
 
-  const serverChannelConfig = useAsyncState(getServerChannelConfig, null)
+  const serverChannelConfig = useAsyncState(getServerChannelConfig, null as { websocketTlsConfig?: any } | null)
 
   watch(websocketTlsConfig, async (newValue) => {
-    websocketTlsConfig.value = newValue
+    // websocketTlsConfig.value = newValue // Remove this, it's redundant and could loop
     await applyServerChannelConfig({ websocketTlsConfig: newValue ? {} : null })
   })
 
   watch(serverChannelConfig.state, (newConfig) => {
-    websocketTlsConfig.value = newConfig?.websocketTlsConfig
+    if (newConfig?.websocketTlsConfig !== undefined) {
+      websocketTlsConfig.value = newConfig.websocketTlsConfig
+    }
   })
 
   return {
