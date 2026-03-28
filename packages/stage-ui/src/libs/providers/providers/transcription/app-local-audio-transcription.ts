@@ -38,84 +38,125 @@ const definition: ProviderDefinition<LocalTranscriptionConfig> = {
   createProvider: async (_config: LocalTranscriptionConfig) => {
     const worker = await getWhisperWorker()
 
+    const transcribe = async (audioInput: any, model: string) => {
+      console.group(`[App Local Transcription] Transcribing with model ${model}`)
+
+      // Transcription libraries like @xsai might pass an object with { file: Blob }
+      const audio = (audioInput && typeof audioInput === 'object' && 'file' in audioInput)
+        ? (audioInput as any).file
+        : audioInput
+
+      console.info('[App Local Transcription] Normalized audio input:', {
+        type: audio?.constructor?.name || typeof audio,
+        size: audio instanceof Blob ? audio.size : 'N/A',
+      })
+
+      // Safety: ensure model is loaded if not already
+      if (!loadedModels.has(model)) {
+        console.warn(`[App Local Transcription] Model ${model} not loaded. Triggering auto-load...`)
+        try {
+          const capabilities = definition.capabilities as any
+          if (capabilities?.loadModel) {
+            await capabilities.loadModel(model, { transcription: () => ({}) } as any, { onProgress: (info: any) => console.info(`[App Local Transcription] Auto-load progress:`, info) })
+          }
+          else {
+            throw new Error('loadModel capability is missing')
+          }
+        }
+        catch (err) {
+          console.error(`[App Local Transcription] Auto-load failed:`, err)
+          console.groupEnd()
+          throw err
+        }
+      }
+
+      return new Promise((resolve, reject) => {
+        const id = Math.random().toString(36).substring(7)
+
+        const handleMessage = (e: MessageEvent) => {
+          if (e.data.id === id) {
+            if (e.data.type === 'RESULT') {
+              console.info(`[App Local Transcription] Success for ${id}`)
+              worker.removeEventListener('message', handleMessage)
+              resolve({ text: e.data.text })
+            }
+            else if (e.data.type === 'ERROR') {
+              const error = new Error(e.data.error || 'Unknown worker error')
+              ;(error as any).stack = e.data.stack
+              console.error(`[App Local Transcription] Error for ${id}:`, error)
+              worker.removeEventListener('message', handleMessage)
+              reject(error)
+            }
+          }
+        }
+
+        worker.addEventListener('message', handleMessage)
+
+        console.info(`[App Local Transcription] Sending TRANSCRIBE message ${id}`)
+
+        if (audio instanceof Blob) {
+          audio.arrayBuffer().then((buffer) => {
+            worker.postMessage({
+              type: 'TRANSCRIBE',
+              id,
+              audio: buffer,
+              model,
+            }, [buffer])
+          }).catch((err) => {
+            console.error('[App Local Transcription] Failed to read audio blob:', err)
+            worker.removeEventListener('message', handleMessage)
+            reject(err)
+          })
+        }
+        else if (audio instanceof ArrayBuffer) {
+          const buffer = audio.slice(0)
+          worker.postMessage({
+            type: 'TRANSCRIBE',
+            id,
+            audio: buffer,
+            model,
+            format: 'pcm16',
+          }, [buffer])
+        }
+        else {
+          console.error('[App Local Transcription] Unsupported audio format received:', audio)
+          worker.removeEventListener('message', handleMessage)
+          reject(new Error(`Unsupported audio format: ${audio?.constructor?.name || typeof audio}`))
+        }
+      }).finally(() => {
+        console.groupEnd()
+      })
+    }
+
     return {
       transcription: (model: string) => ({
         provider: 'app-local-audio-transcription',
         model,
-        transcribe: async (audio: Blob | File | ArrayBuffer) => {
-          console.group(`[App Local Transcription] Transcribing with model ${model}`)
+        // NOTICE: baseURL is required by @xsai/shared requestURL to avoid .toString() on undefined
+        baseURL: 'http://app-local-transcription.invalid',
+        // NOTICE: fetch shim to intercept REST-style calls and route to local worker
+        fetch: async (input: any, init?: any) => {
+          const url = (typeof input === 'string')
+            ? input
+            : (input instanceof URL)
+                ? input.href
+                : (input && typeof input === 'object' && 'url' in input)
+                    ? input.url
+                    : String(input)
 
-          // Safety: ensure model is loaded if not already
-          if (!loadedModels.has(model)) {
-            console.warn(`[App Local Transcription] Model ${model} not loaded. Triggering auto-load...`)
-            try {
-              const capabilities = definition.capabilities as any
-              if (capabilities?.loadModel) {
-                await capabilities.loadModel(model, { transcription: () => ({}) } as any, { onProgress: (info: any) => console.info(`[App Local Transcription] Auto-load progress:`, info) })
-              }
-              else {
-                throw new Error('loadModel capability is missing')
-              }
-            }
-            catch (err) {
-              console.error(`[App Local Transcription] Auto-load failed:`, err)
-              console.groupEnd()
-              throw err
-            }
+          if (url.includes('audio/transcriptions')) {
+            console.info('[App Local Transcription] Intercepting transcription request', { url })
+            const body = init?.body as any
+            const file = body?.get?.('file')
+            const result = await transcribe(file, model)
+            return new Response(JSON.stringify(result), {
+              headers: { 'Content-Type': 'application/json' },
+            })
           }
-
-          return new Promise((resolve, reject) => {
-            const id = Math.random().toString(36).substring(7)
-
-            const handleMessage = (e: MessageEvent) => {
-              if (e.data.id === id) {
-                if (e.data.type === 'RESULT') {
-                  console.info(`[App Local Transcription] Success for ${id}`)
-                  worker.removeEventListener('message', handleMessage)
-                  resolve({ text: e.data.text })
-                }
-                else if (e.data.type === 'ERROR') {
-                  const error = new Error(e.data.error)
-                  ;(error as any).stack = e.data.stack
-                  console.error(`[App Local Transcription] Error for ${id}:`, error)
-                  worker.removeEventListener('message', handleMessage)
-                  reject(error)
-                }
-              }
-            }
-
-            worker.addEventListener('message', handleMessage)
-
-            console.info(`[App Local Transcription] Sending TRANSCRIBE message ${id}`)
-
-            if (audio instanceof Blob) {
-              audio.arrayBuffer().then((buffer) => {
-                worker.postMessage({
-                  type: 'TRANSCRIBE',
-                  id,
-                  audio: buffer,
-                  model,
-                }, [buffer])
-              })
-            }
-            else if (audio instanceof ArrayBuffer) {
-              const buffer = audio.slice(0)
-              worker.postMessage({
-                type: 'TRANSCRIBE',
-                id,
-                audio: buffer,
-                model,
-                format: 'pcm16', // Hint for cleaner processing in worker
-              }, [buffer])
-            }
-            else {
-              worker.removeEventListener('message', handleMessage)
-              reject(new Error('Unsupported audio format'))
-            }
-          }).finally(() => {
-            console.groupEnd()
-          })
+          return globalThis.fetch(input, init)
         },
+        // Also keep legacy transcribe for direct calls
+        transcribe: (audioInput: any) => transcribe(audioInput, model),
       }),
     } as any // Cast to any because the nested structure used by xsai is complex and we're bridging interfaces
   },

@@ -6,96 +6,190 @@ env.useBrowserCache = true
 
 // Cache for pipelines
 const pipelines: Record<string, any> = {}
+// Track active loading tasks to prevent redundant downloads
+const loadingPromises: Record<string, Promise<any> | undefined> = {}
 
 async function getPipeline(model: string, progress_callback?: (progress: number) => void) {
   if (pipelines[model])
     return pipelines[model]
 
-  console.info(`[Whisper Worker] Loading model: ${model}`)
-  try {
-    // Try WebGPU first if available
-    pipelines[model] = await pipeline('automatic-speech-recognition', model, {
-      device: 'webgpu',
-      dtype: 'fp16', // Better for WebGPU
-      progress_callback: (info: any) => {
-        if (info.status === 'progress' && progress_callback) {
-          progress_callback(info.progress)
-        }
-      },
-    })
-    console.info(`[Whisper Worker] Model ${model} loaded with WebGPU`)
-  }
-  catch (err) {
-    console.warn(`[Whisper Worker] WebGPU failed, falling back to WASM:`, err)
-    pipelines[model] = await pipeline('automatic-speech-recognition', model, {
-      device: 'wasm',
-      dtype: 'fp32', // Safe default for WASM
-      progress_callback: (info: any) => {
-        if (info.status === 'progress' && progress_callback) {
-          progress_callback(info.progress)
-        }
-      },
-    })
-    console.info(`[Whisper Worker] Model ${model} loaded with WASM`)
+  if (loadingPromises[model]) {
+    console.info(`[Whisper Worker] Already loading ${model}, waiting for existing task...`)
+    return loadingPromises[model]
   }
 
-  return pipelines[model]
+  console.info(`[Whisper Worker] Loading model: ${model}`)
+  loadingPromises[model] = (async () => {
+    try {
+      // Try WebGPU first if available
+      const p = await pipeline('automatic-speech-recognition', model, {
+        device: 'webgpu',
+        dtype: 'fp16', // Better for WebGPU
+        progress_callback: (info: any) => {
+          if (info.status === 'progress' && progress_callback) {
+            progress_callback(info.progress)
+          }
+        },
+      })
+      console.info(`[Whisper Worker] Model ${model} loaded with WebGPU`)
+      pipelines[model] = p
+      return p
+    }
+    catch (err) {
+      console.warn(`[Whisper Worker] WebGPU failed, falling back to WASM:`, err)
+      const p = await pipeline('automatic-speech-recognition', model, {
+        device: 'wasm',
+        dtype: 'fp32', // Safe default for WASM
+        progress_callback: (info: any) => {
+          if (info.status === 'progress' && progress_callback) {
+            progress_callback(info.progress)
+          }
+        },
+      })
+      console.info(`[Whisper Worker] Model ${model} loaded with WASM`)
+      pipelines[model] = p
+      return p
+    }
+    finally {
+      delete loadingPromises[model]
+    }
+  })()
+
+  return loadingPromises[model]
 }
 
 let transcriber: any = null
 
 /**
- * Ensures the input audio is a Float32Array and properly normalized for Whisper.
- * Handles ArrayBuffer, TypedArrays, and common PCM formats (Int16/Float32).
+ * Basic linear interpolation resampler.
+ */
+function resample(audio: Float32Array, fromRate: number, toRate: number): Float32Array {
+  if (fromRate === toRate)
+    return audio
+  const ratio = fromRate / toRate
+  const newLength = Math.round(audio.length / ratio)
+  const result = new Float32Array(newLength)
+  for (let i = 0; i < newLength; i++) {
+    const pos = i * ratio
+    const index = Math.floor(pos)
+    const frac = pos - index
+    if (index + 1 < audio.length) {
+      result[i] = audio[index] * (1 - frac) + audio[index + 1] * frac
+    }
+    else {
+      result[i] = audio[index]
+    }
+  }
+  return result
+}
+
+/**
+ * Strips WAV header and extracts PCM data + sample rate.
+ */
+function parseWav(buffer: ArrayBuffer) {
+  const view = new DataView(buffer)
+
+  // Double check RIFF header
+  if (view.byteLength < 44)
+    return null
+  if (view.getUint32(0) !== 0x52494646)
+    return null // "RIFF"
+  if (view.getUint32(8) !== 0x57415645)
+    return null // "WAVE"
+
+  let offset = 12
+  let sampleRate = 0
+  let bitsPerSample = 0
+  let dataOffset = 0
+  let dataSize = 0
+
+  // Look for "fmt " and "data" chunks
+  while (offset + 8 <= buffer.byteLength) {
+    const chunkId = view.getUint32(offset)
+    const chunkSize = view.getUint32(offset + 4, true)
+
+    if (chunkId === 0x666D7420) { // "fmt "
+      sampleRate = view.getUint32(offset + 12, true)
+      bitsPerSample = view.getUint16(offset + 22, true)
+    }
+    else if (chunkId === 0x64617461) { // "data"
+      dataOffset = offset + 8
+      dataSize = chunkSize
+      break
+    }
+    offset += 8 + chunkSize
+  }
+
+  if (!dataOffset || !sampleRate)
+    return null
+  return { sampleRate, bitsPerSample, dataOffset, dataSize }
+}
+
+/**
+ * Ensures the input audio is a Float32Array and properly normalized for Whisper (16kHz).
  */
 function ensureFloat32Array(audio: any): Float32Array {
-  if (audio instanceof Float32Array) {
-    return audio
+  const TARGET_RATE = 16000
+
+  // Handle Blob/File (should be converted to ArrayBuffer before worker call, but just in case)
+  if (audio instanceof Blob) {
+    throw new TypeError('Blobs cannot be processed directly in worker sync — convert to ArrayBuffer first.')
   }
 
-  // If it's another TypedArray, we need to convert it
-  if (ArrayBuffer.isView(audio)) {
-    if (audio instanceof Int16Array) {
-      console.info(`[Whisper Worker] Converting Int16Array (${audio.length} samples) to Float32Array`)
-      const f32 = new Float32Array(audio.length)
-      for (let i = 0; i < audio.length; ++i) {
-        f32[i] = audio[i] / 32768.0
-      }
-      return f32
-    }
-    // Fallback for other typed arrays
-    return new Float32Array(audio.buffer, audio.byteOffset, Math.floor(audio.byteLength / 4))
-  }
+  let float32: Float32Array
+  let sourceRate = TARGET_RATE // Default assume it's already 16kHz
 
   if (audio instanceof ArrayBuffer) {
-    const byteLength = audio.byteLength
+    const wav = parseWav(audio)
+    if (wav) {
+      console.info(`[Whisper Worker] WAV detected: ${wav.sampleRate}Hz, ${wav.bitsPerSample}-bit, ${wav.dataSize} bytes data`)
+      sourceRate = wav.sampleRate
 
-    // Detection heuristic: the hearingStore in this repo sends Int16 ArrayBuffers (pcm16.buffer.slice(0))
-    // Int16 is 2 bytes per sample. Float32 is 4 bytes.
-    // If it's not a multiple of 4 but is a multiple of 2, it's almost certainly Int16.
-    if (byteLength % 2 === 0 && byteLength % 4 !== 0) {
-      console.info(`[Whisper Worker] Detected Int16 samples (length: ${byteLength} bytes). Converting to Float32...`)
-      const i16 = new Int16Array(audio)
-      const f32 = new Float32Array(i16.length)
-      for (let i = 0; i < i16.length; ++i) {
-        f32[i] = i16[i] / 32768.0
+      if (wav.bitsPerSample === 16) {
+        const i16 = new Int16Array(audio, wav.dataOffset, Math.floor(wav.dataSize / 2))
+        float32 = new Float32Array(i16.length)
+        for (let i = 0; i < i16.length; ++i) {
+          float32[i] = i16[i] / 32768.0
+        }
       }
-      return f32
+      else if (wav.bitsPerSample === 32) {
+        float32 = new Float32Array(audio, wav.dataOffset, Math.floor(wav.dataSize / 4))
+      }
+      else {
+        throw new Error(`Unsupported WAV bits per sample: ${wav.bitsPerSample}`)
+      }
     }
-
-    // Default to Float32, but handle unaligned buffers safely to avoid RangeError
-    const floatCount = Math.floor(byteLength / 4)
-    if (byteLength % 4 !== 0) {
-      console.warn(`[Whisper Worker] Audio buffer length (${byteLength}) is not a multiple of 4. Truncating trailing bytes.`)
+    else {
+      // Not a WAV, assume raw Float32 at native rate fallback (heuristic)
+      console.warn('[Whisper Worker] Not a WAV file. Assuming raw Float32 PCM at 48kHz...')
+      sourceRate = 48000
+      float32 = new Float32Array(audio)
     }
-    return new Float32Array(audio, 0, floatCount)
+  }
+  else if (audio instanceof Float32Array) {
+    float32 = audio
+    // If it's pure Float32, we don't know the rate unless passed in.
+    // Heuristic: if originating from this repo's recorder, it's 48kHz.
+    sourceRate = 48000
+  }
+  else if (audio instanceof Int16Array) {
+    sourceRate = 48000
+    float32 = new Float32Array(audio.length)
+    for (let i = 0; i < audio.length; ++i) {
+      float32[i] = audio[i] / 32768.0
+    }
+  }
+  else {
+    throw new TypeError(`Unsupported data type: ${audio?.constructor?.name || typeof audio}`)
   }
 
-  if (Array.isArray(audio)) {
-    return new Float32Array(audio)
+  // Resample to 16kHz
+  if (sourceRate !== TARGET_RATE) {
+    console.info(`[Whisper Worker] Resampling from ${sourceRate}Hz to ${TARGET_RATE}Hz...`)
+    return resample(float32, sourceRate, TARGET_RATE)
   }
 
-  throw new Error(`Unsupported audio data type: ${audio?.constructor?.name || typeof audio}`)
+  return float32
 }
 
 self.onmessage = async (event: MessageEvent) => {
@@ -173,8 +267,8 @@ self.onmessage = async (event: MessageEvent) => {
           throw new Error('No audio data provided for transcription')
         }
 
-        const byteLength = effectiveAudio.byteLength ?? effectiveAudio.length
-        console.info(`[Whisper Worker] Processing ${byteLength} units of audio data...`)
+        const byteLength = effectiveAudio.byteLength ?? effectiveAudio.size ?? 0
+        console.info(`[Whisper Worker] Processing ${byteLength} bytes of audio data...`)
 
         // Prepare audio data: convert any input format to normalized Float32Array
         const audioBuffer = ensureFloat32Array(effectiveAudio)

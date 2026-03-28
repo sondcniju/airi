@@ -88,23 +88,48 @@ async function downloadModel(modelId: string) {
 
 // Generate transcription handler for the playground
 async function handleGenerateTranscription(file: File) {
+  console.info('[App Local Transcription Settings] handleGenerateTranscription called', {
+    fileName: file?.name,
+    fileSize: file?.size,
+    fileType: file?.type,
+    isInstanceOfFile: file instanceof File,
+  })
+
   const provider = await providersStore.getProviderInstance(providerId) as any
+  console.info('[App Local Transcription Settings] Provider instance:', provider ? 'initialized' : 'missing')
+
   if (!provider) {
     throw new Error('Failed to initialize transcription provider')
   }
 
   // Ensure model is cached before starting transcription
   if (!cachedModels.value.has(model.value)) {
+    console.info(`[App Local Transcription Settings] Model ${model.value} not cached. Downloading...`)
     toast.info(`Downloading ${model.value} model...`)
     await downloadModel(model.value)
-    // Wait for download to finish (this is a bit crude but works for the playground)
-    while (isDownloading.value) {
+
+    // Wait for download to finish with a timeout (2 minutes max)
+    const startTime = Date.now()
+    const timeout = 120 * 1000
+
+    while (isDownloading.value && (Date.now() - startTime < timeout)) {
       await new Promise(resolve => setTimeout(resolve, 500))
     }
+
+    if (isDownloading.value) {
+      console.error('[App Local Transcription Settings] Model download timed out')
+      throw new Error('Model download timed out')
+    }
+
     if (!cachedModels.value.has(model.value)) {
+      console.error('[App Local Transcription Settings] Model download failed to cache')
       throw new Error('Model download failed')
     }
+
+    console.info(`[App Local Transcription Settings] Model ${model.value} is now ready.`)
   }
+
+  console.info(`[App Local Transcription Settings] Delegating transcription to hearing store for ${file.name}`)
 
   return await hearingStore.transcription(
     providerId,
