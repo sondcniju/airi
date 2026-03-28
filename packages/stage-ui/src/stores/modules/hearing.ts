@@ -248,9 +248,10 @@ export const useHearingStore = defineStore('hearing-store', () => {
 
       const activeToken = cachedDeepgramJWT.token
 
-      const res = await fetch(`${baseUrl}listen?model=${model}&smart_format=true&token=${activeToken}`, {
+      const res = await fetch(`${baseUrl}listen?model=${model}&smart_format=true`, {
         method: 'POST',
         headers: {
+          'Authorization': `Token ${activeToken}`,
           'Content-Type': normalizedInput.file.type || 'audio/webm',
         },
         body: normalizedInput.file,
@@ -549,9 +550,6 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
       if (!providerId) {
         error.value = 'No transcription provider selected'
         console.error('[Hearing Pipeline] No transcription provider selected')
-        // NOTICE: Always reset isTranscribing on early exit guard paths so subsequent
-        // calls are not permanently blocked by a stuck flag.
-        hearingStore.isTranscribing = false
         return
       }
 
@@ -566,7 +564,6 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
         if (!isAvailable) {
           error.value = 'Web Speech API is not available in this browser'
           console.error('Web Speech API is not available')
-          hearingStore.isTranscribing = false
           return
         }
 
@@ -651,7 +648,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
             options?.onSentenceEnd?.(delta)
 
             // Transcription feedback toast
-            console.info('[Hearing Pipeline] Web Speech API delta:', delta)
+            console.debug('[Hearing Pipeline] Web Speech API delta:', delta)
             toast.dismiss('transcription-feedback')
             toast.info(`🎤 You said: ${delta}`, {
               id: 'transcription-feedback',

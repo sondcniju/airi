@@ -168,11 +168,6 @@ export function streamWebSpeechAPITranscription(
   let fullText = ''
   let textStreamCtrl: ReadableStreamDefaultController<string> | undefined
   let fullStreamCtrl: ReadableStreamDefaultController<StreamTranscriptionDelta> | undefined
-  // NOTICE: `isAborted` is a synchronous flag set in the abort listener. We cannot rely solely
-  // on `options?.abortSignal?.aborted` inside the `onend` setTimeout callback (100ms later)
-  // because the browser fires `onend` asynchronously after `recognition.stop()`, meaning the
-  // flag may not yet be set when the callback runs. This closes the race window.
-  let isAborted = false
   let recognitionInstance: any = null
 
   const fullStream = new ReadableStream<StreamTranscriptionDelta>({
@@ -289,25 +284,15 @@ export function streamWebSpeechAPITranscription(
   }
 
   recognition.onend = () => {
-    console.info('Web Speech API recognition ended. Continuous mode:', options?.continuous !== false, 'Aborted:', isAborted)
+    console.info('Web Speech API recognition ended. Continuous mode:', options?.continuous !== false, 'Aborted:', options?.abortSignal?.aborted)
 
-    // If continuous mode and not aborted, restart recognition.
-    // NOTICE: We check `isAborted` (set synchronously in the abort listener) instead of
-    // `options?.abortSignal?.aborted` which may not be set yet when `onend` fires, because
-    // the browser dispatches `onend` asynchronously after `recognition.stop()` is called.
-    if (options?.continuous !== false && !isAborted) {
+    // If continuous mode and not aborted, restart recognition
+    if (options?.continuous !== false && !options?.abortSignal?.aborted) {
       // Use the current recognitionInstance to ensure we're using the correct instance
       const currentRecognition = recognitionInstance || recognition
 
-      // Small delay before restarting to avoid rapid restart loops.
-      // Re-check `isAborted` inside the callback — abort may have been signalled
-      // during the 100ms window while the timer was pending (phantom restart guard).
+      // Small delay before restarting to avoid rapid restart loops
       setTimeout(() => {
-        if (isAborted || deferredText.isRejected) {
-          console.info('Web Speech API: skipping restart, session was aborted or errored during timeout')
-          return
-        }
-
         try {
           currentRecognition.start()
           console.info('Web Speech API recognition restarted (continuous mode)')
@@ -332,7 +317,7 @@ export function streamWebSpeechAPITranscription(
     }
     else {
       // Don't try to enqueue/close if the stream has already been aborted/errored
-      if (isAborted || deferredText.isRejected) {
+      if (options?.abortSignal?.aborted || deferredText.isRejected) {
         return
       }
 
@@ -351,13 +336,9 @@ export function streamWebSpeechAPITranscription(
     }
   }
 
-  // Handle abort signal.
-  // NOTICE: `isAborted` is set synchronously here so that the `onend` handler and its
-  // internal setTimeout callback both see the correct state even before the microtask
-  // queue drains — closing the race window between abort() and the async onend event.
+  // Handle abort signal
   if (options?.abortSignal) {
     options.abortSignal.addEventListener('abort', () => {
-      isAborted = true
       try {
         recognition.stop()
       }

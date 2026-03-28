@@ -23,7 +23,7 @@ import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consci
 import { useHearingSpeechInputPipeline, useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettings, useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
-import { refDebounced, refThrottled, useBroadcastChannel } from '@vueuse/core'
+import { useBroadcastChannel } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, provide, ref, toRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
@@ -44,17 +44,13 @@ const componentStateStage = ref<'pending' | 'loading' | 'mounted'>('pending')
 
 const isLoading = ref(true)
 
+const isIgnoringMouseEvents = ref(false)
 const shouldFadeOnCursorWithin = ref(false)
 
 const { isOutside: isOutsideWindow } = useElectronMouseInWindow()
 const { isOutside } = useElectronMouseInElement(controlsIslandRoot)
 const isOutsideForInstant = isOutside
-const { x: rawMouseX, y: rawMouseY } = useElectronRelativeMouse()
-// Throttled mouse position for transparency detection to reduce GPU load.
-// 16ms (~60fps) is the sweet spot for responsiveness vs system overhead on Windows.
-const throttledMouse = refThrottled(computed(() => ({ x: rawMouseX.value, y: rawMouseY.value })), 16)
-const relativeMouseX = computed(() => throttledMouse.value.x)
-const relativeMouseY = computed(() => throttledMouse.value.y)
+const { x: relativeMouseX, y: relativeMouseY } = useElectronRelativeMouse()
 // NOTICE: In real-world use cases of Fade on Hover feature, the cursor may move around the edge of the
 // model rapidly, causing flickering effects when checking pixel transparency strictly.
 // Here we use render-target pixel sampling to keep detection aligned with the actual render output.
@@ -62,13 +58,13 @@ const isTransparentByPixels = useCanvasPixelIsTransparentAtPoint(
   stageCanvas,
   relativeMouseX,
   relativeMouseY,
-  { regionRadius: 15 }, // Reduced from 25 for performance
+  { regionRadius: 25 },
 )
 const isTransparentByThree = useThreeSceneIsTransparentAtPoint(
   widgetStageRef,
   relativeMouseX,
   relativeMouseY,
-  { regionRadius: 15 }, // Reduced from 25 for performance
+  { regionRadius: 25 },
 )
 
 const { stageModelRenderer } = storeToRefs(useSettings())
@@ -96,11 +92,6 @@ const isTransparent = computed(() => {
 
   return true
 })
-
-// NOTICE: We debounce the transparency state for click-through logic by 50ms.
-// This prevents IPC flooding and "flickering" near the precise edges of the model.
-const isTransparentDebounced = refDebounced(isTransparent, 50)
-const isIgnoringMouseEventsDebounced = ref(false)
 
 const { isNearAnyBorder: isAroundWindowBorder } = useElectronMouseAroundWindowBorder({ threshold: 30 })
 const isAroundWindowBorderForInstant = isAroundWindowBorder
@@ -140,41 +131,37 @@ onMounted(async () => {
 
 const hearingDialogOpen = computed(() => controlsIslandRef.value?.hearingDialogOpen ?? false)
 
-watch([isOutsideForInstant, isAroundWindowBorderForInstant, isOutsideWindow, isTransparentDebounced, hearingDialogOpen, fadeOnHoverEnabled], () => {
-  let desiredIgnoreState = false
-
+watch([isOutsideForInstant, isAroundWindowBorderForInstant, isOutsideWindow, isTransparent, hearingDialogOpen, fadeOnHoverEnabled], () => {
   if (hearingDialogOpen.value) {
     // Hearing dialog/drawer is open; keep window interactive
-    desiredIgnoreState = false
+    isIgnoringMouseEvents.value = false
+    shouldFadeOnCursorWithin.value = false
+    setIgnoreMouseEvents([false, { forward: true }])
+    pause()
+    return
+  }
+
+  const insideControls = !isOutsideForInstant.value
+  const nearBorder = isAroundWindowBorderForInstant.value
+
+  if (insideControls || nearBorder) {
+    // Inside interactive controls or near resize border: do NOT ignore events
+    isIgnoringMouseEvents.value = false
+    shouldFadeOnCursorWithin.value = false
+    setIgnoreMouseEvents([false, { forward: true }])
+    pause()
   }
   else {
-    const insideControls = !isOutsideForInstant.value
-    const nearBorder = isAroundWindowBorderForInstant.value
-
-    if (insideControls || nearBorder) {
-      // Inside interactive controls or near resize border: do NOT ignore events
-      desiredIgnoreState = false
-    }
-    else {
-      const fadeEnabled = fadeOnHoverEnabled.value
-      // Otherwise allow click-through while we fade UI based on transparency (when enabled)
-      desiredIgnoreState = fadeEnabled && isTransparentDebounced.value
-    }
-  }
-
-  // Only call setIgnoreMouseEvents if the desired state has changed to reduce IPC traffic
-  if (isIgnoringMouseEventsDebounced.value !== desiredIgnoreState) {
-    isIgnoringMouseEventsDebounced.value = desiredIgnoreState
-    setIgnoreMouseEvents([desiredIgnoreState, { forward: true }])
-
-    if (desiredIgnoreState)
+    const fadeEnabled = fadeOnHoverEnabled.value
+    // Otherwise allow click-through while we fade UI based on transparency (when enabled)
+    isIgnoringMouseEvents.value = fadeEnabled
+    shouldFadeOnCursorWithin.value = fadeEnabled && !isOutsideWindow.value && !isTransparent.value
+    setIgnoreMouseEvents([fadeEnabled, { forward: true }])
+    if (fadeEnabled)
       resume()
     else
       pause()
   }
-
-  // Update visual fade state independently (usually follows ignore state, but reacts to mouse presence)
-  shouldFadeOnCursorWithin.value = desiredIgnoreState && !isOutsideWindow.value && !isTransparentDebounced.value
 })
 
 const settingsAudioDeviceStore = useSettingsAudioDevice()

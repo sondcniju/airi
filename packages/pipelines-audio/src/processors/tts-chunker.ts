@@ -208,7 +208,6 @@ export async function chunkEmitter(
 ) {
   const sanitizeChunk = (text: string) =>
     text
-      .replace(/(?:^|\n)\s*\*?ACT\s*:.*(?=\n|$)/gi, '')
       .replaceAll(TTS_SPECIAL_TOKEN, '')
       .replaceAll(TTS_FLUSH_INSTRUCTION, '')
       .trim()
@@ -217,19 +216,13 @@ export async function chunkEmitter(
     for await (const chunk of chunkTtsInput(reader, options)) {
       // TODO: remove later
 
-      const text = chunk.text
-      const sanitized = sanitizeChunk(text)
-
       if (chunk.reason === 'special') {
         const specialToken = pendingSpecials.shift()
         // console.debug("special yield:", specialToken)
-        await handler({ chunk: sanitized, special: specialToken ?? null, reason: chunk.reason })
+        await handler({ chunk: sanitizeChunk(chunk.text), special: specialToken ?? null, reason: chunk.reason })
       }
       else {
-        // Skip empty text chunks to avoid hanging/crashing TTS providers
-        if (!sanitized)
-          continue
-        await handler({ chunk: sanitized, special: null, reason: chunk.reason })
+        await handler({ chunk: sanitizeChunk(chunk.text), special: null, reason: chunk.reason })
       }
     }
   }
