@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { ARTISTRY_PRESET_GROUPS, artistryGenerateHeadless, REPLICATE_PRESETS } from '@proj-airi/stage-shared'
+import { ARTISTRY_PRESET_GROUPS, artistryGenerateHeadless, REPLICATE_IMAGEEDIT_PRESETS } from '@proj-airi/stage-shared'
 import { useModelStore } from '@proj-airi/stage-ui-three'
 import { Button } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
@@ -143,10 +143,10 @@ watch(() => artistryStore.comfyuiActiveWorkflow, (newWorkflowId) => {
 
 watch(selectedReplicatePreset, (newPresetId) => {
   if (artistryStore.activeProvider === 'replicate' && newPresetId) {
-    const preset = REPLICATE_PRESETS.find(p => p.id === newPresetId)
+    const preset = REPLICATE_IMAGEEDIT_PRESETS.find(p => p.id === newPresetId)
     if (preset) {
-      aiReplicateModelId.value = preset.model
-      aiReplicateParams.value = preset.json
+      aiReplicateModelId.value = preset.id
+      aiReplicateParams.value = JSON.stringify(preset.preset, null, 2)
       if (preset.prompt)
         aiPrompt.value = preset.prompt
     }
@@ -785,7 +785,7 @@ onMounted(() => {
                     <option value="">
                       Manual Config
                     </option>
-                    <option v-for="p in REPLICATE_PRESETS" :key="p.id" :value="p.id">
+                    <option v-for="p in REPLICATE_IMAGEEDIT_PRESETS" :key="p.id" :value="p.id">
                       {{ p.label }}
                     </option>
                   </select>
