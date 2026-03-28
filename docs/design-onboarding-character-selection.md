@@ -32,23 +32,38 @@ We are elevating the "Character Selection" step into a premium visual experience
 
 ### [Component] Onboarding Orchestrator
 #### [MODIFY] [onboarding.vue](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/packages/stage-ui/src/components/scenarios/dialogs/onboarding/onboarding.vue)
-- Insert the `StepCharacterSelection` component as Step 5 (after Model Selection).
-- Implement the "Finalization" logic: When the user finish the onboarding, call `cardStore.seedDefaults()` to ensure all 3 starters are added to their permanent library.
+- **Integration Point**: Add `StepCharacterSelection` to the `allSteps` computed property.
+- **Placement**: Step 5 (after `StepModelSelection`).
+- **Finalization**: When the user finishes, call `cardStore.seedDefaults()`.
 
 ### [Store] AIRI Card Store
 #### [MODIFY] [airi-card.ts](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/packages/stage-ui/src/stores/modules/airi-card.ts)
-- Add the `seedDefaults()` method.
-- This method will verify if ReLU, Aria, and Lupin exist; if not, it will create them using the **Gold Standard** proactive prompts and correct `displayModelId` links.
+- **Task**: Add the `seedDefaults()` method.
+- **Logic**: Verify if ReLU, Aria, and Lupin exist; if not, create them using standardized proactive prompts and correct `displayModelId` links (AvatarSample_A, AvatarSample_B, Hiyori).
 
 ---
 
-## 3. Visual Strategy
+## 4. Testing & Manual Trigger
+To manually trigger the onboarding bypass and re-run the setup, execute the following in the browser console:
+
+```javascript
+// Reset onboarding state
+localStorage.removeItem('onboarding/completed')
+localStorage.removeItem('onboarding/skipped')
+
+// Reload the app to trigger the orchestrator
+location.reload()
+```
+
+---
+
+## 5. Visual Strategy
 - **Portraits**: Large circular or rounded-square avatars.
 - **Glassmorphism**: Cards will use `backdrop-blur` and a slight white border for a premium feel.
 - **Micro-Animations**: Transitions between cards and model selection will be a smooth horizontal slide.
 
 ## Open Questions
 
-1. **JanitorAI Note**: You mentioned JanitorAI doesn't allow SillyTavern exports easily—I'll remove it from the "Cleanest Experience" recommendation in the text if you prefer, leaving only JannyAI as the "best" one.
-2. **First Greeting**: I will use the first greeting from the `greetings` array as the "Sub-text" under the bio in the card. Does that sound good?
+1. **JannyAI Priority**: JannyAI is now the primary recommendation. JanitorAI is removed from the "Cleanest Experience" list due to export friction.
+2. **First Greeting Preview**: I will use the first greeting (`greetings[0]`) as the descriptive sub-text in the selection card.
 

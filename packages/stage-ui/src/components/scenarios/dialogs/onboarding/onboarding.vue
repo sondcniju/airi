@@ -11,6 +11,7 @@ import type {
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, ref } from 'vue'
 
+import StepCharacterSelection from './step-character-selection.vue'
 import StepModelSelection from './step-model-selection.vue'
 import StepProviderConfiguration from './step-provider-configuration.vue'
 import StepProviderSelection from './step-provider-selection.vue'
@@ -152,6 +153,10 @@ const allSteps = computed<OnboardingStep[]>(() => {
     {
       id: 'model-selection',
       component: StepModelSelection,
+    },
+    {
+      id: 'character-selection',
+      component: StepCharacterSelection,
     },
   ]
 
