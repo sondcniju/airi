@@ -624,6 +624,15 @@ async function exportVrm() {
   }
 }
 
+function downloadTexture(url: string | null, name: string) {
+  if (!url)
+    return
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${name}.png`
+  link.click()
+}
+
 function revert() {
   if (!activeVrm.value)
     return
@@ -839,7 +848,17 @@ onMounted(() => {
                   Source
                 </div>
                 <div class="group relative aspect-square overflow-hidden border border-white/5 rounded-lg bg-white/5">
-                  <img v-if="sourceTextureUrl" :src="sourceTextureUrl" class="h-full w-full object-cover opacity-60 transition group-hover:opacity-100"><div class="absolute inset-0 from-black/60 to-transparent bg-gradient-to-t" /><div class="absolute bottom-1 left-1 truncate text-[7px] text-neutral-400 font-bold uppercase">
+                  <img v-if="sourceTextureUrl" :src="sourceTextureUrl" class="h-full w-full object-cover opacity-60 transition group-hover:opacity-100">
+                  <button
+                    v-if="sourceTextureUrl"
+                    class="absolute right-1 top-1 z-10 border border-white/10 rounded bg-black/60 p-1 text-white opacity-0 transition hover:bg-emerald-500 group-hover:opacity-100"
+                    title="Download Source Texture"
+                    @click.stop="downloadTexture(sourceTextureUrl, `${selectedMaterial.name}_source`)"
+                  >
+                    <div i-solar:download-square-bold-duotone class="text-xs" />
+                  </button>
+                  <div class="absolute inset-0 from-black/60 to-transparent bg-gradient-to-t" />
+                  <div class="absolute bottom-1 left-1 truncate text-[7px] text-neutral-400 font-bold uppercase">
                     {{ selectedMaterial.name }}
                   </div>
                 </div>
@@ -848,8 +867,16 @@ onMounted(() => {
                 <div class="px-1 text-[8px] text-emerald-500 font-bold uppercase">
                   {{ lastGeneratedUrl ? 'Result' : 'Idle' }}
                 </div>
-                <div class="relative aspect-square flex items-center justify-center overflow-hidden border border-emerald-500/20 rounded-lg border-dashed bg-emerald-500/5">
+                <div class="group/result relative aspect-square flex items-center justify-center overflow-hidden border border-emerald-500/20 rounded-lg border-dashed bg-emerald-500/5">
                   <img v-if="lastGeneratedUrl" :src="lastGeneratedUrl" class="animate-in fade-in zoom-in-95 h-full w-full object-cover">
+                  <button
+                    v-if="lastGeneratedUrl"
+                    class="absolute right-1 top-1 z-10 border border-white/10 rounded bg-black/60 p-1 text-white opacity-0 transition hover:bg-emerald-500 group-hover/result:opacity-100"
+                    title="Download Generated Texture"
+                    @click.stop="downloadTexture(lastGeneratedUrl, `${selectedMaterial.name}_result`)"
+                  >
+                    <div i-solar:download-square-bold-duotone class="text-xs" />
+                  </button>
                   <div v-else-if="isGenerating" class="flex flex-col items-center gap-2 px-4 text-center">
                     <div i-solar:spinner-bold class="animate-spin text-xl text-emerald-500" />
                     <span class="animate-pulse text-[7px] text-emerald-500 font-bold uppercase">{{ vhackStore.generationActionLabel || 'Generating...' }}</span>

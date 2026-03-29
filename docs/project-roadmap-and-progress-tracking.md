@@ -25,6 +25,7 @@ This document tracks the current development state of the AIRI project, specific
 - **Interactive Build Mode**: Created a real-time staging area for outfits with state snapshotting/restoration, allowing users to preview complex expression combinations before saving.
 - **Control Island Integration**: Integrated live wardrobe data into the desktop island hub with visual feedback for active base and overlay layers.
 - **Improved Animation Cycle**: Refined the VRM animation cycle logic for smoother cross-fading and state management in `airi-card.ts`.
+- **Onboarding Overhaul (Phase 1)**: Restored the comprehensive design for the "Easy Mode" (Sense Portal) and "Card Browser" integrations in `docs/onboarding-overhaul-plan.md`.
 
 #### 2026-03-28 - Neural Memory & Interface Refinement
 

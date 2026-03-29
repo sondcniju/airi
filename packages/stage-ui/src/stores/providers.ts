@@ -48,6 +48,7 @@ import {
   merge,
 } from '@xsai-ext/providers/utils'
 import { listModels } from '@xsai/model'
+import { AwsClient } from 'aws4fetch'
 import { debounce, uniqBy } from 'es-toolkit'
 import { defineStore } from 'pinia'
 import {
@@ -666,99 +667,127 @@ export const useProvidersStore = defineStore('providers', () => {
           }
         },
       },
+      creator: createOpenAI,
     }),
-    'aws-polly-tts': buildOpenAICompatibleProvider({
+    'aws-polly-tts': {
       id: 'aws-polly-tts',
-      name: 'Amazon AWS Polly (Local)',
+      name: 'Amazon AWS Polly',
       nameKey: 'settings.pages.providers.provider.aws-polly-tts.title',
       descriptionKey: 'settings.pages.providers.provider.aws-polly-tts.description',
       icon: 'i-logos:aws',
-      description: 'OpenAI-Compatible Gateway - High-quality neural voices from Amazon Web Services',
+      description: 'AWS Ecosystem - Native High-Quality Neural Voices from Amazon Polly',
       category: 'speech',
       pricing: 'paid',
-      deployment: 'local',
+      deployment: 'cloud',
       tasks: ['text-to-speech', 'tts'],
       defaultOptions: () => ({
-        baseUrl: 'http://127.0.0.1:8090/v1/',
         model: 'neural',
+        region: 'us-east-1',
+        voice: 'Ivy',
       }),
       capabilities: {
         listVoices: async (config: Record<string, unknown>) => {
-          const baseUrl = config.baseUrl as string
+          const accessKeyId = typeof config.accessKeyId === 'string' ? config.accessKeyId.trim() : ''
+          const secretAccessKey = typeof config.secretAccessKey === 'string' ? config.secretAccessKey.trim() : ''
+          const region = typeof config.region === 'string' ? config.region.trim() || 'us-east-1' : 'us-east-1'
+
+          if (!accessKeyId || !secretAccessKey)
+            return []
+
           try {
-            const response = await fetch(`${baseUrl}voices`)
+            const aws = new AwsClient({ accessKeyId, secretAccessKey, region, service: 'polly' })
+            const url = `https://polly.${region}.amazonaws.com/v1/voices`
+            const response = await fetch(await aws.sign(url, { method: 'GET' }))
+
             if (!response.ok) {
               throw new Error(`HTTP ${response.status}`)
             }
             const data = await response.json()
-            return data.voices as VoiceInfo[]
+            const voices = data.Voices || []
+            return voices.map((v: any) => ({
+              id: v.Id,
+              name: v.Name,
+              provider: 'aws-polly-tts',
+              languages: [{ code: v.LanguageCode, title: v.LanguageCode }],
+              gender: v.Gender.toLowerCase(),
+            } satisfies VoiceInfo))
           }
           catch (error) {
-            console.error('[AWS Polly] Failed to fetch dynamic voices:', error)
-            // Fallback to minimal set if server is unreachable
-            return [
-              { id: 'Joey', name: 'Joey', provider: 'aws-polly-tts', languages: [{ code: 'en-US', title: 'English (US)' }], gender: 'male' },
-              { id: 'Salli', name: 'Salli', provider: 'aws-polly-tts', languages: [{ code: 'en-US', title: 'English (US)' }], gender: 'female' },
-            ] satisfies VoiceInfo[]
+            logWarn('[AWS Polly] Failed to fetch dynamic voices:', error)
+            return []
           }
         },
-        listModels: async () => {
-          return [
-            {
-              id: 'generative',
-              name: 'Generative (Ultra-High Quality)',
-              provider: 'aws-polly-tts',
-              description: 'The most advanced engine for lifelike conversational speech.',
-              contextLength: 0,
-              deprecated: false,
-            },
-            {
-              id: 'neural',
-              name: 'Neural (Lifelike)',
-              provider: 'aws-polly-tts',
-              description: 'High-quality neural text-to-speech for general use.',
-              contextLength: 0,
-              deprecated: false,
-            },
-            {
-              id: 'long-form',
-              name: 'Long-form (Narrations)',
-              provider: 'aws-polly-tts',
-              description: 'Best for narrating long documents or articles.',
-              contextLength: 0,
-              deprecated: false,
-            },
-            {
-              id: 'standard',
-              name: 'Standard (Legacy)',
-              provider: 'aws-polly-tts',
-              description: 'Legacy concatenative synthesis.',
-              contextLength: 0,
-              deprecated: false,
-            },
-          ]
-        },
+        listModels: async () => [
+          { id: 'generative', name: 'Generative (Ultra-High Quality)', provider: 'aws-polly-tts', description: 'The most advanced engine for lifelike conversational speech.', contextLength: 0, deprecated: false },
+          { id: 'neural', name: 'Neural (Lifelike)', provider: 'aws-polly-tts', description: 'High-quality neural text-to-speech for general use.', contextLength: 0, deprecated: false },
+          { id: 'long-form', name: 'Long-form (Narrations)', provider: 'aws-polly-tts', description: 'Best for narrating long documents or articles.', contextLength: 0, deprecated: false },
+          { id: 'standard', name: 'Standard (Legacy)', provider: 'aws-polly-tts', description: 'Legacy concatenative synthesis.', contextLength: 0, deprecated: false },
+        ],
       },
       validators: {
-        validateProviderConfig: (config) => {
-          const errors = [
-            !config.baseUrl && new Error('Base URL is required. Default to http://127.0.0.1:8090/v1/'),
-          ].filter(Boolean)
-
-          const res = baseUrlValidator.value(config.baseUrl)
-          if (res) {
-            return res
-          }
+        validateProviderConfig: (config: Record<string, unknown>) => {
+          const errors = []
+          if (!config.accessKeyId)
+            errors.push(new Error('AWS Access Key ID is required.'))
+          if (!config.secretAccessKey)
+            errors.push(new Error('AWS Secret Access Key is required.'))
 
           return {
             errors,
-            reason: errors.filter(e => e).map(e => String(e)).join(', ') || '',
-            valid: !!config.baseUrl,
+            reason: errors.map(e => e.message).join(', '),
+            valid: errors.length === 0,
           }
         },
       },
-      creator: createOpenAI,
-    }),
+      validation: [],
+      creator: async (config: Record<string, unknown>) => {
+        const accessKeyId = typeof config.accessKeyId === 'string' ? config.accessKeyId.trim() : ''
+        const secretAccessKey = typeof config.secretAccessKey === 'string' ? config.secretAccessKey.trim() : ''
+        const region = typeof config.region === 'string' ? config.region.trim() || 'us-east-1' : 'us-east-1'
+
+        return {
+          speech: (model: string) => {
+            return {
+              apiKey: 'aws-sigv4',
+              baseURL: `https://polly.${region}.amazonaws.com/v1/`,
+              model,
+              fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
+                if (!accessKeyId || !secretAccessKey) {
+                  return new Response(JSON.stringify({ error: 'Missing AWS credentials' }), { status: 401 })
+                }
+                const aws = new AwsClient({ accessKeyId, secretAccessKey, region, service: 'polly' })
+
+                // Parse the generic request that @xsai/generate-speech creates
+                const bodyStr = init?.body as string || '{}'
+                const bodyParsed = JSON.parse(bodyStr)
+
+                const pollyBody = {
+                  Engine: model || 'neural',
+                  OutputFormat: 'mp3',
+                  SampleRate: '24000',
+                  Text: bodyParsed.input || '',
+                  TextType: 'text',
+                  VoiceId: bodyParsed.voice || config.voice || 'Ivy',
+                }
+
+                const signedRequest = await aws.sign(`https://polly.${region}.amazonaws.com/v1/speech`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(pollyBody),
+                })
+
+                const response = await fetch(signedRequest)
+                if (!response.ok) {
+                  const errorText = await response.text()
+                  throw new Error(`AWS Polly Error: ${response.status} - ${errorText}`)
+                }
+                return response
+              },
+            }
+          },
+        }
+      },
+    } as unknown as ProviderMetadata,
     'openai-audio-transcription': buildOpenAICompatibleProvider({
       id: 'openai-audio-transcription',
       name: 'OpenAI',

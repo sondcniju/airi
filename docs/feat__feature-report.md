@@ -172,7 +172,17 @@ Internal hardening to ensure the app remains a stable, performant "Daily Driver.
 
 ---
 
-## 14. Integrated Upstream PRs
+## 14. Onboarding Overhaul (Phase 1: Planning)
+A structured plan for reducing first-time setup friction.
+
+- **The Sense Pivot**: Terminology shift from technical acronyms (LLM, TTS, STT) to intuitive human-centered terms (**Consciousness, Speech, Hearing**).
+- **Easy Mode (Recommended)**: An opinionated setup path featuring **Qwen Portal** (OAuth-based, no-key consciousness) and **Deepgram** for a near-instant out-of-the-box experience.
+- **Advanced Mode**: Maintains the legacy granular configuration for power users.
+- **Card Browser Integration**: A built-in browser for character cards that allows direct imports from **JannyAI**, **Chub.ai**, and **CharacterHub**, converging both onboarding paths.
+
+---
+
+## 15. Integrated Upstream PRs
 Features from pending upstream PRs that have been squatted, integrated, and maintained in this fork.
 
 | PR # | Feature | Author | Link |

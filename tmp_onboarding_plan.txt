@@ -1,0 +1,990 @@
+﻿From 7585efd1e23fa4450959af425f410cc4d086de05 Mon Sep 17 00:00:00 2001
+From: Richard Pinedo <richard.pinedo@yahoo.com>
+Date: Sat, 28 Mar 2026 14:45:37 -0400
+Subject: [PATCH] feat: performance optimizations and security hardening
+ (checkpoint)
+
+---
+ .../services/airi/channel-server/index.ts     | 56 ++++++++++++++---
+ .../src/main/services/electron/dock-mode.ts   |  9 ++-
+ .../electron/window-bounds-provider.ts        |  4 +-
+ .../src/main/services/sensors/index.ts        | 39 ++++--------
+ .../pages/settings/connection/index.vue       | 49 +++++++++++----
+ .../stores/settings/server-channel.ts         | 34 ++++++++---
+ apps/stage-tamagotchi/src/shared/eventa.ts    |  2 +
+ docs/.vitepress/config.ts                     |  3 +
+ docs/arch-gateway-security-hardening.md       | 60 +++++++++++++++++++
+ docs/content/en/docs/manual/config/gateway.md | 45 ++++++++++++++
+ docs/content/ja/docs/manual/config/gateway.md | 45 ++++++++++++++
+ .../zh-Hans/docs/manual/config/gateway.md     | 45 ++++++++++++++
+ docs/onboarding-overhaul-plan.md              | 58 ++++++++++++++++++
+ docs/release-preparation-report.md            | 54 +++++++++++++++++
+ integrations/vscode/vscode-airi/package.json  |  5 ++
+ integrations/vscode/vscode-airi/src/airi.ts   |  7 ++-
+ .../vscode/vscode-airi/src/extension.ts       | 10 +++-
+ packages/i18n/src/locales/en/settings.yaml    |  6 ++
+ packages/i18n/src/locales/es/settings.yaml    |  8 +++
+ packages/server-runtime/src/index.ts          | 18 +++---
+ packages/server-runtime/src/server/index.ts   |  3 +-
+ .../stage-ui/src/stores/modules/airi-card.ts  |  3 +
+ packages/stage-ui/src/stores/proactivity.ts   |  2 +-
+ 23 files changed, 493 insertions(+), 72 deletions(-)
+ create mode 100644 docs/arch-gateway-security-hardening.md
+ create mode 100644 docs/content/en/docs/manual/config/gateway.md
+ create mode 100644 docs/content/ja/docs/manual/config/gateway.md
+ create mode 100644 docs/content/zh-Hans/docs/manual/config/gateway.md
+ create mode 100644 docs/onboarding-overhaul-plan.md
+ create mode 100644 docs/release-preparation-report.md
+
+diff --git a/apps/stage-tamagotchi/src/main/services/airi/channel-server/index.ts b/apps/stage-tamagotchi/src/main/services/airi/channel-server/index.ts
+index a16e9f0a0..3f5487c0e 100644
+--- a/apps/stage-tamagotchi/src/main/services/airi/channel-server/index.ts
++++ b/apps/stage-tamagotchi/src/main/services/airi/channel-server/index.ts
+@@ -25,6 +25,8 @@ import {
+ import { createConfig } from '../../../libs/electron/persistence'
+ 
+ const channelServerConfigSchema = object({
++  hostname: optional(string()),
++  authToken: optional(string()),
+   tlsConfig: optional(nullable(object({
+     cert: optional(string()),
+     key: optional(string()),
+@@ -33,11 +35,15 @@ const channelServerConfigSchema = object({
+ })
+ 
+ const channelServerInvokeConfigSchema = z.object({
++  hostname: z.string().optional(),
++  authToken: z.string().optional(),
+   tlsConfig: z.object({ }).nullable().optional(),
+ }).strict()
+ 
+ const channelServerConfigStore = createConfig('server-channel', 'config.json', channelServerConfigSchema, {
+   default: {
++    hostname: '127.0.0.1',
++    authToken: '',
+     tlsConfig: null,
+   },
+   autoHeal: true,
+@@ -48,7 +54,7 @@ function getServerChannelPort() {
+ }
+ 
+ async function getChannelServerConfig(): Promise<ServerOptions> {
+-  return channelServerConfigStore.get() || { tlsConfig: null }
++  return channelServerConfigStore.get() as any || { hostname: '127.0.0.1', authToken: '', tlsConfig: null }
+ }
+ 
+ async function normalizeChannelServerOptions(payload: unknown, fallback?: ServerOptions) {
+@@ -62,6 +68,8 @@ async function normalizeChannelServerOptions(payload: unknown, fallback?: Server
+   }
+ 
+   return {
++    hostname: parsed.data.hostname ?? fallback.hostname,
++    authToken: parsed.data.authToken ?? fallback.authToken,
+     tlsConfig: typeof parsed.data.tlsConfig === 'undefined' ? null : parsed.data.tlsConfig,
+   }
+ }
+@@ -205,11 +213,21 @@ export async function setupServerChannel(params: { lifecycle: Lifecycle }): Prom
+   channelServerConfigStore.setup()
+ 
+   const storedConfig = await getChannelServerConfig()
++  let authToken = storedConfig.authToken || ''
++
++  if (authToken === '') {
++    const { v4: uuidv4 } = await import('uuid')
++    authToken = uuidv4()
++    channelServerConfigStore.update({ ...storedConfig, authToken })
++  }
+ 
+   const serverChannel = createServer({
+     ...storedConfig,
++    auth: {
++      token: authToken,
++    },
+     port: getServerChannelPort(),
+-    hostname: env.SERVER_RUNTIME_HOSTNAME || '0.0.0.0',
++    hostname: storedConfig.hostname || env.SERVER_RUNTIME_HOSTNAME || '127.0.0.1',
+     tlsConfig: storedConfig.tlsConfig ? await getOrCreateCertificate() : null,
+   })
+ 
+@@ -371,15 +389,32 @@ export async function createServerChannelService(params: { serverChannel: Server
+     const startedAt = Date.now()
+     console.log('[Main/ServerChannel] getServerChannelConfig invoked')
+     const config = await getChannelServerConfig()
++    let authToken = config.authToken || ''
++
++    if (authToken === '') {
++      const { v4: uuidv4 } = await import('uuid')
++      authToken = uuidv4()
++      channelServerConfigStore.update({ ...config, authToken })
++    }
++
+     console.log(`[Main/ServerChannel] getServerChannelConfig resolved in ${Date.now() - startedAt}ms`)
+-    return { websocketTlsConfig: config.tlsConfig || null }
++    return {
++      hostname: config.hostname || '127.0.0.1',
++      authToken,
++      websocketTlsConfig: config.tlsConfig || null,
++    }
+   })
+ 
+   defineInvokeHandler(context, electronApplyServerChannelConfig, async (req) => {
+     try {
+       const current = await getChannelServerConfig()
+-      const next = await normalizeChannelServerOptions({ tlsConfig: req?.websocketTlsConfig }, current)
+-      const changed = JSON.stringify(next.tlsConfig) !== JSON.stringify(current.tlsConfig)
++      const next = await normalizeChannelServerOptions({
++        hostname: req?.hostname,
++        authToken: req?.authToken,
++        tlsConfig: req?.websocketTlsConfig,
++      }, current)
++
++      const changed = JSON.stringify(next) !== JSON.stringify(current)
+ 
+       channelServerConfigStore.update(next)
+ 
+@@ -387,7 +422,10 @@ export async function createServerChannelService(params: { serverChannel: Server
+         await params.serverChannel.stop()
+         await params.serverChannel.updateConfig({
+           port: getServerChannelPort(),
+-          hostname: env.SERVER_RUNTIME_HOSTNAME || '0.0.0.0',
++          hostname: next.hostname || env.SERVER_RUNTIME_HOSTNAME || '127.0.0.1',
++          auth: {
++            token: next.authToken || '',
++          },
+           tlsConfig: next.tlsConfig ? await getOrCreateCertificate() : null,
+         })
+         await params.serverChannel.start()
+@@ -396,7 +434,11 @@ export async function createServerChannelService(params: { serverChannel: Server
+         await params.serverChannel.start()
+       }
+ 
+-      return { websocketTlsConfig: next.tlsConfig || null }
++      return {
++        hostname: next.hostname || '127.0.0.1',
++        authToken: next.authToken || '',
++        websocketTlsConfig: next.tlsConfig || null,
++      }
+     }
+     catch (error) {
+       useLogg('main/server-runtime').withError(error).error('Failed to apply server channel configuration')
+diff --git a/apps/stage-tamagotchi/src/main/services/electron/dock-mode.ts b/apps/stage-tamagotchi/src/main/services/electron/dock-mode.ts
+index c587c7c9c..392d469a9 100644
+--- a/apps/stage-tamagotchi/src/main/services/electron/dock-mode.ts
++++ b/apps/stage-tamagotchi/src/main/services/electron/dock-mode.ts
+@@ -54,7 +54,14 @@ export function createDockModeService(params: {
+     }
+     currentConfig = null
+     currentStatus = { active: false }
+-    params.context.emit(dockModeStatusChanged, currentStatus)
++    if (!params.window.isDestroyed()) {
++      try {
++        params.context.emit(dockModeStatusChanged, currentStatus)
++      }
++      catch (err) {
++        // Ignore errors during shutdown
++      }
++    }
+     return currentStatus
+   }
+ 
+diff --git a/apps/stage-tamagotchi/src/main/services/electron/window-bounds-provider.ts b/apps/stage-tamagotchi/src/main/services/electron/window-bounds-provider.ts
+index c1adcd948..d0ec83f60 100644
+--- a/apps/stage-tamagotchi/src/main/services/electron/window-bounds-provider.ts
++++ b/apps/stage-tamagotchi/src/main/services/electron/window-bounds-provider.ts
+@@ -73,7 +73,7 @@ if ([DockWinAPI]::IsWindow($h)) {
+         callback(null)
+       }
+ 
+-      timer = setTimeout(poll, 200)
++      timer = setTimeout(poll, 1000)
+     })
+   }
+ 
+@@ -143,7 +143,7 @@ if (count > 0) {
+         callback(null)
+       }
+ 
+-      timer = setTimeout(poll, 200)
++      timer = setTimeout(poll, 1000)
+     })
+   }
+ 
+diff --git a/apps/stage-tamagotchi/src/main/services/sensors/index.ts b/apps/stage-tamagotchi/src/main/services/sensors/index.ts
+index e491a10be..87d7bd401 100644
+--- a/apps/stage-tamagotchi/src/main/services/sensors/index.ts
++++ b/apps/stage-tamagotchi/src/main/services/sensors/index.ts
+@@ -158,41 +158,22 @@ export function setupSensorsService() {
+   async function getSystemLoad() {
+     if (process.platform === 'win32') {
+       let cpuLoads: [number, number, number] = [0, 0, 0]
+-      let gpuLoad = 0
++      const gpuLoad = 0
+ 
++      // Simplified CPU load detection for Windows to avoid process spawning overhead.
++      // WSL uptime and Get-Counter (GPU) are notoriously slow and can cause massive rendering lags.
+       try {
+-        const { stdout } = await execAsync('wsl uptime')
+-        const match = stdout.match(/load average:\s*([0-9.]+),\s*([0-9.]+),\s*([0-9.]+)/)
+-        if (match) {
+-          cpuLoads = [
+-            Number.parseFloat(match[1]),
+-            Number.parseFloat(match[2]),
+-            Number.parseFloat(match[3]),
+-          ]
+-        }
++        const cpuScript = '(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average'
++        const { stdout } = await execAsync(`powershell -NoProfile -NonInteractive -Command "${cpuScript}"`, { timeout: 2000 })
++        const val = Number.parseFloat(stdout.trim()) / 100
++        cpuLoads = [val, val, val]
+       }
+       catch {
+-        try {
+-          const cpuScript = '(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average'
+-          const { stdout } = await execAsync(`powershell -NoProfile -NonInteractive -Command "${cpuScript}"`)
+-          const val = Number.parseFloat(stdout.trim()) / 100
+-          cpuLoads = [val, val, val]
+-        }
+-        catch {
+-          // Keep zeros if both WSL and PowerShell fallbacks fail.
+-        }
++        // Fallback or keep zeros if PowerShell fails.
+       }
+ 
+-      try {
+-        const gpuScript = '(Get-Counter "\\GPU Engine(*)\\% Utilization").CounterSamples | Where-Object { $_.Path -like "*3D*" } | Measure-Object -Property CookedValue -Sum | Select-Object -ExpandProperty Sum'
+-        const { stdout } = await execAsync(`powershell -NoProfile -NonInteractive -Command "${gpuScript}"`)
+-        const val = Number.parseFloat(stdout.trim())
+-        if (!Number.isNaN(val))
+-          gpuLoad = val
+-      }
+-      catch {
+-        // Keep zero if the GPU counter is unavailable.
+-      }
++      // GPU monitoring via Get-Counter is disabled due to severe performance impact (>5s execution time).
++      // A more efficient native implementation is required for real-time GPU stats on Windows.
+ 
+       return {
+         cpu: cpuLoads,
+diff --git a/apps/stage-tamagotchi/src/renderer/pages/settings/connection/index.vue b/apps/stage-tamagotchi/src/renderer/pages/settings/connection/index.vue
+index a4cadea4d..325886e86 100644
+--- a/apps/stage-tamagotchi/src/renderer/pages/settings/connection/index.vue
++++ b/apps/stage-tamagotchi/src/renderer/pages/settings/connection/index.vue
+@@ -9,7 +9,7 @@ import { useI18n } from 'vue-i18n'
+ import { useServerChannelSettingsStore } from '../../../stores/settings/server-channel'
+ 
+ const serverChannelSettingsStore = useServerChannelSettingsStore()
+-const { websocketTlsConfig } = storeToRefs(serverChannelSettingsStore)
++const { websocketTlsConfig, hostname, authToken } = storeToRefs(serverChannelSettingsStore)
+ const { t } = useI18n()
+ 
+ const websocketTlsEnabled = computed({
+@@ -18,21 +18,48 @@ const websocketTlsEnabled = computed({
+     serverChannelSettingsStore.websocketTlsConfig = value ? {} : null
+   },
+ })
++
++function copyAuthToken() {
++  navigator.clipboard.writeText(authToken.value)
++}
+ </script>
+ 
+ <template>
+   <ConnectionSettings>
+     <template #platform-specific>
+-      <FieldCheckbox
+-        v-model="websocketTlsEnabled"
+-        v-motion
+-        :initial="{ opacity: 0, y: 10 }"
+-        :enter="{ opacity: 1, y: 0 }"
+-        :duration="250 + (5 * 10)"
+-        :delay="5 * 50"
+-        :label="t('settings.websocket-secure-enabled.title')"
+-        :description="t('settings.websocket-secure-enabled.description')"
+-      />
++      <div v-motion :initial="{ opacity: 0, y: 10 }" :enter="{ opacity: 1, y: 0 }" :duration="250" :delay="50" class="flex flex-col gap-4">
++        <FieldInput
++          v-model="hostname"
++          :label="t('settings.pages.connection.server-hostname.title')"
++          :description="t('settings.pages.connection.server-hostname.description')"
++          placeholder="127.0.0.1"
++        />
++
++        <div class="flex flex-col gap-2">
++          <FieldInput
++            v-model="authToken"
++            :label="t('settings.pages.connection.server-auth-token.title')"
++            :description="t('settings.pages.connection.server-auth-token.description')"
++            placeholder="App Key"
++          >
++            <template #suffix>
++              <button
++                class="rounded-md p-1 transition-colors hover:bg-neutral-200 dark:hover:bg-neutral-700"
++                title="Copy App Key"
++                @click="copyAuthToken"
++              >
++                <div class="i-solar:copy-bold-duotone text-xl" />
++              </button>
++            </template>
++          </FieldInput>
++        </div>
++
++        <FieldCheckbox
++          v-model="websocketTlsEnabled"
++          :label="t('settings.websocket-secure-enabled.title')"
++          :description="t('settings.websocket-secure-enabled.description')"
++        />
++      </div>
+     </template>
+   </ConnectionSettings>
+ </template>
+diff --git a/apps/stage-tamagotchi/src/renderer/stores/settings/server-channel.ts b/apps/stage-tamagotchi/src/renderer/stores/settings/server-channel.ts
+index 18ae939fb..7f62d449f 100644
+--- a/apps/stage-tamagotchi/src/renderer/stores/settings/server-channel.ts
++++ b/apps/stage-tamagotchi/src/renderer/stores/settings/server-channel.ts
+@@ -1,3 +1,5 @@
++import type { ElectronServerChannelConfig } from '../../../shared/eventa'
++
+ import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
+ import { useAsyncState, useLocalStorage } from '@vueuse/core'
+ import { defineStore } from 'pinia'
+@@ -7,24 +9,40 @@ import { electronApplyServerChannelConfig, electronGetServerChannelConfig } from
+ 
+ export const useServerChannelSettingsStore = defineStore('tamagotchi-server-channel-settings', () => {
+   const websocketTlsConfig = useLocalStorage<{ cert?: string, key?: string, passphrase?: string } | null | undefined>('settings/server-channel/websocket-tls-config', null)
++  const hostname = useLocalStorage<string>('settings/server-channel/hostname', '127.0.0.1')
++  const authToken = useLocalStorage<string>('settings/server-channel/auth-token', '')
+ 
+   const getServerChannelConfig = useElectronEventaInvoke(electronGetServerChannelConfig)
+   const applyServerChannelConfig = useElectronEventaInvoke(electronApplyServerChannelConfig)
+ 
+-  const serverChannelConfig = useAsyncState(getServerChannelConfig, null as { websocketTlsConfig?: any } | null)
++  const { state: serverChannelConfig, execute: refreshServerChannelConfig } = useAsyncState<ElectronServerChannelConfig | null>(getServerChannelConfig, null)
+ 
+-  watch(websocketTlsConfig, async (newValue) => {
+-    // websocketTlsConfig.value = newValue // Remove this, it's redundant and could loop
+-    await applyServerChannelConfig({ websocketTlsConfig: newValue ? {} : null })
++  watch([websocketTlsConfig, hostname, authToken], async ([newTls, newHostname, newAuthToken]) => {
++    await applyServerChannelConfig({
++      websocketTlsConfig: newTls ? {} : null,
++      hostname: newHostname,
++      authToken: newAuthToken,
++    })
+   })
+ 
+-  watch(serverChannelConfig.state, (newConfig) => {
+-    if (newConfig?.websocketTlsConfig !== undefined) {
+-      websocketTlsConfig.value = newConfig.websocketTlsConfig
++  watch(serverChannelConfig, (newConfig) => {
++    if (newConfig) {
++      if (newConfig.websocketTlsConfig !== undefined) {
++        websocketTlsConfig.value = newConfig.websocketTlsConfig
++      }
++      if (newConfig.hostname !== undefined) {
++        hostname.value = newConfig.hostname
++      }
++      if (newConfig.authToken !== undefined) {
++        authToken.value = newConfig.authToken
++      }
+     }
+-  })
++  }, { immediate: true })
+ 
+   return {
+     websocketTlsConfig,
++    hostname,
++    authToken,
++    refreshServerChannelConfig,
+   }
+ })
+diff --git a/apps/stage-tamagotchi/src/shared/eventa.ts b/apps/stage-tamagotchi/src/shared/eventa.ts
+index b7c6fc137..7602340c1 100644
+--- a/apps/stage-tamagotchi/src/shared/eventa.ts
++++ b/apps/stage-tamagotchi/src/shared/eventa.ts
+@@ -17,6 +17,8 @@ export interface ElectronServerChannelTlsConfig {
+ }
+ 
+ export interface ElectronServerChannelConfig {
++  hostname: string
++  authToken: string
+   websocketTlsConfig: ElectronServerChannelTlsConfig | null
+ }
+ export const electronGetServerChannelConfig = defineInvokeEventa<ElectronServerChannelConfig>('eventa:invoke:electron:server-channel:get-config')
+diff --git a/docs/.vitepress/config.ts b/docs/.vitepress/config.ts
+index 91e18388d..18a1141b0 100644
+--- a/docs/.vitepress/config.ts
++++ b/docs/.vitepress/config.ts
+@@ -153,6 +153,7 @@ export default defineConfig({
+                 text: 'Configuration',
+                 items: [
+                   { text: 'Configuration Guide', link: withBase('/en/docs/manual/config/') },
++                  { text: 'Gateway & Security', link: withBase('/en/docs/manual/config/gateway') },
+                 ],
+               },
+             ],
+@@ -275,6 +276,7 @@ export default defineConfig({
+                 text: 'Θàìτ╜«',
+                 items: [
+                   { text: 'Θàìτ╜«µîçσìù', link: withBase('/zh-Hans/docs/manual/config/') },
++                  { text: 'τ╜æσà│Σ╕Äσ«ëσà¿', link: withBase('/zh-Hans/docs/manual/config/gateway') },
+                 ],
+               },
+             ],
+@@ -397,6 +399,7 @@ export default defineConfig({
+                 text: 'Φ¿¡σ«Ü',
+                 items: [
+                   { text: 'Φ¿¡σ«Üπé¼πéñπâë', link: withBase('/ja/docs/manual/config/') },
++                  { text: 'πé▓πâ╝πâêπéªπéºπéñπü¿πé╗πé¡πâÑπâ¬πâåπéú', link: withBase('/ja/docs/manual/config/gateway') },
+                 ],
+               },
+             ],
+diff --git a/docs/arch-gateway-security-hardening.md b/docs/arch-gateway-security-hardening.md
+new file mode 100644
+index 000000000..123b5728d
+--- /dev/null
++++ b/docs/arch-gateway-security-hardening.md
+@@ -0,0 +1,60 @@
++# Architecture: Gateway Security Hardening
++
++This document outlines the security audit results and the subsequent hardening of the AIRI WebSocket gateway (port `6121`).
++
++## 1. Problem Statement
++The AIRI Gateway is the central orchestration hub for all modules (Consciousness, Hearing, Speech, etc.) and external adapters (Discord Bot, VS Code).
++A security audit identified that:
++- **Default Binding**: The gateway bound to `0.0.0.0` (all interfaces), potentially exposing the WebSocket port to local networks or the internet in DMZ/port-forwarding scenarios.
++- **Lax Authentication**: Peers could connect without a token if no `authToken` was configured on the server, which was the default state.
++- **Incomplete Gating**: Even with a token, some event types were not strictly gated behind the `authenticated` state in the WebSocket handler.
++
++## 2. Implemented Solutions
++
++### 2.1. Local-Only Binding
++The gateway now defaults to binding strictly to `127.0.0.1` (localhost). This ensures that by default, only processes running on the same machine can reach the gateway.
++
++### 2.2. Mandatory `authToken` Handshake
++Authentication is no longer optional. Every peer must perform the `module:authenticate` handshake before announcing itself or interacting with other modules.
++- **Server Enforcement**: The server rejects any event (except heartbeats and authentication) if the peer is not in an `authenticated` state.
++- **Persistence**: The desktop app (`stage-tamagotchi`) generates a cryptographically secure `uuid`-based **App Key** on first run and persists it in `config.json`.
++
++### 2.3. Client-Side Handshake
++The `@proj-airi/server-sdk` was updated to automatically perform the handshake if a `token` is provided in the client constructor. All official integrations (Discord, VS Code) have been updated to support this parameter.
++
++## 3. Configuration & UI
++
++### Desktop App (`stage-tamagotchi`)
++The connection settings are now exposed in the UI under **Settings > Connection**:
++- **Hostname**: Defaults to `127.0.0.1`.
++- **App Key**: The unique key generated for this installation.
++- **Storage**: Persisted in the user data directory under `server-channel/config.json`.
++
++### Reconfiguring External Modules
++External modules must be updated to use the generated **App Key**:
++
++#### Discord Bot
++Set the `AIRI_TOKEN` environment variable to the App Key value.
++
++#### VS Code Extension
++Update the `AIRI: App Key` (`airi-vscode.authToken`) setting in VS Code with the App Key from the Desktop app.
++
++## 4. Handshake Protocol Details
++
++The handshake consists of a `module:authenticate` event sent immediately after connection:
++
++```json
++{
++  "type": "module:authenticate",
++  "data": {
++    "token": "YOUR_APP_KEY"
++  }
++}
++```
++
++The server responds with:
++- `registry:modules:authenticated`: Success.
++- `registry:modules:error` (invalid token): Failure; the connection will be gated and subsequent messages ignored.
++
++---
++**NOTICE**: This change is **breaking** for any third-party modules that do not implement the `module:authenticate` handshake. Please update your implementation to use the latest `@proj-airi/server-sdk`.
+diff --git a/docs/content/en/docs/manual/config/gateway.md b/docs/content/en/docs/manual/config/gateway.md
+new file mode 100644
+index 000000000..0326ff0c2
+--- /dev/null
++++ b/docs/content/en/docs/manual/config/gateway.md
+@@ -0,0 +1,45 @@
++# Gateway & Security Guide
++
++The AIRI Gateway is the "brain" that connects all parts of the application. To ensure your data remains private and secure, specifically when running in complex network environments, we have implemented several security hardening measures.
++
++## What's Changed?
++
++Recent updates have introduced two major security requirements:
++1.  **Local-Only Access**: By default, the gateway now only listens on `127.0.0.1` (your own computer). External devices cannot connect to it unless explicitly configured.
++2.  **Mandatory App Key**: Every connection to the gateway now requires a unique **App Key**. This prevents unauthorized apps from eavesdropping on your conversations or controlling your character.
++
++## Finding your App Key
++
++You can find your unique App Key and Hostname in the Desktop application:
++
++1.  Open the **Desktop App**.
++2.  Go to **Settings** (Gear icon).
++3.  Select the **Connection** tab.
++4.  You will see your **Hostname** and **App Key** there.
++5.  Click the **Copy** button next to the App Key to copy it to your clipboard.
++
++## Reconnecting Your Tools
++
++If your existing integrations (like the Discord Bot or VS Code) stopped working, you likely need to provide them with the new App Key.
++
++### VS Code Extension
++1.  Open VS Code.
++2.  Go to **Settings** (`Ctrl+,`).
++3.  Search for `AIRI: App Key`.
++4.  Paste your copied **App Key** into the field.
++5.  The extension will reconnect automatically.
++
++### Discord Bot
++Ensure your environment variables or configuration file includes the `AIRI_TOKEN` set to your **App Key**.
++
++### Other Adapters
++If you are using a custom adapter, ensure it sends the `module:authenticate` event immediately after connecting. If you are using the official `@proj-airi/server-sdk`, simply pass the `token` parameter to the `ServerClient` constructor.
++
++## Technical Storage
++
++The security settings are stored locally on your machine:
++- **Windows**: `%APPDATA%/airi/server-channel/config.json`
++- **Linux/macOS**: `~/.config/airi/server-channel/config.json` (typical)
++
++> [!WARNING]
++> **Never share your App Key with anyone.** Anyone with this key can connect to your gateway and access your private chat history or execute commands on your behalf.
+diff --git a/docs/content/ja/docs/manual/config/gateway.md b/docs/content/ja/docs/manual/config/gateway.md
+new file mode 100644
+index 000000000..75311e29a
+--- /dev/null
++++ b/docs/content/ja/docs/manual/config/gateway.md
+@@ -0,0 +1,45 @@
++# πé▓πâ╝πâêπéªπéºπéñπü¿πé╗πé¡πâÑπâ¬πâåπéúπé¼πéñπâë
++
++AIRI πé▓πâ╝πâêπéªπéºπéñπü»πÇüπéóπâùπâ¬πé▒πâ╝πé╖πâºπâ│πü«πüÖπü╣πüªπü«Θâ¿σêåπéÆµÄÑτ╢ÜπüÖπéïπÇîΦä│πÇìπüºπüÖπÇéΦñçΘ¢æπü¬πâìπââπâêπâ»πâ╝πé»τÆ░σóâπüºπâçπâ╝πé┐πéÆπâùπâ⌐πéñπâÖπâ╝πâêπüïπüñσ«ëσà¿πü½Σ┐¥πüñπüƒπéüπü½πÇüπüäπüÅπüñπüïπü«πé╗πé¡πâÑπâ¬πâåπéúσ╝╖σîûτ¡ûπéÆσ«ƒΦúàπüùπüªπüäπü╛πüÖπÇé
++
++## Σ╜òπüîσñëπéÅπüúπüƒπü«∩╝ƒ
++
++µ£ÇΦ┐æπü«πéóπââπâùπâçπâ╝πâêπü½πéêπéèπÇü2πüñπü«Σ╕╗Φªüπü¬πé╗πé¡πâÑπâ¬πâåπéúΦªüΣ╗╢πüîσ░ÄσàÑπüòπéîπü╛πüùπüƒ∩╝Ü
++1.  **πâ¡πâ╝πé½πâ½ΘÖÉσ«Üπéóπé»πé╗πé╣**: πâçπâòπé⌐πâ½πâêπüºπü»πÇüπé▓πâ╝πâêπéªπéºπéñπü» `127.0.0.1`∩╝êπüéπü¬πüƒΦç¬Φ║½πü«πé│πâ│πâöπâÑπâ╝πé┐∩╝ëΣ╕èπüºπü«πü┐σ╛àµ⌐ƒπüÖπéïπéêπüåπü½πü¬πéèπü╛πüùπüƒπÇéµÿÄτñ║τÜäπü½Φ¿¡σ«Üπüùπü¬πüäΘÖÉπéèπÇüσñûΘâ¿πâçπâÉπéñπé╣πü»µÄÑτ╢Üπüºπüìπü╛πü¢πéôπÇé
++2.  **σ╝╖σê╢τÜäπü¬πéóπâùπâ¬πé¡πâ╝ (App Key)**: πé▓πâ╝πâêπéªπéºπéñπü╕πü«πüÖπü╣πüªπü«µÄÑτ╢Üπü½πü»πÇüΣ╕ÇµäÅπü«**πéóπâùπâ¬πé¡πâ╝**πüîσ┐àΦªüπü½πü¬πéèπü╛πüùπüƒπÇéπüôπéîπü½πéêπéèπÇüµë┐Φ¬ìπüòπéîπüªπüäπü¬πüäπéóπâùπâ¬πüîΣ╝ÜΦ⌐▒πéÆτ¢ùΦü┤πüùπüƒπéèπÇüπé¡πâúπâ⌐πé»πé┐πâ╝πéÆσê╢σ╛íπüùπüƒπéèπüÖπéïπü«πéÆΘÿ▓πüÄπü╛πüÖπÇé
++
++## πéóπâùπâ¬πé¡πâ╝πü«Φªïπüñπüæµû╣
++
++πâçπé╣πé»πâêπââπâùπéóπâùπâ¬πé▒πâ╝πé╖πâºπâ│πüºπÇüπüéπü¬πüƒπü«Σ╕ÇµäÅπü«πéóπâùπâ¬πé¡πâ╝πü¿πâ¢πé╣πâêσÉìπéÆτó║Φ¬ìπüºπüìπü╛πüÖ∩╝Ü
++
++1.  **πâçπé╣πé»πâêπââπâùπéóπâùπâ¬**πéÆΦ╡╖σïòπüùπü╛πüÖπÇé
++2.  **Φ¿¡σ«Ü** (µ¡»Φ╗èπü«πéóπéñπé│πâ│) πü½τº╗σïòπüùπü╛πüÖπÇé
++3.  **Connection** (µÄÑτ╢Ü) πé┐πâûπéÆΘü╕µè₧πüùπü╛πüÖπÇé
++4.  πü¥πüôπü½ **Hostname** (πâ¢πé╣πâêσÉì) πü¿ **App Key** (πéóπâùπâ¬πé¡πâ╝) πüîΦí¿τñ║πüòπéîπü╛πüÖπÇé
++5.  πéóπâùπâ¬πé¡πâ╝πü«ΘÜúπü½πüéπéï **Copy** (πé│πâöπâ╝) πâ£πé┐πâ│πéÆπé»πâ¬πââπé»πüùπüªπÇüπé»πâ¬πââπâùπâ£πâ╝πâëπü½πé│πâöπâ╝πüùπü╛πüÖπÇé
++
++## πâäπâ╝πâ½πü«σåìµÄÑτ╢Ü
++
++µùóσ¡ÿπü«τ╡▒σÉêµ⌐ƒΦâ╜∩╝êDiscord πâ£πââπâêπéä VS Code πü¬πü⌐∩╝ëπüîσïòΣ╜£πüùπü¬πüÅπü¬πüúπüƒσá┤σÉêπü»πÇüµû░πüùπüäπéóπâùπâ¬πé¡πâ╝πéÆµÅÉΣ╛¢πüÖπéïσ┐àΦªüπüîπüéπéèπü╛πüÖπÇé
++
++### VS Code µïíσ╝╡µ⌐ƒΦâ╜
++1.  VS Code πéÆΘûïπüìπü╛πüÖπÇé
++2.  **Φ¿¡σ«Ü** (`Ctrl+,`) πü½τº╗σïòπüùπü╛πüÖπÇé
++3.  `AIRI: App Key` πéÆµñ£τ┤óπüùπü╛πüÖπÇé
++4.  πé│πâöπâ╝πüùπüƒ **App Key** πéÆπâòπéúπâ╝πâ½πâëπü½Φ▓╝πéèΣ╗ÿπüæπü╛πüÖπÇé
++5.  µïíσ╝╡µ⌐ƒΦâ╜πü»Φç¬σïòτÜäπü½σåìµÄÑτ╢Üπüòπéîπü╛πüÖπÇé
++
++### Discord πâ£πââπâê
++τÆ░σóâσñëµò░πü╛πüƒπü»Φ¿¡σ«Üπâòπéíπéñπâ½πü½πÇü**πéóπâùπâ¬πé¡πâ╝**πü½Φ¿¡σ«Üπüòπéîπüƒ `AIRI_TOKEN` πüîσÉ½πü╛πéîπüªπüäπéïπüôπü¿πéÆτó║Φ¬ìπüùπüªπüÅπüáπüòπüäπÇé
++
++### πü¥πü«Σ╗ûπü«πéóπâÇπâùπé┐πâ╝
++πé½πé╣πé┐πâáπéóπâÇπâùπé┐πâ╝πéÆΣ╜┐τö¿πüùπüªπüäπéïσá┤σÉêπü»πÇüµÄÑτ╢Üσ╛îπüÖπüÉπü½ `module:authenticate` πéñπâÖπâ│πâêπéÆΘÇüΣ┐íπüÖπéïπéêπüåπü½πüùπüªπüÅπüáπüòπüäπÇéσà¼σ╝Åπü« `@proj-airi/server-sdk` πéÆΣ╜┐τö¿πüùπüªπüäπéïσá┤σÉêπü»πÇü`ServerClient` πé│πâ│πé╣πâêπâ⌐πé»πé┐πü½ `token` πâæπâ⌐πâíπâ╝πé┐πéÆµ╕íπüÖπüáπüæπüºπüÖπÇé
++
++## µèÇΦíôτÜäπü¬Σ┐¥σ¡ÿσá┤µëÇ
++
++πé╗πé¡πâÑπâ¬πâåπéúΦ¿¡σ«Üπü»πüéπü¬πüƒπü«πâ₧πé╖πâ│πü«πâ¡πâ╝πé½πâ½πü½Σ┐¥σ¡ÿπüòπéîπüªπüäπü╛πüÖ∩╝Ü
++- **Windows**: `%APPDATA%/airi/server-channel/config.json`
++- **Linux/macOS**: `~/.config/airi/server-channel/config.json` (Σ╕ÇΦê¼τÜä)
++
++> [!WARNING]
++> **πéóπâùπâ¬πé¡πâ╝πéÆΦ¬░πü¿πééσà▒µ£ëπüùπü¬πüäπüºπüÅπüáπüòπüäπÇé** πüôπü«πé¡πâ╝πéÆµîüπüúπüªπüäπéïΣ║║πü»Φ¬░πüºπééπüéπü¬πüƒπü«πé▓πâ╝πâêπéªπéºπéñπü½µÄÑτ╢ÜπüùπÇüπâùπâ⌐πéñπâÖπâ╝πâêπü¬πâüπâúπââπâêσ▒Ñµ¡┤πéÆΘû▓ΦªºπüùπüƒπéèπÇüπüéπü¬πüƒπü½Σ╗úπéÅπüúπüªπé│πâ₧πâ│πâëπéÆσ«ƒΦíîπüùπüƒπéèπüÖπéïπüôπü¿πüîπüºπüìπü╛πüÖπÇé
+diff --git a/docs/content/zh-Hans/docs/manual/config/gateway.md b/docs/content/zh-Hans/docs/manual/config/gateway.md
+new file mode 100644
+index 000000000..f7237dcac
+--- /dev/null
++++ b/docs/content/zh-Hans/docs/manual/config/gateway.md
+@@ -0,0 +1,45 @@
++# τ╜æσà│Σ╕Äσ«ëσà¿µîçσìù
++
++AIRI τ╜æσà│µÿ»Φ┐₧µÄÑσ║öτö¿τ¿ïσ║ÅµëÇµ£ëΘâ¿σêåτÜäΓÇ£σñºΦäæΓÇ¥πÇéΣ╕║Σ║åτí«Σ┐¥µé¿τÜäµò░µì«σ£¿σñìµ¥éτÜäτ╜æτ╗£τÄ»σóâΣ╕¡Σ┐¥µîüτºüσ»åσÆîσ«ëσà¿∩╝îµêæΣ╗¼σ«₧µû╜Σ║åσçáΘí╣σ«ëσà¿σèáσ¢║µÄ¬µû╜πÇé
++
++## σÅæτöƒΣ║åΣ╗ÇΣ╣êσÅÿσîû∩╝ƒ
++
++µ£ÇΦ┐æτÜäµ¢┤µû░σ╝òσàÑΣ║åΣ╕ñΘí╣Σ╕╗ΦªüτÜäσ«ëσà¿Φªüµ▒é∩╝Ü
++1.  **Σ╗àΘÖÉµ£¼σ£░Φ«┐Θù«**∩╝ÜΘ╗ÿΦ«ñµâàσå╡Σ╕ï∩╝îτ╜æσà│τÄ░σ£¿Σ╗àτ¢æσÉ¼ `127.0.0.1`∩╝êµé¿Φç¬σ╖▒τÜäΦ«íτ«ùµ£║∩╝ëπÇéΘÖñΘ¥₧τ╗ÅΦ┐çµÿÄτí«Θàìτ╜«∩╝îσÉªσêÖσñûΘâ¿Φ«╛σñçµùáµ│òΦ┐₧µÄÑσê░σ«âπÇé
++2.  **σ╝║σê╢σ║öτö¿σ»åΘÆÑ (App Key)**∩╝ÜτÄ░σ£¿Φ┐₧µÄÑσê░τ╜æσà│τÜäµ»Åµ¼íΦ┐₧µÄÑΘâ╜Θ£ÇΦªüΣ╕ÇΣ╕¬σö»Σ╕ÇτÜä**σ║öτö¿σ»åΘÆÑ**πÇéΦ┐ÖσÅ»Σ╗ÑΘÿ▓µ¡óµ£¬τ╗ÅµÄêµ¥âτÜäσ║öτö¿τ¿ïσ║Åτ¬âσÉ¼µé¿τÜäσ»╣Φ»¥µêûµÄºσê╢µé¿τÜäΦºÆΦë▓πÇé
++
++## µƒÑµë╛µé¿τÜäσ║öτö¿σ»åΘÆÑ
++
++µé¿σÅ»Σ╗Ñσ£¿µíîΘ¥óσ║öτö¿τ¿ïσ║ÅΣ╕¡µë╛σê░µé¿σö»Σ╕ÇτÜäσ║öτö¿σ»åΘÆÑσÆîΣ╕╗µ£║σÉì∩╝Ü
++
++1.  µëôσ╝Ç **µíîΘ¥óσ║öτö¿**πÇé
++2.  Φ┐¢σàÑ **Φ«╛τ╜«**∩╝êΘ╜┐Φ╜«σ¢╛µáç∩╝ëπÇé
++3.  ΘÇëµï⌐ **Φ┐₧µÄÑ (Connection)** ΘÇëΘí╣σìíπÇé
++4.  µé¿σ░åσ£¿µ¡ñσñäτ£ïσê░µé¿τÜä **Σ╕╗µ£║σÉì (Hostname)** σÆî **σ║öτö¿σ»åΘÆÑ (App Key)**πÇé
++5.  τé╣σç╗σ║öτö¿σ»åΘÆÑµùüΦ╛╣τÜä **σñìσê╢** µîëΘÆ«σ░åσà╢σñìσê╢σê░σë¬Φ┤┤µ¥┐πÇé
++
++## Θçìµû░Φ┐₧µÄÑµé¿τÜäσ╖Ñσà╖
++
++σªéµ₧£µé¿τÜäτÄ░µ£ëΘ¢åµêÉ∩╝êσªé Discord µ£║σÖ¿Σ║║µêû VS Code∩╝ëσü£µ¡óσ╖ÑΣ╜£∩╝îµé¿σÅ»Φâ╜Θ£ÇΦªüΣ╕║σ«âΣ╗¼µÅÉΣ╛¢µû░τÜäσ║öτö¿σ»åΘÆÑπÇé
++
++### VS Code µë⌐σ▒ò
++1.  µëôσ╝Ç VS CodeπÇé
++2.  Φ┐¢σàÑ **Φ«╛τ╜«** (`Ctrl+,`)πÇé
++3.  µÉ£τ┤ó `AIRI: App Key`πÇé
++4.  σ░åµé¿σñìσê╢τÜä **σ║öτö¿σ»åΘÆÑ** τ▓ÿΦ┤┤σê░Φ»Ñσ¡ùµ«╡Σ╕¡πÇé
++5.  µë⌐σ▒òτ¿ïσ║Åσ░åΦç¬σè¿Θçìµû░Φ┐₧µÄÑπÇé
++
++### Discord µ£║σÖ¿Σ║║
++τí«Σ┐¥µé¿τÜäτÄ»σóâσÅÿΘçÅµêûΘàìτ╜«µûçΣ╗╢σîàσÉ½Φ«╛τ╜«Σ╕║µé¿τÜä **σ║öτö¿σ»åΘÆÑ** τÜä `AIRI_TOKEN`πÇé
++
++### σà╢Σ╗ûΘÇéΘàìσÖ¿
++σªéµ₧£µé¿Σ╜┐τö¿τÜäµÿ»Φç¬σ«ÜΣ╣ëΘÇéΘàìσÖ¿∩╝îΦ»╖τí«Σ┐¥σ«âσ£¿Φ┐₧µÄÑσÉÄτ½ïσì│σÅæΘÇü `module:authenticate` Σ║ïΣ╗╢πÇéσªéµ₧£µé¿Σ╜┐τö¿τÜäµÿ»σ«ÿµû╣τÜä `@proj-airi/server-sdk`∩╝îσÅ¬Θ£Çσ░å `token` σÅéµò░Σ╝áΘÇÆτ╗Ö `ServerClient` µ₧äΘÇáσç╜µò░σì│σÅ»πÇé
++
++## µèÇµ£»σ¡ÿσé¿
++
++σ«ëσà¿Φ«╛τ╜«σ¡ÿσé¿σ£¿µé¿µ£║σÖ¿τÜäµ£¼σ£░∩╝Ü
++- **Windows**: `%APPDATA%/airi/server-channel/config.json`
++- **Linux/macOS**: `~/.config/airi/server-channel/config.json` (σà╕σ₧ï)
++
++> [!WARNING]
++> **σêçσï┐σ░åµé¿τÜäσ║öτö¿σ»åΘÆÑσêåΣ║½τ╗ÖΣ╗╗Σ╜òΣ║║πÇé** Σ╗╗Σ╜òµïÑµ£ëµ¡ñσ»åΘÆÑτÜäΣ║║Θâ╜σÅ»Σ╗ÑΦ┐₧µÄÑσê░µé¿τÜäτ╜æσà│∩╝îΦ«┐Θù«µé¿τÜäτºüΣ║║Φüèσñ⌐Φ«░σ╜òµêûΣ╗úΦí¿µé¿µëºΦíîσæ╜Σ╗ñπÇé
+diff --git a/docs/onboarding-overhaul-plan.md b/docs/onboarding-overhaul-plan.md
+new file mode 100644
+index 000000000..2c2a54730
+--- /dev/null
++++ b/docs/onboarding-overhaul-plan.md
+@@ -0,0 +1,58 @@
++# Onboarding Overhaul: Easy vs. Advanced (The Sense Pivot)
++
++This plan outlines the restructuring of the initial AIRI setup experience to remove friction and highlight free-to-start services.
++
++## The Onboarding Flow
++
++### 1. Intro Screen
++The standard landing page with a warm welcome.
++
++### 2. The Choice (Fork Picker)
++A new screen presenting two distinct paths:
++*   **Easy Mode (Recommended)**: "I want to get started instantly with clear, easy-to-setup options."
++*   **Advanced Mode (Custom)**: "I want full control to configure my own providers and models."
++
++---
++
++## Path A: Easy Mode (The "Sense" Portal)
++
++This path replaces technical jargon with intuitive "Sense" terminology and focuses on providers with generous free tiers and no credit card requirements.
++
++### Simplified Setup Page
++*   **Consciousness** (formerly LLM)
++    *   **Provider**: **Qwen Portal**
++    *   **Interaction**: **[Authorize]** button (OAuth-style flow).
++    *   **Benefit**: Instant access with ~50 requests/day.
++*   **Speech** (formerly TTS)
++    *   **Provider**: **Deepgram Aura**
++    *   **Interaction**: **[API Key]** input box + signup link.
++    *   **Benefit**: Extremely low latency, high-quality voices.
++*   **Hearing** (formerly STT)
++    *   **Provider**: **Deepgram STT**
++    *   **Interaction**: **[API Key]** input box + signup link.
++    *   **Benefit**: $200 free credit (~50 hours of usage).
++
++> [!TIP]
++> **One Key, Two Senses**: Since Deepgram handles both Speech and Hearing, we will add verbiage explaining that the user can simply paste the same API key into both fields to finish the setup in one go.
++
++---
++
++## Path B: Advanced Mode (Legacy Flow)
++
++Maintains the granular control for power users who already have their preferred keys or local setups:
++1.  **Chat Picker**: Standard provider/API selection.
++2.  **Model Picker**: Detailed model settings.
++
++---
++
++## The Convergence (Final Steps)
++
++Both paths lead to:
++1.  **Character Picker**: Select the initial AIRI identity (e.g., Relu, Dr. Aria, or Lupin).
++2.  **Setup Complete**: Final success screen.
++
++## Technical Tasks (Deferred)
++- [ ] Implement the `ForkSelection.vue` component.
++- [ ] Create the `EasyModeSetup.vue` page with combined sense configuration.
++- [ ] Update `i18n` strings to transition from LLM/TTS/STT to Consciousness/Speech/Hearing.
++- [ ] Update onboarding state machine logic to bridge the new paths.
+diff --git a/docs/release-preparation-report.md b/docs/release-preparation-report.md
+new file mode 100644
+index 000000000..aee7a879d
+--- /dev/null
++++ b/docs/release-preparation-report.md
+@@ -0,0 +1,54 @@
++# Release Preparation Report: AIRI Stable Candidate
++
++This report identifies the full scope of feature updates and build blockers since the last major activity gap (Mar 22nd -> Mar 28th).
++
++---
++
++## ≡ƒÜÇ Recent Feature Log (Since Mar 22, 2026)
++
++### **Major Features & Workflows**
++- **Native ComfyUI Engine**: Implemented a standalone HTTP integration for ComfyUI with a custom callback-driven architecture, workflow manager, and polling services. Removed the legacy WSL bridge (`97606e98f`).
++- **Synchronized Session STT**: Enabled cross-window session synchronization for speech-to-text (STT) and proactivity modules, ensuring state consistency between the main UI and auxiliary windows (`78d1fa916`).
++- **Unified Artistry Flow**: Consolidated Replicate, NanoBanana, and ComfyUI under a single unified provider management system with bidirectional `{{IMAGE}}` and `{{PROMPT}}` placeholder support (`3aa4c5b05`, `289b8af`).
++- **Journal & Memory Evolution**:
++  - Implemented coalesced journal previews with full markdown rendering for better legibility (`9172dfd`).
++  - Added a dedicated "Memory Rebuild" button with real-time cache status popovers and trash-safety hooks (`b8f62e3`).
++  - **Neural Memory Sandbox (Verified)**: Successfully validated Orama + Transformers.js hybrid-search-in-browser. Roadmap updated for production transition.
++
++### **UX & Interface Improvements**
++- **ACT/Bracket Styling**: Implemented reactive bubble styling using ACT/Bracket syntax with inline effects for dynamic chat visuals (`37f4f29`).
++- **Context Governance**: Added a context-width parameter and a hybrid "Context Meter" UI to visualize and control LLM context usage (`8aebc6f`).
++- **Direct Asset Interaction**: Enabled clipboard image paste (CTRL+V) support directly into the chat interface for Electron users (`6c30f32`).
++- **Phase 1 UX Enhancements**: Integrated mood-based styling, journal chips, and deep links for more immersive interactions (`694936c`).
++
++### **System & Hardware Stability**
++- **Provider Onboarding**: Created a beginner-friendly discovery flow with automated metadata refinement for speech and generation providers (`d9e16a1`).
++- **Stage UI Reactivity**: Optimized performance via property-based `File` equality and segmented card reactivity (`654177a`).
++- **Linux Troubleshooting**: (Status: Updated) Documented and professionalized the "Daily OOBE" and LCPP signal-loss reports for Linux environments.
++
++---
++
++## ≡ƒ¢æ Build Status: **BLOCKED**
++
++### **Critical Blocker: `channel-server` Type Error**
++As identified earlier, the build currently fails during the `typecheck` phase.
++
++- **Issue**: `stage-tamagotchi` main process references `authToken` in `ServerOptions`.
++- **Cause**: Refactor in `@proj-airi/server-runtime` to use nested `{ auth: { token: string } }` without backward-compatibility for the root property.
++- **Impact**: Production builds (Electron/Win) cannot be finalized.
++
++---
++
++## ≡ƒôÄ Metadata Citations
++
++- **Last Release Tag**: `v0.9.0-stable.20260326`
++- **Pre-Release Reference Hash**: `289b8af9f8eda552f621d5cc40fb995a04044a27` (Commit prior to 03/26 version bump).
++- **Target Release Date**: 2026-03-28 (Pending security fix).
++
++---
++
++## ≡ƒ¢á∩╕Å Action Items
++
++1. **Fix type mismatch** in `apps/stage-tamagotchi/src/main/services/airi/channel-server/index.ts`.
++2. **Synchronize** incoming security fix (Pending).
++3. **Trigger Release Process** (Version bump -> Tag -> Build).
+diff --git a/integrations/vscode/vscode-airi/package.json b/integrations/vscode/vscode-airi/package.json
+index 139c2bd59..80020cee8 100644
+--- a/integrations/vscode/vscode-airi/package.json
++++ b/integrations/vscode/vscode-airi/package.json
+@@ -55,6 +55,11 @@
+           "type": "number",
+           "default": 3000,
+           "description": "Interval in milliseconds to send updates (0 for real-time)"
++        },
++        "airi-vscode.authToken": {
++          "type": "string",
++          "default": "",
++          "description": "App Key used to authenticate with the AIRI Gateway"
+         }
+       }
+     }
+diff --git a/integrations/vscode/vscode-airi/src/airi.ts b/integrations/vscode/vscode-airi/src/airi.ts
+index d606eb500..0ff1c4d68 100644
+--- a/integrations/vscode/vscode-airi/src/airi.ts
++++ b/integrations/vscode/vscode-airi/src/airi.ts
+@@ -9,9 +9,12 @@ import { nanoid } from 'nanoid'
+ export class Client {
+   private client: ServerClient<Events> | null = null
+ 
+-  async connect(): Promise<boolean> {
++  async connect(token?: string): Promise<boolean> {
+     try {
+-      this.client = new ServerClient<Events>({ name: 'proj-airi:plugin-vscode' })
++      this.client = new ServerClient<Events>({
++        name: 'proj-airi:plugin-vscode',
++        token,
++      })
+       await this.client.connect()
+       useLogger().log('AIRI connected to Server Channel')
+       return true
+diff --git a/integrations/vscode/vscode-airi/src/extension.ts b/integrations/vscode/vscode-airi/src/extension.ts
+index 26f4887b5..37e76ada5 100644
+--- a/integrations/vscode/vscode-airi/src/extension.ts
++++ b/integrations/vscode/vscode-airi/src/extension.ts
+@@ -27,6 +27,7 @@ export async function activate(context: vscode.ExtensionContext) {
+   const isEnabled = config.get<boolean>('enabled', true)
+   const contextLines = config.get<number>('contextLines', 5)
+   const sendInterval = config.get<number>('sendInterval', 3000)
++  const authToken = config.get<string>('authToken', '')
+ 
+   // Initialize
+   const vscodeContext = injeca.provide('vscode:context', () => context)
+@@ -51,7 +52,7 @@ export async function activate(context: vscode.ExtensionContext) {
+ 
+   const extension = injeca.provide('extension', {
+     dependsOn: { client, vscodeContext, contextCollector, eventListeners, lifecycle, controlLoopInterval },
+-    build: ({ dependsOn }) => setup({ ...dependsOn, isEnabled, sendInterval }),
++    build: ({ dependsOn }) => setup({ ...dependsOn, isEnabled, sendInterval, authToken }),
+   })
+ 
+   injeca.invoke({
+@@ -71,10 +72,11 @@ async function setup(params: {
+   controlLoopInterval: IntervalHandle
+   isEnabled: boolean
+   sendInterval: number
++  authToken: string
+ }) {
+   // Connect to Airi Channel Server
+   if (params.isEnabled) {
+-    const connected = await params.client.connect()
++    const connected = await params.client.connect(params.authToken)
+     if (connected) {
+       window.showInformationMessage('AIRI Server Channel connected!')
+     }
+@@ -87,7 +89,9 @@ async function setup(params: {
+   params.vscodeContext.subscriptions.push(
+     commands.registerCommand('airi-vscode.enable', async () => {
+       params.isEnabled = true
+-      await params.client.connect()
++      const config = workspace.getConfiguration('airi-vscode')
++      const token = config.get<string>('authToken', '')
++      await params.client.connect(token)
+       await registerListeners({ ...params })
+       window.showInformationMessage('AIRI enabled!')
+     }),
+diff --git a/packages/i18n/src/locales/en/settings.yaml b/packages/i18n/src/locales/en/settings.yaml
+index 3dccb2f53..e7e4ffebf 100644
+--- a/packages/i18n/src/locales/en/settings.yaml
++++ b/packages/i18n/src/locales/en/settings.yaml
+@@ -966,6 +966,12 @@ pages:
+   connection:
+     description: Configure WebSocket server connection
+     title: Connection
++    server-hostname:
++      title: Local Server Hostname
++      description: The interface the AIRI Gateway binds to. Set to 127.0.0.1 for maximum security.
++    server-auth-token:
++      title: App Key
++      description: The secret key used to authorize connections to this AIRI instance. Keep this safe!
+   system:
+     color-scheme:
+       description: Change the color scheme of the stage.
+diff --git a/packages/i18n/src/locales/es/settings.yaml b/packages/i18n/src/locales/es/settings.yaml
+index aa3c1b20f..0ba4b1a81 100644
+--- a/packages/i18n/src/locales/es/settings.yaml
++++ b/packages/i18n/src/locales/es/settings.yaml
+@@ -840,6 +840,14 @@ pages:
+       description: Full address of the WebSocket server (e.g., ws://localhost:6121/ws)
+       label: WebSocket Server Address
+       placeholder: ws://localhost:6121/ws
++    server-hostname:
++      description: Direcci├│n IP o nombre de host del servidor (p. ej., 127.0.0.1)
++      label: Nombre de Host del Servidor
++      placeholder: 127.0.0.1
++    server-auth-token:
++      description: Clave de aplicaci├│n ├║nica requerida para todos los m├│dulos de conexi├│n (p. ej., Bot de Discord)
++      label: Clave de Aplicaci├│n (App Key)
++      placeholder: Tu clave de aplicaci├│n ├║nica...
+   scene:
+     description: Configurar el entorno donde vive el personaje
+     title: Escena
+diff --git a/packages/server-runtime/src/index.ts b/packages/server-runtime/src/index.ts
+index 91b3fa62d..1ffedaed8 100644
+--- a/packages/server-runtime/src/index.ts
++++ b/packages/server-runtime/src/index.ts
+@@ -250,13 +250,10 @@ export function setupApp(options?: AppOptions): { app: H3, closeAllPeers: () =>
+ 
+   app.get('/ws', defineWebSocketHandler({
+     open: (peer) => {
+-      if (authToken) {
+-        peers.set(peer.id, { peer, authenticated: false, name: '', lastHeartbeatAt: Date.now() })
+-      }
+-      else {
+-        send(peer, RESPONSES.authenticated(instanceId))
+-        peers.set(peer.id, { peer, authenticated: true, name: '', lastHeartbeatAt: Date.now() })
+-        sendRegistrySync(peer)
++      peers.set(peer.id, { peer, authenticated: false, name: '', lastHeartbeatAt: Date.now() })
++
++      if (!authToken) {
++        logger.warn('No AUTHENTICATION_TOKEN provided. Gateway will only accept empty tokens for authentication. This is INSECURE.')
+       }
+ 
+       logger.withFields({ peer: peer.id, activePeers: peers.size }).log('[TESTING] connected')
+@@ -318,6 +315,13 @@ export function setupApp(options?: AppOptions): { app: H3, closeAllPeers: () =>
+         }
+       }
+ 
++      if (!authenticatedPeer?.authenticated && event.type !== 'module:authenticate' && event.type !== 'transport:connection:heartbeat') {
++        const error = RESPONSES.error('not authenticated', instanceId, event.metadata?.event.id)
++        send(peer, error)
++
++        return
++      }
++
+       switch (event.type) {
+         case 'transport:connection:heartbeat': {
+           const p = peers.get(peer.id)
+diff --git a/packages/server-runtime/src/server/index.ts b/packages/server-runtime/src/server/index.ts
+index ff3f73d2a..887729835 100644
+--- a/packages/server-runtime/src/server/index.ts
++++ b/packages/server-runtime/src/server/index.ts
+@@ -13,6 +13,7 @@ import { normalizeLoggerConfig, setupApp } from '..'
+ export interface ServerOptions extends AppOptions {
+   port?: number
+   hostname?: string
++  authToken?: string
+   tlsConfig?: {
+     cert?: string
+     key?: string
+@@ -71,7 +72,7 @@ export function getLocalIPs(): string[] {
+ }
+ 
+ export function createServer(opts?: ServerOptions): Server {
+-  let options = merge<ServerOptions>({ port: 6121, hostname: '0.0.0.0' }, opts)
++  let options = merge<ServerOptions>({ port: 6121, hostname: '127.0.0.1' }, opts)
+ 
+   const { appLogFormat, appLogLevel } = normalizeLoggerConfig(options)
+   const log = useLogg('@proj-airi/server-runtime/server').withLogLevelString(appLogLevel).withFormat(appLogFormat)
+diff --git a/packages/stage-ui/src/stores/modules/airi-card.ts b/packages/stage-ui/src/stores/modules/airi-card.ts
+index 5c00a7152..f5f43bf6b 100644
+--- a/packages/stage-ui/src/stores/modules/airi-card.ts
++++ b/packages/stage-ui/src/stores/modules/airi-card.ts
+@@ -83,11 +83,14 @@ export interface AiriExtension {
+   }
+   acting?: ActingConfig
+   heartbeat?: HeartbeatConfig
++  groundingEnabled?: boolean
+   generation?: CharacterGenerationConfig
+   artistry?: {
+     provider: string
+     model?: string
++    promptPrefix?: string
+     widgetInstruction?: string
++    options?: Record<string, any>
+     params?: Record<string, any>
+   }
+ }
+diff --git a/packages/stage-ui/src/stores/proactivity.ts b/packages/stage-ui/src/stores/proactivity.ts
+index ecdbd435a..96c486b2a 100644
+--- a/packages/stage-ui/src/stores/proactivity.ts
++++ b/packages/stage-ui/src/stores/proactivity.ts
+@@ -121,7 +121,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
+     }
+   }
+ 
+-  const { pause } = useIntervalFn(updateSensors, 10000, { immediate: true })
++  const { pause } = useIntervalFn(updateSensors, 30000, { immediate: true })
+ 
+   onUnmounted(() => {
+     pause()
+-- 
+2.46.2.windows.1
+
