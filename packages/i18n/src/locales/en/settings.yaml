@@ -10,6 +10,26 @@ dialogs:
   onboarding:
     title: Welcome to AIRI!
     description: Let's set up your first AI provider to get started.
+    modeSelection:
+      title: 'How would you like to start?'
+      description: 'Choose the experience that best fits your preference.'
+      easy:
+        title: 'Easy Setup'
+        description: 'Get started instantly with our recommended cloud providers.'
+      custom:
+        title: 'Advanced Setup'
+        description: 'I want to configure my own local or custom providers.'
+    senseSetup:
+      title: 'Sense Portal'
+      description: "Configure your companion's core senses to begin."
+      consciousness: 'Consciousness'
+      speech: 'Speech & Hearing'
+      loginWithQwen: 'Login with Qwen Portal'
+      qwenSubtext: 'Free-to-start, daily quota included. Simply sign in with Google—no API key required.'
+      deepgramSubtext: '$200 credits for initial signups. Approximately 50 hours of transcription/speech services included.'
+      senseKey: 'Sense Key'
+      senseKeyHelp: 'Enter your Deepgram API Key to enable voice senses.'
+      getDeepgramKey: 'Get Deepgram Key'
     selectProvider: Choose an AI Provider
     configureProvider: Configure {provider}
     apiKey: API Key
