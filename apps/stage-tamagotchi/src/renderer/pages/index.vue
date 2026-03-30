@@ -12,6 +12,7 @@ import {
   useElectronRelativeMouse,
 } from '@proj-airi/electron-vueuse'
 import { useThreeSceneIsTransparentAtPoint } from '@proj-airi/stage-ui-three'
+import { WhisperDock } from '@proj-airi/stage-ui/components/scenarios'
 import { WidgetStage } from '@proj-airi/stage-ui/components/scenes'
 import { useAudioRecorder } from '@proj-airi/stage-ui/composables/audio/audio-recorder'
 import { useCanvasPixelIsTransparentAtPoint } from '@proj-airi/stage-ui/composables/canvas-alpha'
@@ -38,6 +39,7 @@ import { builtinTools } from '../stores/tools/builtin'
 import { useWindowStore } from '../stores/window'
 
 const controlsIslandRef = ref<InstanceType<typeof ControlsIsland>>()
+const whisperDockRef = ref<InstanceType<typeof WhisperDock>>()
 const widgetStageRef = ref<InstanceType<typeof WidgetStage>>()
 const stageCanvas = toRef(() => widgetStageRef.value?.canvasElement())
 const controlsIslandRoot = computed(() => controlsIslandRef.value?.rootElement)
@@ -184,10 +186,11 @@ onMounted(async () => {
 })
 
 const hearingDialogOpen = computed(() => controlsIslandRef.value?.hearingDialogOpen ?? false)
+const whisperDockOpen = computed(() => whisperDockRef.value?.isOpen ?? false)
 
-watch([isOutsideForInstant, isAroundWindowBorderForInstant, isOutsideWindow, isTransparent, hearingDialogOpen, fadeOnHoverEnabled], () => {
-  if (hearingDialogOpen.value) {
-    // Hearing dialog/drawer is open; keep window interactive
+watch([isOutsideForInstant, isAroundWindowBorderForInstant, isOutsideWindow, isTransparent, hearingDialogOpen, whisperDockOpen, fadeOnHoverEnabled], () => {
+  if (hearingDialogOpen.value || whisperDockOpen.value) {
+    // Hearing dialog or whisper dock is open; keep window interactive
     isIgnoringMouseEvents.value = false
     shouldFadeOnCursorWithin.value = false
     setIgnoreMouseEvents([false, { forward: true }])
@@ -573,6 +576,7 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
           :is-locked="isLocked"
           @take-photo="handleTakePhoto"
         />
+        <WhisperDock ref="whisperDockRef" :tools="builtinTools" />
       </div>
     </div>
     <div v-if="isLoading" class="pointer-events-none absolute left-0 top-0 z-100 h-full w-full">
