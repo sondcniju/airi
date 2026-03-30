@@ -155,7 +155,7 @@ function handleKeydown(e: KeyboardEvent) {
       :class="[
         'fixed bottom-3 left-1/2 z-90',
         '-translate-x-1/2',
-        'w-[min(90vw,420px)]',
+        'w-[min(calc(100vw-120px),420px)]',
         'flex items-center gap-2',
         'rounded-2xl',
         'bg-white/70 dark:bg-neutral-900/70',
