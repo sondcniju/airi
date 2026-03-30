@@ -63,6 +63,8 @@ Character-scoped backgrounds and the foundation for AI-driven environment contro
 - **Background-Journal Integration**: The Image Journal and Background systems are **bridged** — generated artistry images can be set as the character's background in a single click.
 - **AI-Driven Background Creation**: The AI can not only set an existing image from the journal as a background, but also **generate a new image and set it as the background** in one action — letting the character "redecorate" on the fly.
 - **Background Portability**: Active backgrounds are exported **with the AIRI card**, so anyone who imports a character gets their scene automatically applied.
+- **Photo Mode (Stage Capture)**: A dedicated 3-2-1 countdown capture system in the Control Island that snapshots the character and their active background into a single composite image. Features a full-screen flash transition for immediate visual feedback.
+- **Selfie-Enhanced Previews**: Character card previews in the settings menu automatically use the latest "selfie" from the image journal as the portrait, providing a dynamic and personalized view of each character. Includes smart anchoring (object-top) for perfect framing.
 
 ---
 
@@ -140,6 +142,8 @@ The floating interaction hub for the desktop experience.
 - **Manual (Pure Mic) Mode**: Bypasses VAD entirely for **clean push-to-talk** microphone triggering.
 - **Resource Status Island**: A separate floating indicator that shows real-time **module loading progress** and a "Ready!" status with expandable details.
 - **Transcription Feedback Toasts**: Real-time `🎤 You said: {text}` confirmation during voice interactions.
+- **Gallery "Download" Support**: Added a direct Download button to the Image Journal gallery in settings, allowing users to save their captured selfies to their local machine.
+- **UI Icon Hygiene**: Standardized the icons for Profile Switcher (`solar:users-group-rounded-outline`) and Emotions (`solar:mask-happly-outline`) to improve visual distinctness.
 
 ---
 

@@ -12,7 +12,7 @@ import { useAiriCardStore } from './modules/airi-card'
 
 export interface BackgroundEntry {
   id: string
-  type: 'builtin' | 'scene' | 'journal'
+  type: 'builtin' | 'scene' | 'journal' | 'selfie'
   characterId: string | null // null for shared
   title: string
   blob: Blob
@@ -231,8 +231,8 @@ export const useBackgroundStore = defineStore('background', () => {
 
   const getCharacterBackgrounds = computed(() => (characterId?: string) => {
     const list = Array.from(entries.value.values()).filter((e) => {
-      // Shared (builtin/scene) or Journal for specific character
-      return e.type === 'scene' || e.type === 'builtin' || (e.type === 'journal' && characterId && e.characterId === characterId)
+      // Shared (builtin/scene) or Journal/Selfie for specific character
+      return e.type === 'scene' || e.type === 'builtin' || ((e.type === 'journal' || e.type === 'selfie') && characterId && e.characterId === characterId)
     })
     return list.map(e => ({
       ...e,
@@ -248,7 +248,7 @@ export const useBackgroundStore = defineStore('background', () => {
 
   const getCharacterJournalEntries = computed(() => (characterId?: string) => {
     return Array.from(entries.value.values()).filter((e) => {
-      return e.type === 'journal' && characterId && e.characterId === characterId
+      return (e.type === 'journal' || e.type === 'selfie') && characterId && e.characterId === characterId
     }).map(e => ({
       ...e,
       url: backgroundUrls[e.id] ?? null,
@@ -256,7 +256,7 @@ export const useBackgroundStore = defineStore('background', () => {
   })
 
   async function addBackground(
-    type: 'scene' | 'journal',
+    type: 'scene' | 'journal' | 'selfie',
     blob: Blob,
     title: string,
     prompt?: string,
@@ -269,7 +269,7 @@ export const useBackgroundStore = defineStore('background', () => {
     // Default to active card if journal and no charId provided
     const resolvedCharacterId = characterId !== undefined
       ? characterId
-      : (type === 'journal' ? airiCardStore.activeCardId : null)
+      : ((type === 'journal' || type === 'selfie') ? airiCardStore.activeCardId : null)
 
     const entry: BackgroundEntry = {
       id,

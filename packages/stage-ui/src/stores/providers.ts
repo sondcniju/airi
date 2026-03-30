@@ -739,6 +739,12 @@ export const useProvidersStore = defineStore('providers', () => {
         } as SpeechProviderWithExtraOptions<string, any>
       },
       capabilities: {
+        listModels: async () => {
+          return [
+            { id: 'neural', name: 'Neural', provider: 'aws-polly-tts', tasks: ['text-to-speech', 'tts'], deployment: 'cloud' },
+            { id: 'standard', name: 'Standard', provider: 'aws-polly-tts', tasks: ['text-to-speech', 'tts'], deployment: 'cloud' },
+          ] satisfies ModelInfo[]
+        },
         listVoices: async (config: Record<string, unknown>) => {
           const accessKeyId = typeof config.apiKey === 'string' ? config.apiKey.trim() : ''
           const secretAccessKey = typeof config.secretAccessKey === 'string' ? config.secretAccessKey.trim() : ''

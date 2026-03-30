@@ -521,6 +521,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
       if (!providerId) {
         error.value = 'No transcription provider selected'
         console.error('[Hearing Pipeline] No transcription provider selected')
+        hearingStore.isTranscribing = false
         return
       }
 
@@ -535,6 +536,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
         if (!isAvailable) {
           error.value = 'Web Speech API is not available in this browser'
           console.error('Web Speech API is not available')
+          hearingStore.isTranscribing = false
           return
         }
 
@@ -679,6 +681,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
 
       const provider = await providersStore.getProviderInstance<TranscriptionProviderWithExtraOptions<string, any>>(providerId)
       if (!provider) {
+        hearingStore.isTranscribing = false
         throw new Error('Failed to initialize speech provider')
       }
 
