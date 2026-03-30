@@ -8,6 +8,7 @@ import { useChatOrchestratorStore } from '../../../stores/chat'
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../stores/modules/consciousness'
 import { useProvidersStore } from '../../../stores/providers'
+import { StickerManager } from '../stickers'
 
 const props = defineProps<{
   /** Tool definitions to pass through to chat.ingest */
@@ -15,6 +16,7 @@ const props = defineProps<{
 }>()
 
 const isOpen = ref(false)
+const showStickers = ref(false)
 const inputText = ref('')
 const inputRef = ref<HTMLInputElement>()
 const isSending = ref(false)
@@ -164,6 +166,42 @@ function handleKeydown(e: KeyboardEvent) {
         isSending ? 'whisper-dock-sending' : '',
       ]"
     >
+      <!-- Sticker Toggle -->
+      <button
+        :class="[
+          'size-7 rounded-lg flex items-center justify-center',
+          'transition-all duration-200',
+          showStickers ? 'bg-primary-500/20 text-primary-500' : 'text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800',
+        ]"
+        @click="showStickers = !showStickers"
+      >
+        <div class="i-ph:stamp-bold size-4" />
+      </button>
+
+      <!-- Sticker Library Popover -->
+      <Transition
+        enter-active-class="transition-all duration-300 ease-out"
+        enter-from-class="opacity-0 translate-y-2 scale-95"
+        enter-to-class="opacity-100 translate-y-0 scale-100"
+        leave-active-class="transition-all duration-200 ease-in"
+        leave-from-class="opacity-100 translate-y-0 scale-100"
+        leave-to-class="opacity-0 translate-y-2 scale-95"
+      >
+        <div
+          v-if="showStickers"
+          :class="[
+            'absolute bottom-[110%] left-0',
+            'w-full max-w-[320px]',
+            'bg-white/90 dark:bg-neutral-900/90 backdrop-blur-2xl',
+            'border border-neutral-200/50 dark:border-neutral-700/50',
+            'shadow-2xl rounded-2xl overflow-hidden',
+            'z-100',
+          ]"
+        >
+          <StickerManager />
+        </div>
+      </Transition>
+
       <input
         ref="inputRef"
         v-model="inputText"

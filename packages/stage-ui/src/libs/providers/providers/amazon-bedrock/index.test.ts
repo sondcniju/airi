@@ -55,7 +55,7 @@ describe('providerAmazonBedrock', () => {
       accessKeyId: 'invalid',
       secretAccessKey: 'invalid',
       region: 'us-east-1',
-    }, providerAmazonBedrock.createProvider({
+    }, await providerAmazonBedrock.createProvider({
       accessKeyId: 'invalid',
       secretAccessKey: 'invalid',
       region: 'us-east-1',

@@ -7,8 +7,6 @@ import UnoCss from 'unocss/vite'
 import Info from 'unplugin-info/vite'
 import VueRouter from 'unplugin-vue-router/vite'
 import Yaml from 'unplugin-yaml/vite'
-import Inspect from 'vite-plugin-inspect'
-import VitePluginVueDevTools from 'vite-plugin-vue-devtools'
 import Layouts from 'vite-plugin-vue-layouts'
 import VueMacros from 'vue-macros/vite'
 
@@ -233,7 +231,7 @@ export default defineConfig({
         },
       },
 
-      Inspect(),
+      // Inspect(),
 
       Yaml(),
 
@@ -264,7 +262,7 @@ export default defineConfig({
         exclude: ['**/components/**'],
       }),
 
-      VitePluginVueDevTools(),
+      // VitePluginVueDevTools(),
 
       // https://github.com/JohnCampionJr/vite-plugin-vue-layouts
       Layouts({

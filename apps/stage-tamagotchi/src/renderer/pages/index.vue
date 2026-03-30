@@ -12,7 +12,7 @@ import {
   useElectronRelativeMouse,
 } from '@proj-airi/electron-vueuse'
 import { useThreeSceneIsTransparentAtPoint } from '@proj-airi/stage-ui-three'
-import { WhisperDock } from '@proj-airi/stage-ui/components/scenarios'
+import { StickerStack, WhisperDock } from '@proj-airi/stage-ui/components/scenarios'
 import { WidgetStage } from '@proj-airi/stage-ui/components/scenes'
 import { useAudioRecorder } from '@proj-airi/stage-ui/composables/audio/audio-recorder'
 import { useCanvasPixelIsTransparentAtPoint } from '@proj-airi/stage-ui/composables/canvas-alpha'
@@ -577,6 +577,7 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
           @take-photo="handleTakePhoto"
         />
         <WhisperDock ref="whisperDockRef" :tools="builtinTools" />
+        <StickerStack />
       </div>
     </div>
     <div v-if="isLoading" class="pointer-events-none absolute left-0 top-0 z-100 h-full w-full">
