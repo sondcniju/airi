@@ -6,14 +6,14 @@ import { onMounted, ref } from 'vue'
 import { useStickersStore } from '../../../stores/stickers'
 
 const stickersStore = useStickersStore()
-const { libraryMetadata } = storeToRefs(stickersStore)
+const { currentLibrary } = storeToRefs(stickersStore)
 const fileInput = ref<HTMLInputElement>()
 
 // Map to store temporary preview URLs for the library grid
 const previews = ref<Record<string, string>>({})
 
 async function loadPreviews() {
-  for (const meta of libraryMetadata.value) {
+  for (const meta of currentLibrary.value) {
     if (!previews.value[meta.id]) {
       const url = await stickersStore.getStickerUrl(meta.id)
       if (url) {
@@ -73,10 +73,10 @@ async function remove(id: string) {
           variant="secondary"
           size="sm"
           class="flex items-center gap-2"
-          @click="stickersStore.clearAll()"
+          @click="stickersStore.clearLibrary()"
         >
           <div class="i-ph:trash-bold size-3" />
-          Clear All
+          Clear Library
         </Button>
         <Button
           variant="primary"
@@ -100,11 +100,11 @@ async function remove(id: string) {
 
     <!-- Grid -->
     <div
-      v-if="libraryMetadata.length > 0"
+      v-if="currentLibrary.length > 0"
       class="grid grid-cols-3 gap-3"
     >
       <div
-        v-for="meta in libraryMetadata"
+        v-for="meta in currentLibrary"
         :key="meta.id"
         class="group relative aspect-square flex cursor-pointer items-center justify-center rounded-xl bg-neutral-100 p-2 transition-all dark:bg-neutral-800 hover:ring-2 hover:ring-primary-400"
         @click="spawn(meta.id)"

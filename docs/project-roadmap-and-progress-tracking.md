@@ -21,7 +21,11 @@ This document tracks the current development state of the AIRI project, specific
 ## Recent Changes (in `airi-rebase-scratch`)
 
 #### 2026-03-30 - Kawaii Sticker System & Context Awareness Refinement
-- **Kawaii Sticker System ("Full Gusto")**: Implemented a persistent sticker system with viewport-wide "wild" randomized spawning. Includes an automated 60s cleanup loop for both AI and manual placements.
+- **Character-Scoped Sticker Library**: Re-engineered the sticker system to isolate libraries per character. Implemented a fresh `library-v2` store to ensure strict data separation.
+- **Sticker Hallucination Suppression**: Hardened the AI context prompt with CRITICAL instructions and implemented direct tool-call error feedback to prevent the LLM from hallucinating unavailable stickers.
+- **Kawaii Sticker System UI**: Added "Clear Library" functionality for scoped deletion and renamed "Clear All" to "Clear Screen" for functional clarity.
+- **Sticker Asset Cleanup**: Batch-processed the `Project-Mint-2` sticker set to normalize filenames, strip timestamps, and promote high-quality base assets.
+- **Kawaii Sticker System ("Full Gusto")**: Initial implementation of the persistent sticker system with viewport-wide "wild" randomized spawning. Includes an automated 60s cleanup loop for both AI and manual placements.
 - **Sticker Awareness**: Integrated a new context provider that keeps AIRI aware of what stickers are currently decorating her screen.
 - **Visual State Awareness (Expressions)**: Developed the `Expressions` context provider, allowing the AI to "see" its own active expressions and props (e.g., blushing, glasses, cat ears) in both VRM and Live2D.
 - **Intelligent Scene Filtering**: Refined the `Scenes` context provider to strictly filter for environmental backgrounds, preventing roleplay confusion from selfies or journal images.
