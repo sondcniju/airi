@@ -44,7 +44,7 @@ export function setupSensorsService() {
     catch (err) {
       const now = Date.now()
       if (now - lastActiveWinErrorTime > ERROR_LOG_INTERVAL) {
-        log.withError(err).warn('Native active-win failed; using system fallbacks.')
+        log.withError(err).debug('Native active-win failed; using system fallbacks.')
         lastActiveWinErrorTime = now
       }
 
@@ -71,6 +71,7 @@ export function setupSensorsService() {
     return null
   }
 
+  /*
   setInterval(async () => {
     const current = await getActiveWindowInfo()
     if (!current)
@@ -94,6 +95,7 @@ export function setupSensorsService() {
         activeWindowHistory.shift()
     }
   }, 10000)
+*/
 
   defineInvokeHandler(
     context,
