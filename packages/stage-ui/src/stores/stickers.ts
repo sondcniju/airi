@@ -128,9 +128,13 @@ export const useStickersStore = defineStore('stickers', () => {
     const direction = Math.random() > 0.5 ? 1 : -1
     const rotation = (3 + Math.random() * 5) * direction
 
-    // Randomize position if not provided, between 10% and 90%
-    const finalX = options.x !== undefined ? options.x : (10 + Math.random() * 80)
-    const finalY = options.y !== undefined ? options.y : (10 + Math.random() * 80)
+    // Wild positioning: use window dimensions or default to safe center if size unknown.
+    // We target 10% to 90% of the viewport to ensure they are at least partially visible.
+    const width = typeof window !== 'undefined' ? window.innerWidth : 1000
+    const height = typeof window !== 'undefined' ? window.innerHeight : 1000
+
+    const finalX = options.x !== undefined ? options.x : (width * (0.1 + Math.random() * 0.8))
+    const finalY = options.y !== undefined ? options.y : (height * (0.1 + Math.random() * 0.8))
 
     const createdAt = Date.now()
     const placement: StickerPlacement = {
