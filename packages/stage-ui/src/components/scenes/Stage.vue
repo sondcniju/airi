@@ -39,6 +39,7 @@ import { useSpeechStore } from '../../stores/modules/speech'
 import { useProvidersStore } from '../../stores/providers'
 import { useSettings } from '../../stores/settings'
 import { useSpeechRuntimeStore } from '../../stores/speech-runtime'
+import { useVHackStore } from '../../stores/vhack'
 
 withDefaults(defineProps<{
   paused?: boolean
@@ -57,6 +58,7 @@ const vrmViewerRef = ref<InstanceType<typeof ThreeScene>>()
 const live2dSceneRef = ref<InstanceType<typeof Live2DScene>>()
 
 const settingsStore = useSettings()
+const vhackStore = useVHackStore()
 const {
   stageModelRenderer,
   stageViewControlsEnabled,
@@ -145,16 +147,51 @@ const { currentMotion, availableExpressions: live2dExpressions, expressionData: 
 const temporaryVrma = ref<string | null>(null)
 let temporaryVrmaTimeout: ReturnType<typeof setTimeout> | null = null
 
+// Scheduler logic for seamless idle transitions
+let schedulerTimer: ReturnType<typeof setTimeout> | null = null
+let watchdogTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearAnimationTimers() {
+  if (schedulerTimer) {
+    clearTimeout(schedulerTimer)
+    schedulerTimer = null
+  }
+  if (watchdogTimer) {
+    clearTimeout(watchdogTimer)
+    watchdogTimer = null
+  }
+}
+
+function handleAnimationPlayStatus(status: { duration: number, url: string }) {
+  clearAnimationTimers()
+
+  // Schedule next animation 0.8s before this one ends (cross-fade window)
+  const delay = Math.max(0, (status.duration - 0.8) * 1000)
+  schedulerTimer = setTimeout(() => {
+    handleAnimationFinished()
+  }, delay)
+
+  // Safety watchdog: force a cycle if we get stuck for > 20s
+  watchdogTimer = setTimeout(() => {
+    console.warn('[Stage] Animation watchdog triggered (20s stall detected)')
+    handleAnimationFinished()
+  }, 20000)
+}
+
 const vrmActiveAnimation = computed(() => {
+  const cardIdleAnimations = activeCard.value?.extensions?.airi?.acting?.idleAnimations || []
   let baseKey = vrmStore.vrmIdleAnimation
 
-  const cardIdleAnimations = activeCard.value?.extensions?.airi?.acting?.idleAnimations || []
-  if (cardIdleAnimations.length > 0 && !cardIdleAnimations.includes(baseKey)) {
-    // If the globally stored animation isn't allowed by the card's strict subset, clamp it to the first valid preset
+  // Tier 1: Character (if exactly 1 selected, we stick to it)
+  if (cardIdleAnimations.length === 1) {
+    baseKey = cardIdleAnimations[0]
+  }
+  // Tier 2: Global Fallback / Subsection clamping
+  else if (cardIdleAnimations.length > 1 && !cardIdleAnimations.includes(baseKey)) {
     const validKeys = cardIdleAnimations.filter(k => customVrmAnimationsStore.animationKeys.includes(k))
     if (validKeys.length > 0) {
       baseKey = validKeys[0]
-      // Sync it back to the store so the first initial loop finish accurately triggers any overrides
+      // Only sync if we are globally cycling
       if (vrmStore.vrmIdleCycleEnabled) {
         vrmStore.vrmIdleAnimation = baseKey
       }
@@ -163,6 +200,15 @@ const vrmActiveAnimation = computed(() => {
 
   const vrmaKey = temporaryVrma.value || baseKey
   return customVrmAnimationsStore.resolveAnimationUrl(vrmaKey)
+})
+
+const vrmEffectiveIdleCycleEnabled = computed(() => {
+  const cardIdleAnimations = activeCard.value?.extensions?.airi?.acting?.idleAnimations || []
+  if (cardIdleAnimations.length > 1)
+    return true
+  if (cardIdleAnimations.length === 1)
+    return false
+  return vrmStore.vrmIdleCycleEnabled
 })
 
 const emotionsQueue = createQueue<EmotionPayload>({
@@ -706,15 +752,21 @@ function handleAnimationFinished() {
   if (stageModelRenderer.value !== 'vrm')
     return
 
+  // Clear timers to prevent race conditions
+  clearAnimationTimers()
+
   // Resume idle from ACT performance
   if (temporaryVrma.value) {
     temporaryVrma.value = null
   }
 
-  // Cycle if enabled
-  if (vrmStore.vrmIdleCycleEnabled) {
-    const cardIdleAnimations = activeCard.value?.extensions?.airi?.acting?.idleAnimations || []
-    const keys = cardIdleAnimations.length > 0 ? cardIdleAnimations : customVrmAnimationsStore.animationKeys
+  // Cycle logic (Tier 1: Card Subset | Tier 2: Global)
+  const cardIdleAnimations = activeCard.value?.extensions?.airi?.acting?.idleAnimations || []
+  const hasCardSubset = cardIdleAnimations.length > 0
+  const isEnabled = hasCardSubset ? cardIdleAnimations.length > 1 : vrmStore.vrmIdleCycleEnabled
+
+  if (isEnabled) {
+    const keys = hasCardSubset ? cardIdleAnimations : customVrmAnimationsStore.animationKeys
 
     // Fall back to the original full subset if none of the customized ones are currently valid
     const validKeys = keys.filter(k => customVrmAnimationsStore.animationKeys.includes(k))
@@ -723,14 +775,19 @@ function handleAnimationFinished() {
     const currentKey = vrmStore.vrmIdleAnimation
     const otherKeys = finalKeys.filter(key => key !== currentKey)
 
-    // If there's only one valid key (meaning the user picked a single animation to loop), just force it
+    // Selection
     if (finalKeys.length === 1) {
       vrmStore.vrmIdleAnimation = finalKeys[0]
     }
     else {
-      const randomKey = otherKeys[Math.floor(Math.random() * otherKeys.length)]
-      if (randomKey) {
+      const selection = otherKeys.length > 0 ? otherKeys : finalKeys
+      const randomKey = selection[Math.floor(Math.random() * selection.length)]
+      if (randomKey && vrmStore.vrmIdleAnimation !== randomKey) {
         vrmStore.vrmIdleAnimation = randomKey
+      }
+      else if (randomKey === vrmStore.vrmIdleAnimation && otherKeys.length > 0) {
+        // Fallback safety if random picked the same one somehow
+        vrmStore.vrmIdleAnimation = otherKeys[0]
       }
     }
   }
@@ -780,6 +837,56 @@ function readRenderTargetRegionAtClientPoint(clientX: number, clientY: number, r
   return vrmViewerRef.value?.readRenderTargetRegionAtClientPoint?.(clientX, clientY, radius) ?? null
 }
 
+async function captureFrame() {
+  const charBlob = await (stageModelRenderer.value === 'live2d'
+    ? live2dSceneRef.value?.captureFrame()
+    : vrmViewerRef.value?.captureFrame())
+
+  if (!activeBackgroundUrl.value || !charBlob)
+    return charBlob
+
+  try {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx)
+      return charBlob
+
+    // Load background image
+    const bgImg = new Image()
+    bgImg.crossOrigin = 'anonymous'
+    bgImg.src = activeBackgroundUrl.value
+    await new Promise((resolve, reject) => {
+      bgImg.onload = resolve
+      bgImg.onerror = reject
+    })
+
+    // Load character frame
+    const charImg = await createImageBitmap(charBlob)
+
+    // Match canvas size to the captured frame (respects DPI/Render Scale)
+    canvas.width = charImg.width
+    canvas.height = charImg.height
+
+    // Draw background with "cover" logic
+    const scale = Math.max(canvas.width / bgImg.width, canvas.height / bgImg.height)
+    const w = bgImg.width * scale
+    const h = bgImg.height * scale
+    const x = (canvas.width - w) / 2
+    const y = (canvas.height - h) / 2
+
+    ctx.drawImage(bgImg, x, y, w, h)
+
+    // Draw character on top
+    ctx.drawImage(charImg, 0, 0)
+
+    return new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'))
+  }
+  catch (error) {
+    console.error('[Stage] Failed to composite photo with background:', error)
+    return charBlob // Fallback to character-only
+  }
+}
+
 onUnmounted(() => {
   if (lipSyncLoopId.value) {
     cancelAnimationFrame(lipSyncLoopId.value)
@@ -796,6 +903,7 @@ onUnmounted(() => {
 
 defineExpose({
   canvasElement,
+  captureFrame,
   readRenderTargetRegionAtClientPoint,
 })
 </script>
@@ -848,13 +956,16 @@ defineExpose({
         :model-src="stageModelSelectedUrl"
         :model-identity="stageModelSelected"
         :idle-animation="vrmActiveAnimation"
+        :idle-cycle-enabled="vrmEffectiveIdleCycleEnabled"
         :render-scale-override="isWindowResizing ? reducedRenderScale : undefined"
         :class="['min-w-50% <lg:full min-h-100 sm:100', 'h-full w-full flex-1']"
         :paused="paused"
         :show-axes="stageViewControlsEnabled"
         :current-audio-source="currentAudioSource"
         @error="console.error"
+        @binary-loaded="vhackStore.setSourceArrayBuffer"
         @finished="handleAnimationFinished"
+        @play-status="handleAnimationPlayStatus"
       />
     </div>
   </div>

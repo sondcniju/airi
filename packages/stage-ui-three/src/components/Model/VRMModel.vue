@@ -8,6 +8,8 @@
 
 import type { VRM } from '@pixiv/three-vrm'
 import type {
+  AnimationAction,
+  AnimationClip,
   Group,
   Object3D,
   PerspectiveCamera,
@@ -76,6 +78,7 @@ const props = withDefaults(defineProps<{
   lastModelSrc?: string
   lastModelIdentity?: string
   idleAnimation: string
+  idleCycleEnabled?: boolean
   // loadAnimations?: string[]
   paused?: boolean
 
@@ -113,7 +116,9 @@ const emit = defineEmits<{
 
   (e: 'error', value: unknown): void
   (e: 'loaded', value: { modelIdentity?: string, modelSrc: string }): void
+  (e: 'binaryLoaded', value: ArrayBuffer): void
   (e: 'finished'): void
+  (e: 'playStatus', value: { duration: number, url: string }): void
 }>()
 
 const {
@@ -123,6 +128,7 @@ const {
   lastModelSrc,
   lastModelIdentity,
   idleAnimation,
+  idleCycleEnabled,
   // loadAnimations, // TBC
   paused,
 
@@ -219,11 +225,19 @@ function componentCleanUp() {
   airiIblProbe = null
   initialHipWorldPosition.value = null
 
+  modelStore.activeVrm = null
+  modelStore.activeVrmIdentity = ''
+
   vrmAnimationMixer.value?.removeEventListener('finished', onAnimationFinished)
 }
 
-function onAnimationFinished() {
-  emit('finished')
+const clipCache = new Map<string, AnimationClip>()
+const currentAction = shallowRef<AnimationAction | null>(null)
+
+function onAnimationFinished(e: any) {
+  if (e.action === currentAction.value) {
+    emit('finished')
+  }
 }
 
 // look at mouse
@@ -298,6 +312,17 @@ async function loadModel() {
           Number((100 * progress.loaded / progress.total).toFixed(2)),
         ),
       })
+
+      // Phase A: Binary Capture for Surgical Persistence
+      try {
+        const response = await fetch(modelSrc.value)
+        const buffer = await response.arrayBuffer()
+        emit('binaryLoaded', buffer)
+      }
+      catch (e) {
+        console.warn('[VRMModel] Precise binary capture failed:', e)
+      }
+
       if (!_vrmInfo || !_vrmInfo._vrm || !_vrmInfo?._vrmGroup) {
         console.warn('VRM model loading failure!')
         return
@@ -308,6 +333,7 @@ async function loadModel() {
         modelCenter: vrmModelCenter,
         modelSize: vrmModelSize,
         initialCameraOffset: vrmInitialCameraOffset,
+        parser: vrmParser,
       } = _vrmInfo
 
       // ASYNC GUARD: If we unmounted or a new load started, dispose this model immediately
@@ -323,6 +349,9 @@ async function loadModel() {
       */
       vrm.value = _vrm
       vrmGroup.value = _vrmGroup
+      modelStore.activeVrm = _vrm
+      modelStore.activeVrmParser = vrmParser
+      modelStore.activeVrmIdentity = currentModelIdentity
       // If it's first load
       if (isFirstLoad) {
         emit('cameraPosition', {
@@ -391,16 +420,23 @@ async function loadModel() {
         console.log(`[VRMModel] Stripped ${originalCount - clip.tracks.length} expression tracks from idle animation`)
       }
 
+      clipCache.set(idleAnimation.value, clip)
+
       // play animation
       vrmAnimationMixer.value = new AnimationMixer(_vrm.scene)
       vrmAnimationMixer.value.addEventListener('finished', onAnimationFinished)
 
       const action = vrmAnimationMixer.value.clipAction(clip)
-      if (modelStore.vrmIdleCycleEnabled) {
+      if (idleCycleEnabled.value) {
         action.setLoop(LoopOnce, 1)
         action.clampWhenFinished = true
       }
+      else {
+        action.setLoop(LoopRepeat, Infinity)
+        action.clampWhenFinished = false
+      }
       action.play()
+      currentAction.value = action
 
       vrmEmote.value = useVRMEmote(_vrm)
 
@@ -631,22 +667,23 @@ onMounted(async () => {
   }, { deep: true })
 
   // watch for cycle toggle
-  watch(() => modelStore.vrmIdleCycleEnabled, (enabled) => {
+  watch(() => idleCycleEnabled?.value, (enabled) => {
     if (!vrmAnimationMixer.value)
       return
 
     const activeActions = (vrmAnimationMixer.value as any)._actions || []
-    const currentAction = activeActions.find((a: any) => a.isRunning())
-    if (currentAction) {
-      if (enabled) {
-        currentAction.setLoop(LoopOnce, 1)
-        currentAction.clampWhenFinished = true
+    activeActions.forEach((action: any) => {
+      if (action.isRunning()) {
+        if (enabled) {
+          action.setLoop(LoopOnce, 1)
+          action.clampWhenFinished = true
+        }
+        else {
+          action.setLoop(LoopRepeat, Infinity)
+          action.clampWhenFinished = false
+        }
       }
-      else {
-        currentAction.setLoop(LoopRepeat, Infinity)
-        currentAction.clampWhenFinished = false
-      }
-    }
+    })
   })
 
   // watch if the idle animation should be updated
@@ -655,40 +692,53 @@ onMounted(async () => {
       return
 
     try {
-      const animation = await loadVRMAnimation(newAnimUrl)
-      const clip = await clipFromVRMAnimation(vrm.value, animation)
-      if (!clip)
-        return
+      let clip = clipCache.get(newAnimUrl)
+      if (!clip) {
+        const animation = await loadVRMAnimation(newAnimUrl)
+        const loadedClip = await clipFromVRMAnimation(vrm.value, animation)
+        if (!loadedClip)
+          return
 
-      // NOTICE: Re-anchor against the model's initial hips position captured at load time.
-      // Recomputing from the currently animated pose causes cumulative upward drift when
-      // users switch idle loops repeatedly.
-      reAnchorRootPositionTrack(clip, vrm.value, initialHipWorldPosition.value ?? undefined)
-      clip.tracks = clip.tracks.filter(track => !track.name.includes('blendShapes') && !track.name.includes('expressions'))
+        reAnchorRootPositionTrack(loadedClip, vrm.value, initialHipWorldPosition.value ?? undefined)
+        loadedClip.tracks = loadedClip.tracks.filter(track => !track.name.includes('blendShapes') && !track.name.includes('expressions'))
+        clipCache.set(newAnimUrl, loadedClip)
+        clip = loadedClip
+      }
 
       const newAction = vrmAnimationMixer.value.clipAction(clip)
-      if (modelStore.vrmIdleCycleEnabled) {
+      const fadeDuration = 0.8 // Premium cross-fade
+
+      if (idleCycleEnabled.value) {
         newAction.setLoop(LoopOnce, 1)
-        newAction.clampWhenFinished = true
-      }
-
-      // Find the currently playing action
-      const activeActions = (vrmAnimationMixer.value as any)._actions || []
-      const currentAction = activeActions.find((a: any) => a.isRunning())
-
-      if (currentAction && currentAction !== newAction) {
-        newAction.reset()
-        newAction.play()
-        currentAction.crossFadeTo(newAction, 0.5, true)
       }
       else {
-        newAction.play()
+        newAction.setLoop(LoopRepeat, Infinity)
       }
+
+      newAction.clampWhenFinished = true
+      newAction.reset()
+      newAction.setEffectiveWeight(1)
+      newAction.play()
+
+      // Emit duration for the proactive scheduler in Stage.vue
+      emit('playStatus', {
+        duration: clip.duration,
+        url: newAnimUrl,
+      })
+
+      if (currentAction.value && currentAction.value !== newAction) {
+        newAction.crossFadeFrom(currentAction.value, fadeDuration, true)
+      }
+      else {
+        newAction.fadeIn(fadeDuration)
+      }
+
+      currentAction.value = newAction
     }
     catch (err) {
       console.error('[VRMModel] Failed to switch idle animation:', err)
     }
-  })
+  }, { immediate: true })
 })
 
 onUnmounted(() => {

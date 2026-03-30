@@ -54,6 +54,7 @@ const emit = defineEmits<{
   (e: 'loadModelProgress', value: number): void
   (e: 'error', value: unknown): void
   (e: 'finished'): void
+  (e: 'playStatus', value: { duration: number, url: string }): void
 }>()
 
 const componentState = defineModel<'pending' | 'loading' | 'mounted'>('state', { default: 'pending' })
@@ -412,6 +413,7 @@ defineExpose({
           @error="(err: unknown) => emit('error', err)"
           @loaded="onVRMModelLoaded"
           @finished="emit('finished')"
+          @play-status="(v: { duration: number, url: string }) => emit('playStatus', v)"
         />
         <TresAxesHelper v-if="props.showAxes" :size="1" />
       </TresCanvas>

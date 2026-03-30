@@ -12,12 +12,17 @@ import { storeToRefs } from 'pinia'
 import { computed, nextTick, ref } from 'vue'
 
 import StepCharacterSelection from './step-character-selection.vue'
+import StepEasySetup from './step-easy-setup.vue'
+import StepModeSelection from './step-mode-selection.vue'
 import StepModelSelection from './step-model-selection.vue'
 import StepProviderConfiguration from './step-provider-configuration.vue'
 import StepProviderSelection from './step-provider-selection.vue'
 import StepWelcome from './step-welcome.vue'
 
+import { useAiriCardStore } from '../../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../../stores/modules/consciousness'
+import { useHearingStore } from '../../../../stores/modules/hearing'
+import { useSpeechStore } from '../../../../stores/modules/speech'
 import { useProvidersStore } from '../../../../stores/providers'
 
 interface Emits {
@@ -32,13 +37,57 @@ const emit = defineEmits<Emits>()
 const step = ref(0)
 const direction = ref<'next' | 'previous'>('next')
 const pendingProviderConfig = ref<ProviderConfigData | null>(null)
+const onboardingMode = ref<'easy' | 'custom'>('easy')
 
 const providersStore = useProvidersStore()
-const { providers, allChatProvidersMetadata } = storeToRefs(providersStore)
+const { providers, allChatProvidersMetadata, addedProviders } = storeToRefs(providersStore)
 const consciousnessStore = useConsciousnessStore()
+const speechStore = useSpeechStore()
+const hearingStore = useHearingStore()
+const airiCardStore = useAiriCardStore()
+
 const {
   activeProvider,
 } = storeToRefs(consciousnessStore)
+
+async function configureEasyMode(data: any) {
+  if (!data)
+    return
+
+  // 1. Configure Qwen Portal (Consciousness)
+  if (data.qwen) {
+    providers.value['qwen-portal'] = {
+      apiKey: data.qwen.access_token,
+      refreshToken: data.qwen.refresh_token,
+      expiresAt: data.qwen.expires_at,
+    }
+    addedProviders.value['qwen-portal'] = true
+    consciousnessStore.activeProvider = 'qwen-portal'
+    // Default to a sensible Qwen model if known, or let it load
+    consciousnessStore.activeModel = 'coder-model'
+  }
+
+  // 2. Configure Deepgram (Speech & Hearing)
+  if (data.deepgram) {
+    const dgKey = data.deepgram.trim()
+    providers.value['deepgram-tts'] = { apiKey: dgKey }
+    providers.value['deepgram-transcription'] = { apiKey: dgKey }
+    addedProviders.value['deepgram-tts'] = true
+    addedProviders.value['deepgram-transcription'] = true
+
+    // Set Active Speech
+    speechStore.activeSpeechProvider = 'deepgram-tts'
+    speechStore.activeSpeechModel = 'aura-2'
+    speechStore.activeSpeechVoiceId = 'aura-asteria-en'
+
+    // Set Active Hearing
+    hearingStore.activeTranscriptionProvider = 'deepgram-transcription'
+    hearingStore.activeTranscriptionModel = 'nova-3'
+  }
+
+  // Save changes
+  await nextTick()
+}
 
 const availableProviders = computed(() => {
   const preferredOrder = ['openai', 'anthropic', 'amazon-bedrock', 'google-generative-ai', 'groq', 'nvidia', 'openrouter-ai', 'ollama', 'deepseek', 'player2', 'openai-compatible']
@@ -54,6 +103,7 @@ const availableProviders = computed(() => {
 
 // Selected provider and form data
 const selectedProviderId = ref('')
+const selectedCharacterId = ref('default')
 
 // Computed selected provider
 const selectedProvider = computed(() => {
@@ -69,9 +119,9 @@ const requestPreviousStep: OnboardingStepPrevHandler = () => {
   return navigatePrevious()
 }
 
-const requestNextStep: OnboardingStepNextHandler = async (configData?: ProviderConfigData) => {
+const requestNextStep: OnboardingStepNextHandler = async (configData?: ProviderConfigData | any) => {
   pendingProviderConfig.value = configData ?? null
-  await navigateNext()
+  await navigateNext(configData)
 }
 
 async function saveProviderConfiguration(data: ProviderConfigData) {
@@ -114,71 +164,107 @@ async function handleSave() {
 }
 
 const allSteps = computed<OnboardingStep[]>(() => {
-  const coreSteps: OnboardingStep[] = [
+  const steps: OnboardingStep[] = [
     {
       id: 'welcome',
       component: StepWelcome,
     },
     {
-      id: 'provider-selection',
-      component: StepProviderSelection,
+      id: 'mode-selection',
+      component: StepModeSelection,
       props: () => ({
-        selectedProviderId: selectedProviderId.value,
-        availableProviders: availableProviders.value,
-        onSelectProvider: selectProvider,
+        onSelectMode: (mode: 'easy' | 'custom') => {
+          onboardingMode.value = mode
+        },
       }),
-    },
-    {
-      id: 'provider-configuration',
-      component: StepProviderConfiguration,
-      props: () => ({
-        selectedProviderId: selectedProviderId.value,
-        selectedProvider: selectedProvider.value,
-      }),
-      beforeNext: async () => {
-        if (!pendingProviderConfig.value)
-          return false
-
-        await saveProviderConfiguration(pendingProviderConfig.value)
-        pendingProviderConfig.value = null
-        return true
-      },
-    },
-    ...extraSteps.map(step => ({
-      ...step,
-      props: () => ({
-        ...step.props?.(),
-      }),
-    })),
-    {
-      id: 'model-selection',
-      component: StepModelSelection,
-    },
-    {
-      id: 'character-selection',
-      component: StepCharacterSelection,
     },
   ]
 
-  return coreSteps
+  if (onboardingMode.value === 'easy') {
+    steps.push({
+      id: 'easy-setup',
+      component: StepEasySetup,
+      beforeNext: async (data: any) => {
+        await configureEasyMode(data)
+        return true
+      },
+    })
+  }
+  else if (onboardingMode.value === 'custom') {
+    steps.push(
+      {
+        id: 'provider-selection',
+        component: StepProviderSelection,
+        props: () => ({
+          selectedProviderId: selectedProviderId.value,
+          availableProviders: availableProviders.value,
+          onSelectProvider: selectProvider,
+        }),
+      },
+      {
+        id: 'provider-configuration',
+        component: StepProviderConfiguration,
+        props: () => ({
+          selectedProviderId: selectedProviderId.value,
+          selectedProvider: selectedProvider.value,
+        }),
+        beforeNext: async () => {
+          if (!pendingProviderConfig.value)
+            return false
+
+          await saveProviderConfiguration(pendingProviderConfig.value)
+          pendingProviderConfig.value = null
+          return true
+        },
+      },
+      ...extraSteps.map(s => ({
+        ...s,
+        props: () => ({
+          ...s.props?.(),
+        }),
+      })),
+      {
+        id: 'model-selection',
+        component: StepModelSelection,
+      },
+    )
+  }
+
+  steps.push({
+    id: 'character-selection',
+    component: StepCharacterSelection,
+    props: () => ({
+      selectedCharacterId: selectedCharacterId.value,
+      onSelectCharacter: (id: string) => {
+        selectedCharacterId.value = id
+      },
+    }),
+    beforeNext: async () => {
+      await airiCardStore.seedDefaults(selectedCharacterId.value)
+      await airiCardStore.activateCard(selectedCharacterId.value)
+      return true
+    },
+  })
+
+  return steps
 })
 
 const currentStep = computed(() => allSteps.value[step.value] ?? null)
 const isLastStep = computed(() => step.value === allSteps.value.length - 1)
 const currentStepProps = computed(() => currentStep.value?.props?.() ?? {})
 
-async function canPassGuard(guard?: OnboardingStepGuard) {
+async function canPassGuard(guard?: OnboardingStepGuard, data?: any) {
   if (!guard)
     return true
 
-  return await guard()
+  return await guard(data)
 }
 
-async function navigateNext() {
+async function navigateNext(data?: any) {
   if (!currentStep.value)
     return
 
-  if (!(await canPassGuard(currentStep.value.beforeNext)))
+  if (!(await canPassGuard(currentStep.value.beforeNext, data)))
     return
 
   if (isLastStep.value) {

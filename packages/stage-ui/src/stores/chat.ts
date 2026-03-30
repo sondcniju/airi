@@ -14,7 +14,7 @@ import { useAnalytics } from '../composables'
 import { createLlmJsonInterceptor } from '../composables/llm-json-interceptor'
 import { useLlmmarkerParser } from '../composables/llm-marker-parser'
 import { categorizeResponse, createStreamingCategorizer } from '../composables/response-categoriser'
-import { createDatetimeContext } from './chat/context-providers'
+import { createDatetimeContext, createStickersContext } from './chat/context-providers'
 import { useChatContextStore } from './chat/context-store'
 import { createChatHooks } from './chat/hooks'
 import { useChatSessionStore } from './chat/session-store'
@@ -138,6 +138,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
     // Inject current datetime context before composing the message
     chatContext.ingestContextMessage(createDatetimeContext())
+    chatContext.ingestContextMessage(createStickersContext())
 
     const sendingCreatedAt = Date.now()
     const streamingMessageContext: ChatStreamEventContext = {

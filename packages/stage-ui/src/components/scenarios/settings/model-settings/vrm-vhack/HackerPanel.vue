@@ -34,9 +34,6 @@ const lastGeneratedUrl = ref<string | null>(null)
 // AI State
 // AI State
 const aiPrompt = ref('')
-const aiNegativePrompt = ref('nsfw, naked, lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry')
-const aiGuidanceScale = ref(7.5)
-const aiSteps = ref(25)
 const aiReplicateModelId = ref('black-forest-labs/flux-schnell')
 const aiReplicateParams = ref('{}')
 const selectedReplicatePreset = ref('')
@@ -802,7 +799,7 @@ onMounted(() => {
                   </div>
                   <textarea v-model="aiReplicateParams" class="h-16 w-full resize-none border border-white/10 rounded-md bg-black/40 p-2 text-[8px] text-white font-mono outline-none" />
                   <div class="mt-0.5 text-[7px] text-emerald-400/60 font-bold uppercase italic">
-                    Hint: Use {{ IMAGE }} and {{ PROMPT }} placeholders
+                    Hint: Use {{ '{{ IMAGE }}' }} and {{ '{{ PROMPT }}' }} placeholders
                   </div>
                 </div>
               </div>
@@ -826,7 +823,7 @@ onMounted(() => {
                     JSON Parameters
                   </div><textarea v-model="aiComfyParams" class="h-16 w-full resize-none border border-white/10 rounded-md bg-black/40 p-2 text-[8px] text-white font-mono outline-none" />
                   <div class="mt-0.5 text-[7px] text-emerald-400/60 font-bold uppercase italic">
-                    Hint: Use {{ IMAGE }} and {{ PROMPT }} placeholders
+                    Hint: Use {{ '{{ IMAGE }}' }} and {{ '{{ PROMPT }}' }} placeholders
                   </div>
                 </div>
               </div>

@@ -14,6 +14,9 @@
 - **File logger hook** for Electron main process (#1247)
 - **Onboarding dialog** — brought back, refactored steps, crash fixes (#1104, #1224, #1246)
 - **Caption overlay** — tray menu can now close it (#1316)
+- **Selfie Mode: Smart Viewfinder** — dashed 16:9 crop guide with 15% top-offset alignment [Rebase Exclusive]
+- **Card Preview: Latest Selfie** — guaranteed chronological sorting by `createdAt` [Rebase Exclusive]
+- **Controls Island: Live2D Guard** — disabled VRM-only animation cycle with "Not Supported" tooltip [Rebase Exclusive]
 
 ### Mobile (`stage-pocket`)
 - **Permissions onboarding flow** (#1292)
@@ -59,6 +62,7 @@
 - **Missing `h3` dependency** (#1265)
 - **Disabled hoverable content** of control button (#1240)
 - **Hearing drawer height** — no longer percentage-based
+- **Card Preview Download** — dedicated button in gallery tab to trigger local download [Rebase Exclusive]
 
 ### Plugin System
 - **Plugin SDK** — trim negotiated compatibility versions (#1305)

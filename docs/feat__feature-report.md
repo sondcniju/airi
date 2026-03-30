@@ -63,6 +63,8 @@ Character-scoped backgrounds and the foundation for AI-driven environment contro
 - **Background-Journal Integration**: The Image Journal and Background systems are **bridged** — generated artistry images can be set as the character's background in a single click.
 - **AI-Driven Background Creation**: The AI can not only set an existing image from the journal as a background, but also **generate a new image and set it as the background** in one action — letting the character "redecorate" on the fly.
 - **Background Portability**: Active backgrounds are exported **with the AIRI card**, so anyone who imports a character gets their scene automatically applied.
+- **Photo Mode (Stage Capture)**: A dedicated 3-2-1 countdown capture system in the Control Island that snapshots the character and their active background into a single composite image. Features a full-screen flash transition for immediate visual feedback.
+- **Selfie-Enhanced Previews**: Character card previews in the settings menu automatically use the latest "selfie" from the image journal as the portrait, providing a dynamic and personalized view of each character. Includes smart anchoring (object-top) for perfect framing.
 
 ---
 
@@ -134,16 +136,34 @@ The floating interaction hub for the desktop experience.
 - **Glassmorphic Control Island**: A floating, draggable UI component using `backdrop-blur-xl` and semi-transparent backgrounds, following an iOS-style **"island" pattern**.
 - **Emotion Picker Sub-Menu**: Direct access to **8 emotion triggers** (Happy, Sad, Angry, Surprised, Neutral, Think, Cool, Random) from the Control Island drawer.
 - **Fade-on-Hover Intelligence**: A specialized **"Eye" mode** that makes the UI nearly invisible when the mouse hovers over the model area, ensuring the character's performance is never obscured.
-- **Profile Switcher**: Inline popover for switching between AI souls/profiles without leaving the Stage.
+- **Integrated Profile Switcher**: A dedicated sub-menu within the Control Island that replaces the main view, featuring a scrollable list of character profiles with deep-links to Gallery and Management settings. Ensures the UI remains usable at any window size.
 - **Animation Cycle Button**: One-click cycling through available VRM idle animations directly from the island.
 - **ScrollLock Mic Toggle**: A physical hardware key binding for **push-to-talk / toggle microphone** without touching the UI.
 - **Manual (Pure Mic) Mode**: Bypasses VAD entirely for **clean push-to-talk** microphone triggering.
 - **Resource Status Island**: A separate floating indicator that shows real-time **module loading progress** and a "Ready!" status with expandable details.
 - **Transcription Feedback Toasts**: Real-time `🎤 You said: {text}` confirmation during voice interactions.
+- **Gallery "Download" Support**: Added a direct Download button to the Image Journal gallery in settings, allowing users to save their captured selfies to their local machine.
+- **UI Icon Hygiene**: Standardized the icons for Profile Switcher (`solar:users-group-rounded-outline`) and Emotions (`solar:mask-happly-outline`) to improve visual distinctness.
 
 ---
 
-## 12. Platform & Operations
+## 12. Modular Wardrobe System
+A persistent, multi-layered clothing and expression management system.
+
+- **Schema-Driven Outfits**: Outfits are stored as part of the AIRI character card, specifying `name`, `icon`, `base/overlay` type, and a set of `expressions`.
+- **Base vs. Overlay Logic**:
+    - **Base Outfits**: Mutually exclusive. Applying a new Base outfit will "zero out" any other active Base expressions (e.g., swapping a full dress for a swimsuit).
+    - **Overlays**: Stackable layers (e.g., glasses, ribbons, hats) that can be toggled on/off independently without disturbing the Base outfit.
+- **Interactive "Build Outfit" Mode**: A dedicated staging mode in the character settings that:
+    - **Snapshots** the character's current state before starting.
+    - Allows **real-time previewing** of expressions as the user selects them.
+    - Supports **restoration** to the original state if the build is canceled.
+- **Desktop Control Island Integration**: Quick-access Wardrobe hub in the desktop island. Active outfits are visually highlighted (Amber for Base, Sky-Blue for Overlay) with interactive toggle support.
+- **Persistence & Portability**: Wardrobe definitions are fully integrated into AIRI Card exports, ensuring character outfits are shared along with their personality and visuals.
+
+---
+
+## 13. Platform & Operations
 Internal hardening to ensure the app remains a stable, performant "Daily Driver."
 
 - **Interaction Throttling**: Sophisticated **rate-limiting (200ms)** on window move/resize events to prevent IPC flooding and UI stuttering during desktop manipulation.
@@ -151,11 +171,24 @@ Internal hardening to ensure the app remains a stable, performant "Daily Driver.
 - **Environment Guardrails**: Strict enforcement of **Node.js >= 20.14.0** and **pnpm >= 10.0.0** via `.npmrc` to prevent the `tsdown` build crashes found in modern dependencies.
 - **Identity-Guarded Character Switching**: Suppresses redundant model reloads and duplicate toasts when card metadata updates **without an actual model switch**.
 - **Tray Position Restore**: Auto-restores last window position from a saved snapshot on startup.
+- **Improved Animation Cycles**: Hardened VRM idle cycle logic in `airi-card.ts` for more reliable cross-fading and state transitions during AI acting and manual overrides.
 - **Provider Onboarding & Metadata UX**: The provider settings surface now includes more beginner-friendly onboarding cues and richer provider metadata presentation to make initial setup easier to understand.
 
 ---
 
-## 13. Integrated Upstream PRs
+## 14. Onboarding Overhaul (Phase 1: Functional Implementation)
+A redesigned first-run experience that reduces setup friction through automation and intuitive terminology.
+
+- **The Sense Pivot**: Complete terminology shift from technical acronyms (LLM, TTS, STT) to human-centered terms (**Consciousness, Speech, Hearing**).
+- **Sense Portal (Easy Mode)**: A zero-config setup path that uses **Qwen Portal OAuth** (Device Flow) for instant LLM access and **Deepgram** for high-speed voice services.
+- **Automated Provider Configuration**: Successfully completing the Easy Mode flow automatically configures all internal stores (Consciousness, Speech, Hearing) with optimal default models (e.g., `aura-2`, `nova-3`).
+- **Advanced Mode**: Retains granular control for power users who prefer custom OpenAI, Anthropic, or local (Ollama/LM Studio) configurations.
+- **Onboarding Orchestrator**: A modular, multi-step dialog system that handles branching setup paths and character initialization in a single unified flow.
+- **Polymorphic UI Primitives**: Upgraded core UI components (e.g., `Button`) to support polymorphic rendering, enabling seamless integration of external setup links into the premium onboarding interface.
+
+---
+
+## 15. Integrated Upstream PRs
 Features from pending upstream PRs that have been squatted, integrated, and maintained in this fork.
 
 | PR # | Feature | Author | Link |

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import type { PrimitiveProps } from 'reka-ui'
+
+import { Primitive } from 'reka-ui'
 import { computed } from 'vue'
 
 import { TransitionBidirectional } from '../animations'
@@ -11,7 +14,7 @@ type ButtonTheme = 'default'
 // Define size options for better flexibility
 type ButtonSize = 'sm' | 'md' | 'lg'
 
-interface ButtonProps {
+interface ButtonProps extends PrimitiveProps {
   toggled?: boolean // Optional toggled state for toggle buttons
   icon?: string // Icon class name
   label?: string // Button text label
@@ -24,6 +27,7 @@ interface ButtonProps {
 }
 
 const props = withDefaults(defineProps<ButtonProps>(), {
+  as: 'button',
   toggled: false,
   variant: 'primary',
   disabled: false,
@@ -148,13 +152,16 @@ const baseClasses = computed(() => {
     props.toggled ? theme.toggled || '' : theme.nonToggled || '',
     { 'opacity-50 cursor-not-allowed': isDisabled.value },
     'focus:ring-2',
+    'inline-flex items-center justify-center', // Ensure inline-flex for polymorphism
   ]
 })
 </script>
 
 <template>
-  <button
-    :disabled="isDisabled"
+  <Primitive
+    :as="as"
+    :as-child="asChild"
+    :disabled="as === 'button' ? isDisabled : undefined"
     :class="baseClasses"
   >
     <div class="flex flex-row items-center justify-center gap-2">
@@ -170,5 +177,5 @@ const baseClasses = computed(() => {
       <span v-if="label">{{ label }}</span>
       <slot v-else />
     </div>
-  </button>
+  </Primitive>
 </template>

@@ -1,6 +1,6 @@
 import type { Component } from 'vue'
 
-export type OnboardingStepGuard = () => Promise<boolean>
+export type OnboardingStepGuard = (data?: any) => Promise<boolean>
 export type OnboardingStepPrevHandler = () => Promise<void> | void
 
 export interface ProviderConfigData {
@@ -13,7 +13,7 @@ export interface ProviderConfigData {
   region: string
 }
 
-export type OnboardingStepNextHandler = (configData?: ProviderConfigData) => Promise<void> | void
+export type OnboardingStepNextHandler = (configData?: any) => Promise<void> | void
 
 export interface OnboardingStep {
   id: string

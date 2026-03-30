@@ -225,6 +225,7 @@ export function sharedUnoConfig() {
           slideLeftAndFade: '{from{opacity:0;transform:translateX(2px)}to{opacity:1;transform:translateX(0)}}',
           fadeIn: '{from{opacity:0;}to{opacity:1;}}',
           fadeOut: '{from{opacity:1;}to{opacity:0;}}',
+          cameraFlash: '{0%{opacity:0; background-color:white;}10%{opacity:1; background-color:white;}100%{opacity:0; background-color:white;}}',
         },
         durations: {
           overlayShow: '300ms',
@@ -237,6 +238,7 @@ export function sharedUnoConfig() {
           slideLeftAndFade: '400ms',
           fadeIn: '200ms',
           fadeOut: '200ms',
+          cameraFlash: '400ms',
         },
         timingFns: {
           overlayShow: 'cubic-bezier(0.16, 1, 0.3, 1)',
@@ -249,6 +251,7 @@ export function sharedUnoConfig() {
           slideLeftAndFade: 'cubic-bezier(0.16, 1, 0.3, 1)',
           fadeIn: 'ease-in-out',
           fadeOut: 'ease-in-out',
+          cameraFlash: 'ease-out',
         },
       },
     },
