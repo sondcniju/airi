@@ -3,7 +3,7 @@ import localforage from 'localforage'
 import { useLocalStorage } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 
 export interface StickerMetadata {
   id: string
@@ -175,6 +175,28 @@ export const useStickersStore = defineStore('stickers', () => {
   function clearAll() {
     activePlacements.value = []
   }
+
+  // --- Internals ---
+
+  // Automatic cleanup of expired stickers
+  let cleanupInterval: ReturnType<typeof setInterval> | undefined
+
+  onMounted(() => {
+    cleanupInterval = setInterval(() => {
+      const now = Date.now()
+      const initialCount = activePlacements.value.length
+      activePlacements.value = activePlacements.value.filter(p => !p.expiresAt || p.expiresAt > now)
+
+      if (import.meta.env.DEV && activePlacements.value.length !== initialCount) {
+        console.log(`[StickersStore] Purged ${initialCount - activePlacements.value.length} expired stickers.`)
+      }
+    }, 2000) // Check every 2 seconds for snappy removal
+  })
+
+  onUnmounted(() => {
+    if (cleanupInterval)
+      clearInterval(cleanupInterval)
+  })
 
   return {
     libraryMetadata,

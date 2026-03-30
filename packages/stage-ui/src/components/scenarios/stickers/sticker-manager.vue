@@ -51,7 +51,7 @@ async function handleFileUpload(e: Event) {
 }
 
 function spawn(id: string) {
-  stickersStore.spawnSticker(id, { duration: 600 })
+  stickersStore.spawnSticker(id, { duration: 60 })
 }
 
 async function remove(id: string) {
