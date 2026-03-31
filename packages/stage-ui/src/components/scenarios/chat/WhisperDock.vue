@@ -5,10 +5,9 @@ import { storeToRefs } from 'pinia'
 import { computed, nextTick, ref, watch } from 'vue'
 
 import { useChatOrchestratorStore } from '../../../stores/chat'
-import { buildSystemPrompt, useAiriCardStore } from '../../../stores/modules/airi-card'
+import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../stores/modules/consciousness'
 import { useProvidersStore } from '../../../stores/providers'
-import { CharacterContextDialog } from '../dialogs'
 import { StickerManager } from '../stickers'
 
 const props = defineProps<{
@@ -22,7 +21,6 @@ const emit = defineEmits<{
 
 const isOpen = ref(false)
 const showStickers = ref(false)
-const showContext = ref(false)
 const inputText = ref('')
 const inputRef = ref<HTMLInputElement>()
 const isSending = ref(false)
@@ -36,7 +34,6 @@ const { activeCard } = storeToRefs(cardStore)
 const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
 
 const characterName = computed(() => activeCard.value?.name ?? 'AIRI')
-const effectiveSystemPrompt = computed(() => buildSystemPrompt(activeCard.value))
 
 defineExpose({ isOpen })
 
@@ -185,18 +182,6 @@ function handleKeydown(e: KeyboardEvent) {
         <div class="i-ph:stamp-bold size-4" />
       </button>
 
-      <!-- View Context Toggle -->
-      <button
-        :class="[
-          'size-7 rounded-lg flex items-center justify-center',
-          'transition-all duration-200',
-          showContext ? 'bg-primary-500/20 text-primary-500' : 'text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800',
-        ]"
-        @click="showContext = !showContext"
-      >
-        <div class="i-solar:notes-bold-duotone size-4" />
-      </button>
-
       <!-- Sticker Library Popover -->
       <Transition
         enter-active-class="transition-all duration-300 ease-out"
@@ -257,12 +242,6 @@ function handleKeydown(e: KeyboardEvent) {
       </Transition>
     </div>
   </Transition>
-
-  <CharacterContextDialog
-    v-model="showContext"
-    :character-name="characterName"
-    :system-prompt="effectiveSystemPrompt"
-  />
 </template>
 
 <style scoped>
