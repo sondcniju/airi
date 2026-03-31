@@ -13,6 +13,16 @@ controls-island:
     enable: Auto hide
     disable: Always show
   open-settings: Open settings
+  open-gemini-controls: Open Gemini Controls
+  vision-witness: Vision Witness
+  capture-now: Capture Now
+  pulse-rate: Pulse Rate
+  live-voice: Gemini Live Voice
+  output-mode: Output Mode
+  grounding: Grounding
+  respect-schedule: Respect Schedule
+  cycle-voice: Cycle Voice
+  est-cost: Est. Cost
   open-chat: Open Chat
   refresh: Refresh
   open-hearing-controls: Open hearing Controls
@@ -46,3 +56,4 @@ notice:
     preparing: Preparing…
     read-more: Read more
     preview-title: What is it?
+  estimated-cost: 'Estimated cost: {cost}'

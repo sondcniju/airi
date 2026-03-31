@@ -16,6 +16,7 @@ export type StreamEvent
     | ({ type: 'finish' } & any)
     | ({ type: 'tool-call' } & CompletionToolCall)
     | { type: 'tool-result', toolCallId: string, result?: string | CommonContentPart[] }
+    | { type: 'usage', usage: any }
     | { type: 'error', error: any }
 
 export interface StreamOptions {
@@ -209,7 +210,11 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
       })
       void result.steps.catch(err => console.error('Stream steps error:', err))
       void result.usage.catch(err => console.error('Stream usage error:', err))
-      void result.totalUsage.catch(err => console.error('Stream totalUsage error:', err))
+      void result.totalUsage.then((usage) => {
+        if (usage) {
+          onEvent({ type: 'usage', usage })
+        }
+      }).catch(err => console.error('Stream totalUsage error:', err))
     }
     catch (err) {
       rejectOnce(err)

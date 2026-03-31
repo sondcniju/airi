@@ -4,6 +4,7 @@ import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useLiveSessionStore } from '@proj-airi/stage-ui/stores/modules/live-session'
+import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
 import { useSettings, useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
 import { useTheme } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
@@ -15,6 +16,7 @@ import ControlButtonTooltip from './control-button-tooltip.vue'
 import ControlButton from './control-button.vue'
 import ControlsIslandFadeOnHover from './controls-island-fade-on-hover.vue'
 import ControlsIslandHearingConfig from './controls-island-hearing-config.vue'
+import GeminiControls from './gemini-controls.vue'
 import IndicatorMicVolume from './indicator-mic-volume.vue'
 
 import {
@@ -36,12 +38,14 @@ const settingsStore = useSettings()
 const modelStore = useModelStore()
 const cardStore = useAiriCardStore()
 const customVrmAnimationsStore = useCustomVrmAnimationsStore()
-const liveSessionStore = useLiveSessionStore()
 const context = useElectronEventaContext()
 const { enabled } = storeToRefs(settingsAudioDeviceStore)
 const { alwaysOnTop, controlsIslandIconSize, stageModelRenderer } = storeToRefs(settingsStore)
 const { activeCard, activeCardId } = storeToRefs(cardStore)
-const { isActive: isLiveSessionActive, isConnecting: isLiveSessionConnecting } = storeToRefs(liveSessionStore)
+const liveSessionStore = useLiveSessionStore()
+const visionStore = useVisionStore()
+const { powerState } = storeToRefs(liveSessionStore)
+const { status: visionStatus } = storeToRefs(visionStore)
 const activeExpressions = computed(() => (modelStore as any).activeExpressions)
 const vrmIdleAnimation = toRef(modelStore as any, 'vrmIdleAnimation')
 
@@ -60,6 +64,7 @@ const hideWindow = useElectronEventaInvoke(electronWindowHide)
 const setAlwaysOnTop = useElectronEventaInvoke(electronWindowSetAlwaysOnTop)
 
 const expanded = ref(false)
+const geminiExpanded = ref(false)
 const islandRef = ref<HTMLElement>()
 
 // === Sub-menu state ===
@@ -136,6 +141,25 @@ const adjustStyleClasses = computed(() => {
   const border = isLarge ? 'border-2' : 'border-0'
   const padding = isLarge ? 'p-2' : 'p-0.5'
   return { icon, border, padding, button: `${border} ${padding}` }
+})
+
+const geminiColorClasses = computed(() => {
+  if (powerState.value === 'busy')
+    return 'text-purple-500 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.6)] animate-pulse shadow-purple-500/50'
+  if (powerState.value === 'active')
+    return 'text-red-500 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]'
+  if (powerState.value === 'connecting')
+    return 'text-sky-400 animate-pulse'
+  if (powerState.value === 'ambient')
+    return 'text-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.4)] transition-all duration-1000 animate-pulse'
+
+  return 'text-neutral-600 dark:neutral-400 opacity-50'
+})
+
+const geminiIconClasses = computed(() => {
+  if (visionStatus.value === 'capturing')
+    return 'text-green-500 scale-110 drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]'
+  return ''
 })
 
 /**
@@ -611,58 +635,74 @@ function triggerWardrobeItem(id: string) {
         </div>
       </Transition>
 
-      <!-- Main Controls -->
-      <div flex flex-col gap-1>
-        <ControlButtonTooltip side="left">
-          <ControlButton :button-style="adjustStyleClasses.button" @click="expanded = !expanded">
-            <div
-              :class="[adjustStyleClasses.icon, expanded ? 'rotate-180' : 'rotate-0']"
-              i-solar:alt-arrow-up-line-duotone scale-110 transition-all duration-300
-              text="neutral-600 dark:neutral-400"
-            />
-          </ControlButton>
-          <template #tooltip>
-            {{ expanded ? t('tamagotchi.stage.controls-island.collapse') : t('tamagotchi.stage.controls-island.expand') }}
-          </template>
-        </ControlButtonTooltip>
-
-        <ControlButtonTooltip side="left">
-          <ControlButton
-            :button-style="adjustStyleClasses.button"
-            @click="liveSessionStore.toggle()"
+      <!-- Main Controls (Dual Column Layout) -->
+      <div flex items-end gap-2>
+        <!-- Gemini Control Column -->
+        <div flex flex-col gap-1>
+          <Transition
+            enter-active-class="transition-all duration-300 cubic-bezier(0.32, 0.72, 0, 1)"
+            leave-active-class="transition-all duration-200 cubic-bezier(0.32, 0.72, 0, 1)"
+            enter-from-class="opacity-0 -translate-x-4 scale-95"
+            leave-to-class="opacity-0 -translate-x-4 scale-95"
           >
-            <div
-              i-ph:sparkle
-              :class="[
-                adjustStyleClasses.icon,
-                isLiveSessionActive ? 'text-sky-500 shadow-[0_0_10px_theme(colors.sky.400)]' : 'text-neutral-600 dark:neutral-400 opacity-50',
-                isLiveSessionConnecting ? 'animate-pulse text-sky-400' : '',
-              ]"
-            />
-          </ControlButton>
-          <template #tooltip>
-            {{ isLiveSessionActive ? 'Stop Gemini Live' : (isLiveSessionConnecting ? 'Connecting...' : 'Start Gemini Live') }}
-          </template>
-        </ControlButtonTooltip>
+            <div v-if="geminiExpanded" absolute bottom-0 right-full z-50 mr-2>
+              <GeminiControls @close="geminiExpanded = false" />
+            </div>
+          </Transition>
 
-        <ControlButtonTooltip side="left">
-          <ControlButton
-            :button-style="adjustStyleClasses.button"
-            cursor-move
-            @mousedown="startDraggingWindow()"
-          >
-            <div
-              i-ph:arrows-out-cardinal
-              :class="[
-                adjustStyleClasses.icon,
-                useHearingStore().isTranscribing ? 'text-red-500 animate-pulse' : 'text-neutral-800 dark:text-neutral-300',
-              ]"
-            />
-          </ControlButton>
-          <template #tooltip>
-            {{ useHearingStore().isTranscribing ? 'STT Processing...' : t('tamagotchi.stage.controls-island.drag-to-move-window') }}
-          </template>
-        </ControlButtonTooltip>
+          <ControlButtonTooltip side="left">
+            <ControlButton
+              :button-style="[adjustStyleClasses.button, geminiColorClasses].join(' ')"
+              @click="geminiExpanded = !geminiExpanded"
+            >
+              <div
+                i-ph:sparkle
+                :class="[
+                  adjustStyleClasses.icon,
+                  geminiIconClasses,
+                ]"
+              />
+            </ControlButton>
+            <template #tooltip>
+              {{ t('tamagotchi.stage.controls-island.open-gemini-controls') }}
+            </template>
+          </ControlButtonTooltip>
+        </div>
+
+        <!-- Main Logic Column (Chevron + Handlebar) -->
+        <div flex flex-col gap-1>
+          <ControlButtonTooltip side="left">
+            <ControlButton :button-style="adjustStyleClasses.button" @click="expanded = !expanded">
+              <div
+                :class="[adjustStyleClasses.icon, expanded ? 'rotate-180' : 'rotate-0']"
+                i-solar:alt-arrow-up-line-duotone scale-110 transition-all duration-300
+                text="neutral-600 dark:neutral-400"
+              />
+            </ControlButton>
+            <template #tooltip>
+              {{ expanded ? t('tamagotchi.stage.controls-island.collapse') : t('tamagotchi.stage.controls-island.expand') }}
+            </template>
+          </ControlButtonTooltip>
+
+          <ControlButtonTooltip side="left">
+            <ControlButton
+              :button-style="adjustStyleClasses.button"
+              cursor-move
+              @mousedown="startDraggingWindow()"
+            >
+              <div
+                i-ph:arrows-out-cardinal
+                :class="[
+                  adjustStyleClasses.icon,
+                  useHearingStore().isTranscribing ? 'text-red-500 animate-pulse' : 'text-neutral-800 dark:text-neutral-300',
+                ]"
+              />
+            </ControlButton>
+            <template #tooltip>
+              {{ useHearingStore().isTranscribing ? 'STT Processing...' : t('tamagotchi.stage.controls-island.drag-to-move-window') }}
+            </template>
+          </ControlButtonTooltip>
+        </div>
       </div>
     </div>
   </div>

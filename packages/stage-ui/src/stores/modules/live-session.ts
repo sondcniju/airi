@@ -1,8 +1,9 @@
 import type { ChatAssistantMessage, ChatStreamEventContext, StreamingAssistantMessage } from '../../types/chat'
 
+import { useLocalStorage } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
-import { reactive, ref, shallowRef } from 'vue'
+import { computed, reactive, ref, shallowRef } from 'vue'
 
 import { useLlmmarkerParser } from '../../composables/llm-marker-parser'
 import { createStreamingCategorizer } from '../../composables/response-categoriser'
@@ -11,6 +12,7 @@ import { useChatContextStore } from '../chat/context-store'
 import { useChatSessionStore } from '../chat/session-store'
 import { useProvidersStore } from '../providers'
 import { useAiriCardStore } from './airi-card'
+import { useVisionStore } from './vision'
 
 const MODEL = 'models/gemini-3.1-flash-live-preview'
 const LIVE_WS_BASE = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent'
@@ -26,8 +28,12 @@ export const useLiveSessionStore = defineStore('live-session', () => {
   const isConnecting = ref(false)
   const messages = ref<Array<{ role: 'user' | 'assistant', text: string }>>([])
   const lastTranscript = ref('')
-  const totalTokens = ref(0)
+  const voiceTokens = useLocalStorage('settings/gemini/voice-tokens', 0)
+  const inferenceTokens = useLocalStorage('settings/gemini/inference-tokens', 0)
+  const totalTokens = computed(() => voiceTokens.value + inferenceTokens.value)
   const tokenDetails = ref<any[]>([])
+  const voiceName = ref<'Puck' | 'Charon' | 'Kore' | 'Fenrir' | 'Aoede' | 'Ursa'>('Puck')
+  const isGroundingEnabled = ref(false)
   const error = ref<string | null>(null)
 
   const socket = shallowRef<WebSocket | null>(null)
@@ -75,11 +81,16 @@ export const useLiveSessionStore = defineStore('live-session', () => {
             speechConfig: {
               voiceConfig: {
                 prebuiltVoiceConfig: {
-                  voiceName: 'Puck',
+                  voiceName: voiceName.value,
                 },
               },
             },
           },
+          tools: isGroundingEnabled.value
+            ? [
+                { google_search_retrieval: {} },
+              ]
+            : [],
           systemInstruction: {
             parts: [{
               text: airiCard.systemPrompt || 'You are an AI assistant.',
@@ -216,10 +227,10 @@ export const useLiveSessionStore = defineStore('live-session', () => {
         }
 
         if (response.usageMetadata) {
-          totalTokens.value = response.usageMetadata.totalTokenCount ?? 0
+          voiceTokens.value = response.usageMetadata.totalTokenCount ?? 0
           tokenDetails.value = response.usageMetadata.responseTokensDetails ?? []
           console.debug(
-            `[LiveSession] usageMetadata: totalTokens=${totalTokens.value}`,
+            `[LiveSession] usageMetadata: voiceTokens=${voiceTokens.value}, inferenceTokens=${inferenceTokens.value}, totalTokens=${totalTokens.value}`,
             tokenDetails.value,
           )
         }
@@ -276,6 +287,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
   }
 
   function toggle() {
+    console.log('[LiveSession] Toggle requested. Current state:', { isActive: isActive.value, isConnecting: isConnecting.value })
     if (isActive.value || isConnecting.value) {
       stop()
     }
@@ -283,6 +295,33 @@ export const useLiveSessionStore = defineStore('live-session', () => {
       start()
     }
   }
+
+  function cycleVoice() {
+    const voices: Array<typeof voiceName.value> = ['Puck', 'Charon', 'Kore', 'Fenrir', 'Aoede', 'Ursa']
+    const currentIndex = voices.indexOf(voiceName.value)
+    const nextIndex = (currentIndex + 1) % voices.length
+    voiceName.value = voices[nextIndex]
+    console.log('[LiveSession] Cycle voice:', voiceName.value)
+
+    // If active, we'd need to restart to apply voice change (Gemini Live setup is immutable per session)
+    if (isActive.value) {
+      console.log('[LiveSession] Session active, restarting to apply voice change...')
+      stop()
+      setTimeout(start, 500)
+    }
+  }
+
+  function recordInferenceUsage(tokens: number) {
+    if (tokens > 0) {
+      inferenceTokens.value += tokens
+      console.log(`[LiveSession] Inference usage recorded: +${tokens}. New total inference: ${inferenceTokens.value}`)
+    }
+  }
+
+  const estimatedCost = computed(() => {
+    // Very rough estimate based on $0.15 per 1M tokens (Flash baseline)
+    return (totalTokens.value / 1_000_000) * 0.15
+  })
 
   function reset() {
     isActive.value = false
@@ -295,6 +334,19 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     streamPosition = 0
   }
 
+  const visionStore = useVisionStore()
+  const powerState = computed(() => {
+    if (chatOrchestrator.sending || visionStore.status === 'capturing')
+      return 'busy'
+    if (isConnecting.value)
+      return 'connecting'
+    if (isActive.value)
+      return 'active'
+    if (visionStore.isWitnessEnabled)
+      return 'ambient'
+    return 'off'
+  })
+
   return {
     isActive,
     isConnecting,
@@ -302,10 +354,16 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     lastTranscript,
     totalTokens,
     tokenDetails,
+    voiceName,
+    isGroundingEnabled,
+    estimatedCost,
     error,
+    powerState,
     start,
     stop,
-    sendText,
     toggle,
+    cycleVoice,
+    recordInferenceUsage,
+    reset,
   }
 })

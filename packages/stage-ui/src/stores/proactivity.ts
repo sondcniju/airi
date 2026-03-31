@@ -3,7 +3,7 @@ import type { ActiveWindowEntry, SystemLoadAverages } from '@proj-airi/stage-sha
 import type { ChatStreamEventContext, StreamingAssistantMessage } from '../types/chat'
 
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { sensorsGetActiveWindow, sensorsGetActiveWindowHistory, sensorsGetIdleTime, sensorsGetLocalTime, sensorsGetSystemLoad, sensorsGetVolumeLevel } from '@proj-airi/stage-shared'
+import { isWithinSchedule, sensorsGetActiveWindow, sensorsGetActiveWindowHistory, sensorsGetIdleTime, sensorsGetLocalTime, sensorsGetSystemLoad, sensorsGetVolumeLevel } from '@proj-airi/stage-shared'
 import { useIntervalFn } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
@@ -237,17 +237,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
     // Check schedule
     // Schedule check
     if (!options?.force && config?.schedule?.start && config.schedule.end) {
-      const [startH, startM] = config.schedule.start.split(':').map(Number)
-      const [endH, endM] = config.schedule.end.split(':').map(Number)
-      const curH = now.getHours()
-      const curM = now.getMinutes()
-      const curMinsTotal = curH * 60 + curM
-      const startMinsTotal = startH * 60 + startM
-      const endMinsTotal = endH * 60 + endM
-
-      const isInWindow = startMinsTotal <= endMinsTotal
-        ? (curMinsTotal >= startMinsTotal && curMinsTotal <= endMinsTotal)
-        : (curMinsTotal >= startMinsTotal || curMinsTotal <= endMinsTotal)
+      const isInWindow = isWithinSchedule(config.schedule.start, config.schedule.end)
 
       if (!isInWindow) {
         // eslint-disable-next-line no-console

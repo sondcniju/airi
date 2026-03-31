@@ -22,14 +22,15 @@ import { useChatStreamStore } from './chat/stream-store'
 import { useLLM } from './llm'
 import { useAiriCardStore } from './modules/airi-card'
 import { useConsciousnessStore } from './modules/consciousness'
+import { useLiveSessionStore } from './modules/live-session'
 import { useVisionStore } from './modules/vision'
 import { useProactivityStore } from './proactivity'
 import { useProvidersStore } from './providers'
 import { useSettingsChat } from './settings/chat'
 
-interface SendOptions {
-  model: string
-  chatProvider: ChatProvider
+export interface SendOptions {
+  model?: string
+  chatProvider?: string | ChatProvider
   providerConfig?: Record<string, unknown>
   attachments?: { type: 'image', data: string, mimeType: string }[]
   tools?: StreamOptions['tools']
@@ -78,7 +79,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
   const visionStore = useVisionStore()
   const airiCardStore = useAiriCardStore()
   const settingsChat = useSettingsChat()
-  const { activeProvider } = storeToRefs(consciousnessStore)
+  const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
   const { activeCard } = storeToRefs(airiCardStore)
   const { trackFirstMessage } = useAnalytics()
 
@@ -181,8 +182,10 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
     try {
       sending.value = true
-      let effectiveModel = options.model
-      let effectiveProvider = options.chatProvider
+      let effectiveModel = options.model || activeModel.value
+      let effectiveProvider: any = typeof options.chatProvider === 'string'
+        ? await providersStore.getProviderInstance(options.chatProvider)
+        : (options.chatProvider || await providersStore.getProviderInstance(activeProvider.value))
       let effectiveProviderId = activeProvider.value
       let effectiveConfig = options.providerConfig
       let effectiveTools = options.tools
@@ -655,6 +658,11 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
                 sessionId,
               })
               break
+            case 'usage':
+              console.log('[ChatDebug] usage report:', event.usage)
+              const liveSession = useLiveSessionStore()
+              liveSession.recordInferenceUsage(event.usage.totalTokenCount || event.usage.totalUsage || 0)
+              break
             case 'error':
               throw event.error ?? new Error('Stream error')
           }
@@ -737,7 +745,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
   async function ingest(
     sendingMessage: string,
-    options: SendOptions,
+    options: SendOptions = {},
     targetSessionId?: string,
   ) {
     const sessionId = targetSessionId || activeSessionId.value
