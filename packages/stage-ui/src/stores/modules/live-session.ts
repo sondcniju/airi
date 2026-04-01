@@ -5,7 +5,7 @@ import type { ChatAssistantMessage, ChatStreamEventContext, StreamingAssistantMe
 import { useLocalStorage } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
-import { computed, reactive, ref, shallowRef } from 'vue'
+import { computed, reactive, ref, shallowRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { useLlmmarkerParser } from '../../composables/llm-marker-parser'
@@ -87,6 +87,18 @@ export const useLiveSessionStore = defineStore('live-session', () => {
   const error = ref<string | null>(null)
 
   const socket = shallowRef<WebSocket | null>(null)
+
+  watch(isGroundingEnabled, (enabled) => {
+    if (isActive.value && socket.value?.readyState === WebSocket.OPEN) {
+      console.log(`[LiveSession] Grounding toggled to ${enabled}. Restarting connection...`)
+      toast.info('Reconnecting Gemini Live to apply new Grounding settings...')
+
+      // We must close the current socket because tools can only be provided
+      // in the initial setup message of a Bidi session.
+      stop()
+      setTimeout(() => start(), 500)
+    }
+  })
 
   /**
    * Executes a single tool call from the Gemini Bidi stream.
