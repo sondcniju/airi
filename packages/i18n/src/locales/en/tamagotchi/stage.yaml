@@ -9,6 +9,8 @@ docs:
       appearance:
         title: Appearance
 controls-island:
+  status-on: 'ON'
+  status-off: 'OFF'
   fade-on-hover:
     enable: Auto hide
     disable: Always show

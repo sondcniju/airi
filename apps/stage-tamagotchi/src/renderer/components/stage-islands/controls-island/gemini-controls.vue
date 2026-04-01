@@ -98,7 +98,7 @@ function handleOpenSettings() {
               'transition-colors duration-200',
               isLiveActive ? 'i-ph:broadcast-bold animate-pulse' : 'i-ph:broadcast-light',
               adjustStyleClasses.icon,
-              isLiveActive ? 'text-amber-500' : 'text-neutral-400',
+              isLiveActive ? 'text-emerald-500' : 'text-neutral-400',
             ]"
           />
         </ControlButton>
