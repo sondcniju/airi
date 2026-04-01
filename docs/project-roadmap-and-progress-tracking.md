@@ -20,6 +20,24 @@ This document tracks the current development state of the AIRI project, specific
 
 ## Recent Changes (in `airi-rebase-scratch`)
 
+#### 2026-03-31 - Research: Standalone Sticker System & Multi-Window Widgets
+- **Multi-Window Widget Architecture**: Successfully refactored the `WidgetsWindowManager` to support spawning multiple, independent Electron windows instead of a single reusable panel. Each standalone widget now gets its own window lifecycle.
+- **Strict Sticker Transparency**: Implemented a specialized window configuration for stickers that disables "Acrylic" vibrancy to ensure perfect transparency.
+- **Adhesive Sticker Spawning**: Integrated a "Standalone" toggle in the Sticker Library to trigger independent widget spawning with 60s auto-decay and manual dismissal.
+- **ScrollLock State Opt-out**: Disabled the renderer-side mic-state syncing to prevent unwanted ScrollLock LED flickering on Windows.
+
+#### 2026-03-30 - Kawaii Sticker System & Context Awareness Refinement
+- **Dynamic System Prompt Synchronization**: Implemented a hot-swapping mechanism that automatically updates the active chat's system message when character settings (persona, traits, description) change. No chat reset required.
+- **Character-Scoped Sticker Library**: Re-engineered the sticker system to isolate libraries per character. Implemented a fresh `library-v2` store to ensure strict data separation.
+- **Sticker Hallucination Suppression**: Hardened the AI context prompt with CRITICAL instructions and implemented direct tool-call error feedback to prevent the LLM from hallucinating unavailable stickers.
+- **Kawaii Sticker System UI**: Added "Clear Library" functionality for scoped deletion and renamed "Clear All" to "Clear Screen" for functional clarity.
+- **Sticker Asset Cleanup**: Batch-processed the `Project-Mint-2` sticker set to normalize filenames, strip timestamps, and promote high-quality base assets.
+- **Kawaii Sticker System ("Full Gusto")**: Initial implementation of the persistent sticker system with viewport-wide "wild" randomized spawning. Includes an automated 60s cleanup loop for both AI and manual placements.
+- **Sticker Awareness**: Integrated a new context provider that keeps AIRI aware of what stickers are currently decorating her screen.
+- **Visual State Awareness (Expressions)**: Developed the `Expressions` context provider, allowing the AI to "see" its own active expressions and props (e.g., blushing, glasses, cat ears) in both VRM and Live2D.
+- **Intelligent Scene Filtering**: Refined the `Scenes` context provider to strictly filter for environmental backgrounds, preventing roleplay confusion from selfies or journal images.
+- **Vue Template Fixes**: Resolved literal mustache tag parsing errors in `HackerPanel.vue` using `v-pre`.
+
 #### 2026-03-29 - Onboarding Overhaul, Modular Wardrobe & Interface Revamp
 - **Integrated Profile Switcher**: Redesigned the Character Profile Picker in the Control Island. Replaced the popover UI with an integrated sub-menu, adding utility buttons for Gallery and Profile Management. This resolves layout issues on small windows.
 - **Sense Portal (Easy Mode)**: Implemented a streamlined, zero-config onboarding path using **Qwen Portal OAuth** and **Deepgram**.
@@ -85,13 +103,25 @@ This document tracks the current development state of the AIRI project, specific
 - **Modular Wardrobe System**: Successfully implemented.
 - **Integrated Profile Switcher**: Successfully implemented in the Control Island.
 - **Character Photo Mode / Saved Shots**: Successfully implemented (Full composite capture + Gallery Download + Selfie Previews).
+- [ ] **Character Outfit & Habitat Management**:
+  - [ ] **Outfit Context**: Integrate available and active outfit labels into the Chat Context Manager.
+  - [ ] **Permanent Outfit Changes**: Implement `change_outfit` tool for non-ephemeral swaps (unlike ACT emotions).
+  - [ ] **Polymorphic Tool Logic**: Interface should support a single mutually exclusive swap + additive arrays for enabling/disabling layers/accessories.
 - **Browser-Integrated Card Imports (Phase 2)**: (Next Focus) Deep integration with external character sites via an in-app Electron browser. Hooks for direct importing while respecting site ads/iframes.
 - **Vision Feature Integration**: Bridge the interval-based "Vision Witness" feature from main branch (Alpha 22-23).
   - [ ] **Research Upstream Logic**: Analyze the "jankier" screenshot hacks used in main and identify the core capture-and-prompt pipeline.
   - [ ] **Architect Vision Store**: Implement a proper `VisionStore` in `packages/stage-ui` to handle both "Reactive Vision" (User-sent) and "Witness Vision" (Ambient).
   - [ ] **Ambient Modality**: Evaluate if this belongs in a new "Ambient Image" provider class or works within existing VLM abstractions.
   - [/] **Gemini Live API Integration**: Developed [Design Document](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/docs/design-gemini-live-api-integration.md). Includes plans for real-time multimodal I/O, tool call plumbing, and chat history inscription using the `google-genai` SDK.
-  - [ ] **Privacy Indicator**: Add visual feedback in Controls Island when AIRI is "Watching".
+  - [ ] **ScrollLock Syncing Cleanup**: Fully remove or refactor the ScrollLock mic-toggle state syncing logic in the backend to prevent unwanted LED flickering and OS overlays. (Currently partially disabled in backend).
+- [ ] **MCP Management UI (Settings > Modules)**:
+  - [ ] Refactor the basic `mcp.vue` into a premium, Antigravity-inspired interface.
+  - [ ] Implement the **MCP Store** for curated server discovery (Search, Filesystem, GitHub).
+  - [ ] Implement the **Server Manager** with tool status counts (e.g., `91/91 tools`) and per-tool toggles.
+  - [ ] Add **Integrated Guidance** templates at the top of the configuration view.
+  - [ ] Add a "Refresh" capability to re-poll available tools without restarting the app.
+- [ ] **Privacy Indicator**: Add visual feedback in Controls Island when AIRI is "Watching".
+- [ ] **Provider Refactor (Low Priority)**: Split "Google Gemini API" (API Key) and "Google Gemini OAuth" (Bearer Token) into distinct provider types in `stores/providers.ts` to prevent credential misuse in standard Chat vs. Bidi endpoints.
 
 
 ## Defunct / Scrapped Ideas

@@ -22,6 +22,7 @@ const heartbeatsScheduleEnd = defineModel<string>('heartbeatsScheduleEnd', { req
 const heartbeatsContextWindowHistory = defineModel<boolean>('heartbeatsContextWindowHistory', { required: true })
 const heartbeatsContextSystemLoad = defineModel<boolean>('heartbeatsContextSystemLoad', { required: true })
 const heartbeatsContextUsageMetrics = defineModel<boolean>('heartbeatsContextUsageMetrics', { required: true })
+const heartbeatsRespectSchedule = defineModel<boolean>('heartbeatsRespectSchedule', { required: true })
 </script>
 
 <template>
@@ -50,7 +51,10 @@ const heartbeatsContextUsageMetrics = defineModel<boolean>('heartbeatsContextUsa
               <span>to</span>
               <input v-model="heartbeatsScheduleEnd" type="time" class="flex-1 border border-neutral-200 rounded-lg bg-transparent px-2 py-1 dark:border-neutral-700">
             </div>
-            <span class="mt-1 text-xs text-neutral-500">Only trigger heartbeats between these hours.</span>
+            <div class="mt-1 flex items-center gap-2">
+              <input id="heartbeats-respectSchedule" v-model="heartbeatsRespectSchedule" type="checkbox" class="h-4 w-4 border-gray-300 rounded text-primary-600">
+              <label for="heartbeats-respectSchedule" class="text-xs text-neutral-500">Only trigger heartbeats between these hours.</label>
+            </div>
           </div>
 
           <div class="col-span-1 mt-2 flex items-center gap-2 sm:col-span-2">

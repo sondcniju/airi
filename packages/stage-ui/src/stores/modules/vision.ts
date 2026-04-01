@@ -1,11 +1,16 @@
+import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
+import { isWithinSchedule, visionCaptureScreen } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
-import { defineStore } from 'pinia'
+import { defineStore, storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
 
+import { useChatOrchestratorStore } from '../chat'
 import { useProvidersStore } from '../providers'
+import { useAiriCardStore } from './airi-card'
 
 export const useVisionStore = defineStore('vision', () => {
   const providersStore = useProvidersStore()
+  const chatOrchestrator = useChatOrchestratorStore()
 
   // State
   const activeProvider = useLocalStorageManualReset<string>('settings/vision/active-provider', '')
@@ -17,14 +22,110 @@ export const useVisionStore = defineStore('vision', () => {
   )
 
   // Witness (Proactive Ambient Vision)
+  // NOTICE: Vision no longer self-polls. The proactivity heartbeat drives vision captures
+  // when the Live API is active. isWitnessEnabled acts as a guard flag checked by proactivity.
   const isWitnessEnabled = useLocalStorageManualReset<boolean>('settings/vision/witness-enabled', false)
-  const witnessIntervalMinutes = useLocalStorageManualReset<number>('settings/vision/witness-interval', 5)
   const witnessPrompt = useLocalStorageManualReset<string>(
     'settings/vision/witness-prompt',
     'Carefully observe the user\'s screen and describe any interesting or relevant details you see, focusing on things that might spark a conversation or help you understand the user\'s current context better. Stay in character.',
   )
+  const respectSchedule = useLocalStorageManualReset<boolean>('settings/vision/respect-schedule', true)
+  const status = ref<'idle' | 'capturing'>('idle')
   const lastWitnessTime = ref<number>(0)
   const lastWitnessAnalysis = ref<string>('')
+  const lastHeartbeatExec = useLocalStorageManualReset<number>('settings/vision/last-heartbeat', 0)
+
+  const airiCardStore = useAiriCardStore()
+  const { activeCard } = storeToRefs(airiCardStore)
+
+  const captureInvoke = useElectronEventaInvoke(visionCaptureScreen)
+
+  // Heartbeat Logic
+  const heartbeat = async (options?: { force?: boolean }) => {
+    console.log('[Vision Store] Heartbeat checking...', { isWitnessEnabled: isWitnessEnabled.value, force: !!options?.force })
+    if (!isWitnessEnabled.value && !options?.force)
+      return
+
+    // Throttle duplicate executions across multiple independent Electron renderer windows.
+    // Each window runs its own `useIntervalFn`, meaning they can easily drift out of sync.
+    const now = Date.now()
+
+    if (!options?.force) {
+      // Background interval: enforce the full interval duration minus a small 10s drift buffer
+      const intervalMs = 2 * 60 * 1000 // Minimum cooldown between captures
+      if (now - lastHeartbeatExec.value < (intervalMs - 10000)) {
+        console.log(`[Vision Store] Background heartbeat skipped. Next allowed in ${intervalMs - (now - lastHeartbeatExec.value)}ms due to cross-window sync.`)
+        return
+      }
+    }
+    else {
+      // Manual trigger: enforce a small 15-second debounce to prevent spam clicks and IPC echo
+      if (now - lastHeartbeatExec.value < 15000) {
+        console.log(`[Vision Store] Forced heartbeat throttled (15s cooldown).`)
+        return
+      }
+    }
+
+    // Lock the execution time so other windows respect this cycle
+    lastHeartbeatExec.value = now
+
+    // Schedule check (only if respectSchedule is enabled)
+    const config = activeCard.value?.extensions?.airi?.heartbeats
+    if (!options?.force && respectSchedule.value && config?.schedule?.start && config.schedule.end) {
+      const inWindow = isWithinSchedule(config.schedule.start, config.schedule.end)
+      if (!inWindow) {
+        console.log(`[Vision Store] Heartbeat skipped: Outside schedule window (${config.schedule.start} - ${config.schedule.end})`)
+        return
+      }
+      console.log(`[Vision Store] Heartbeat inside schedule window (${config.schedule.start} - ${config.schedule.end})`)
+    }
+
+    console.log('[Vision Store] Heartbeat pulse starting...')
+    status.value = 'capturing'
+
+    try {
+      console.log('[Vision Store] Invoking OS screen capture via Eventa...')
+      const result = await captureInvoke({ width: 1280, height: 720 })
+
+      if (result?.dataUrl) {
+        console.log('[Vision Store] Screen capture successful!', {
+          dataUrlLength: result.dataUrl.length,
+          timestamp: result.timestamp,
+        })
+        lastWitnessTime.value = result.timestamp
+
+        // Send to Gemini via Chat Orchestrator
+        console.log('[Vision Store] Sending screenshot to Chat Orchestrator for commentary...')
+        const base64 = result.dataUrl.split(',')[1]
+
+        await chatOrchestrator.ingest(witnessPrompt.value, {
+          attachments: [
+            {
+              type: 'image',
+              data: base64,
+              mimeType: 'image/png',
+            },
+          ],
+        })
+      }
+      else {
+        console.warn('[Vision Store] Screen capture failed: No data received.')
+      }
+    }
+    catch (err) {
+      console.error('[Vision Store] Screen capture error:', err)
+    }
+    finally {
+      status.value = 'idle'
+      console.log('[Vision Store] Heartbeat pulse complete.')
+    }
+  }
+
+  function toggleWitness() {
+    console.log('[Vision Store] toggleWitness() called. Current:', isWitnessEnabled.value)
+    isWitnessEnabled.value = !isWitnessEnabled.value
+    console.log('[Vision Store] toggleWitness() new state:', isWitnessEnabled.value)
+  }
 
   // Computed properties
   const supportsModelListing = computed(() => {
@@ -81,10 +182,11 @@ export const useVisionStore = defineStore('vision', () => {
 
     // Witness
     isWitnessEnabled,
-    witnessIntervalMinutes,
     witnessPrompt,
+    respectSchedule,
     lastWitnessTime,
     lastWitnessAnalysis,
+    status,
 
     // Computed
     supportsModelListing,
@@ -96,6 +198,8 @@ export const useVisionStore = defineStore('vision', () => {
     resetModelSelection,
     loadModelsForProvider,
     getModelsForProvider,
+    toggleWitness,
+    heartbeat,
     resetState,
   }
 })

@@ -89,6 +89,14 @@ The important nuance is:
 - this guarantee applies to surfaces that explicitly use `builtinTools`
 - generic chat surfaces like `ChatArea.vue` are still caller-driven and do not auto-discover tools on their own
 
+## 4. Gemini Live Native Audio Pipeline
+- **Surface**: `packages/stage-ui/src/stores/modules/live-session.ts`
+- **Output Mode**: The `outputMode` setting dictates how assistant audio is handled.
+  - **`gemini` mode**: The setup message requests `responseModalities: ['AUDIO']`. Gemini streams down PCM16 audio via `inlineData`. `live-session` decodes the chunks and schedules them gapless via the shared `AudioContext`.
+    - **CRITICAL HACK (TTS Fallback Suppression)**: When in `gemini` mode, `live-session` deliberately stops emitting streaming text literals to `ChatOrchestrator` because the audio is already playing natively. However, `Stage.vue` has a built-in safety net: if a turn completes with zero literals received, it assumes the stream failed and triggers a full-text TTS fallback recovery. To prevent this "double playback" bug, `live-session` must emit a single zero-length string (`''`) literal at the start of the turn. This trips the `currentChatIntentReceivedLiteral` flag in `Stage.vue`, effectively muting the Custom TTS without triggering the fallback.
+  - **`custom` mode**: **CRITICAL**: The setup message MUST STILL request `responseModalities: ['AUDIO']`. Although we are using a Custom TTS pipeline, the Gemini Bidi endpoint requires the audio modality to be active for its reasoning and tool-calling engine to stay connected. In this mode, we simply ignore the incoming `inlineData` PCM chunks and pipe the raw transcript text through the standard Marker Parser → TTS hook chain.
+- **Marker Parser requirement**: Regardless of `outputMode`, *all* Gemini Live output runs through `useLlmmarkerParser`. This guarantees that expression markers (e.g., `<|ACT...|>`) are correctly intercepted and emitted as special tokens, preventing them from bleeding into the audible text or the raw UI transcript. In `gemini` mode, literal text tokens are simply not forwarded to the Stage's Custom TTS hooks because the audio is already playing natively.
+
 ## Speech Runtime Notes
 
 - `Stage.vue` is the current speech host. It registers a speech pipeline with `speechRuntimeStore.registerHost(...)`.
@@ -225,3 +233,19 @@ Fix direction:
 - hoist the `hooks` object to module-level scope in `chat.ts`
 - this ensures the singleton event bus instance persists even when the Pinia store is re-instantiated during HMR
 - components remain bound to the same stable event bus regardless of store replacement
+Another failure pattern is bypassing the mandatory marker-parser layer in new pipelines.
+
+Failure mode:
+- A new ingestion surface (like `live-session.ts`) pipes raw LLM/transcription text directly to the `createStreamingCategorizer` to handle thought filtering.
+- The `createStreamingCategorizer` is strictly an XML/HTML tag parser and intentionally ignores/ignores markers like `<|ACT:...|>`.
+- It expects that the `useLlmmarkerParser` has already processed the stream and emitted those as special tokens.
+- Without the marker-parser layer, ACT markers bleed directly into the literal speech output and are spoken aloud by the TTS.
+
+Observed symptom:
+- The agent says "Yeah hey ACT emotion dot intensity dot 1 Richard" out loud.
+- Expressions/animations in the markers do not trigger because they were never intercepted as special tokens.
+
+Fix direction:
+- Always chain `useLlmmarkerParser` as the very first layer for any LLM text stream.
+- Route `onLiteral` → `categorizer.consume()` and `onSpecial` → `emitTokenSpecialHooks`.
+- This ensures markers are stripped safely before speech evaluation and categorized tags are handled correctly.

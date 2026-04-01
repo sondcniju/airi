@@ -7,7 +7,7 @@ import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { refManualReset } from '@vueuse/core'
 import { generateTranscription } from '@xsai/generate-transcription'
 import { defineStore, storeToRefs } from 'pinia'
-import { computed, ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import vadWorkletUrl from '../../workers/vad/process.worklet?worker&url'
@@ -15,6 +15,7 @@ import vadWorkletUrl from '../../workers/vad/process.worklet?worker&url'
 import { useProvidersStore } from '../providers'
 import { streamAliyunTranscription } from '../providers/aliyun/stream-transcription'
 import { streamWebSpeechAPITranscription } from '../providers/web-speech-api'
+import { useLiveSessionStore } from './live-session'
 
 function errorMessage(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err)
@@ -254,7 +255,7 @@ export const useHearingStore = defineStore('hearing-store', () => {
           'Authorization': `Token ${activeToken}`,
           'Content-Type': normalizedInput.file.type || 'audio/webm',
         },
-        body: normalizedInput.file,
+        body: await normalizedInput.file.arrayBuffer(),
         signal: options?.providerOptions?.abortSignal as AbortSignal | undefined,
       })
 
@@ -341,6 +342,11 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
   }>()
 
   const supportsStreamInput = computed(() => {
+    const liveSessionStore = useLiveSessionStore()
+    if (liveSessionStore.isActive && liveSessionStore.outputMode === 'gemini') {
+      return true
+    }
+
     const providerId = activeTranscriptionProvider.value
     if (!providerId)
       return false
@@ -546,6 +552,78 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
     hearingStore.isTranscribing = true
 
     try {
+      const liveSessionStore = useLiveSessionStore()
+      if (liveSessionStore.isActive && liveSessionStore.outputMode === 'gemini') {
+        console.info('[Hearing Pipeline] Intercepting mic for Gemini Live Bidi API')
+
+        const abortController = new AbortController()
+
+        // Empty bumpIdle because Gemini Bidi is a continuous socket. We do not want idle timeouts to prematurely sever it.
+        const bumpIdle = () => {}
+
+        const session = await createAudioStreamFromMediaStream(
+          stream,
+          16000,
+          () => bumpIdle(),
+        )
+
+        streamingSession.value = {
+          audioContext: session.audioContext,
+          workletNode: session.workletNode,
+          mediaStreamSource: session.mediaStreamSource,
+          audioStreamController: session.controller,
+          abortController,
+          result: { mode: 'stream' } as any,
+          idleTimer: undefined,
+          providerId: 'gemini-live',
+          callbacks: {
+            onSentenceEnd: options?.onSentenceEnd,
+            onSpeechEnd: options?.onSpeechEnd,
+          },
+        } as any
+
+        // Connect the Live Session subtitles to the caption overlay
+        const unwatch = watch(() => liveSessionStore.lastTranscript, (val) => {
+          options?.onSentenceEnd?.(val)
+        })
+        abortController.signal.addEventListener('abort', () => {
+          unwatch()
+          if (liveSessionStore.isActive) {
+            liveSessionStore.sendAudioStreamEnd()
+          }
+        })
+
+        const reader = session.audioStream.getReader()
+        void (async () => {
+          try {
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done)
+                break
+              if (value) {
+                // Convert PCM Int16 buffer to Base64 (maxes out ~500 bytes per tick, safe for fromCharCode)
+                let binary = ''
+                const bytes = new Uint8Array(value)
+                const len = bytes.byteLength
+                for (let i = 0; i < len; i++) {
+                  binary += String.fromCharCode(bytes[i])
+                }
+                const base64 = btoa(binary)
+                liveSessionStore.sendRealtimeAudio(base64)
+              }
+            }
+          }
+          catch (e) {
+            console.error('[Hearing Pipeline] Gemini Audio worklet read error:', e)
+          }
+          finally {
+            hearingStore.isTranscribing = false
+          }
+        })()
+
+        return
+      }
+
       const providerId = activeTranscriptionProvider.value
       if (!providerId) {
         error.value = 'No transcription provider selected'

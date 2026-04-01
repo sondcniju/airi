@@ -25,6 +25,7 @@ import { createMcpServersService, setupMcpStdioManager } from './services/airi/m
 import { setupPluginHost } from './services/airi/plugins'
 import { createMicToggleService } from './services/airi/shortcuts/mic-toggle'
 import { setupAutoUpdater } from './services/electron/auto-updater'
+import { createVisionService } from './services/electron/vision'
 import { setupSensorsService } from './services/sensors'
 import { cleanupMicToggleShortcut } from './services/shortcuts/mic-toggle'
 import { setupTray } from './tray'
@@ -202,6 +203,7 @@ app.whenReady().then(async () => {
       createMcpServersService({ context, manager: deps.mcpStdioManager })
       createI18nService({ context, window: deps.mainWindow, i18n: deps.i18n })
       createMicToggleService({ context, window: deps.mainWindow })
+      createVisionService({ context })
 
       import('./libs/bootkit/lifecycle').then((m) => {
         m.onAppBeforeQuit(() => {

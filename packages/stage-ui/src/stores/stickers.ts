@@ -2,8 +2,11 @@ import localforage from 'localforage'
 
 import { useLocalStorage } from '@vueuse/core'
 import { nanoid } from 'nanoid'
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+
+import * as Pinia from 'pinia'
+
+import { useAiriCardStore } from './modules/airi-card'
 
 export interface StickerMetadata {
   id: string
@@ -11,6 +14,7 @@ export interface StickerMetadata {
   addedAt: number
   originalName: string
   mimeType: string
+  characterId?: string
 }
 
 export interface StickerPlacement {
@@ -24,12 +28,23 @@ export interface StickerPlacement {
   expiresAt?: number
 }
 
-export const useStickersStore = defineStore('stickers', () => {
+export const useStickersStore = Pinia.defineStore('stickers', () => {
   // Persisted metadata list
-  const libraryMetadata = useLocalStorage<StickerMetadata[]>('stickers/library', [])
+  const libraryMetadata = useLocalStorage<StickerMetadata[]>('stickers/library-v2', [])
+
+  /**
+   * The library subset belonging to the currently active character
+   */
+  const currentLibrary = computed(() => {
+    const airiCardStore = useAiriCardStore()
+    return libraryMetadata.value.filter(s => s.characterId === airiCardStore.activeCardId)
+  })
 
   // Reactive state for active instances on screen
   const activePlacements = ref<StickerPlacement[]>([])
+
+  // UI toggle for spawning standalone widgets (for Desktop support)
+  const standaloneMode = useLocalStorage<boolean>('stickers/standalone-mode', false)
 
   // Cache for object URLs to avoid recreating them constantly
   const objectUrlCache = new Map<string, string>()
@@ -67,7 +82,8 @@ export const useStickersStore = defineStore('stickers', () => {
   /**
    * Upload and register a new sticker
    */
-  async function addSticker(file: File, label?: string) {
+  async function addSticker(file: File, label?: string, characterId?: string) {
+    const airiCardStore = useAiriCardStore()
     const id = nanoid()
     const metadata: StickerMetadata = {
       id,
@@ -75,6 +91,7 @@ export const useStickersStore = defineStore('stickers', () => {
       addedAt: Date.now(),
       originalName: file.name,
       mimeType: file.type,
+      characterId: characterId || airiCardStore.activeCardId,
     }
 
     try {
@@ -120,9 +137,12 @@ export const useStickersStore = defineStore('stickers', () => {
    * Spawn a sticker instance at coordinates (or center)
    */
   function spawnSticker(idOrLabel: string, options: { x?: number, y?: number, duration?: number } = {}) {
-    const sticker = libraryMetadata.value.find(m => m.id === idOrLabel || m.label === idOrLabel)
-    if (!sticker)
-      return
+    const sticker = currentLibrary.value.find(m => m.id === idOrLabel || m.label === idOrLabel)
+    if (!sticker) {
+      const errorMsg = `Sticker label "${idOrLabel}" not found in your library. Available labels: ${currentLibrary.value.map(s => s.label).join(', ')}`
+      console.warn(`[StickersStore] ${errorMsg}`)
+      return errorMsg
+    }
 
     // "randomly creeked by like 3 to 8 degrees"
     const direction = Math.random() > 0.5 ? 1 : -1
@@ -170,14 +190,48 @@ export const useStickersStore = defineStore('stickers', () => {
   }
 
   /**
-   * Clear all active stickers
+   * Clear all active stickers from the screen
    */
-  function clearAll() {
+  function clearPlacements() {
     activePlacements.value = []
   }
 
+  /**
+   * Delete every sticker in the current character's library
+   */
+  async function clearLibrary() {
+    const toRemove = [...currentLibrary.value].map(s => s.id)
+    for (const id of toRemove) {
+      await deleteSticker(id)
+    }
+  }
+
+  // --- Internals ---
+
+  // Automatic cleanup of expired stickers
+  let cleanupInterval: ReturnType<typeof setInterval> | undefined
+
+  onMounted(() => {
+    cleanupInterval = setInterval(() => {
+      const now = Date.now()
+      const initialCount = activePlacements.value.length
+      activePlacements.value = activePlacements.value.filter(p => !p.expiresAt || p.expiresAt > now)
+
+      if (import.meta.env.DEV && activePlacements.value.length !== initialCount) {
+        console.log(`[StickersStore] Purged ${initialCount - activePlacements.value.length} expired stickers.`)
+      }
+    }, 2000) // Check every 2 seconds for snappy removal
+  })
+
+  onUnmounted(() => {
+    if (cleanupInterval)
+      clearInterval(cleanupInterval)
+  })
+
   return {
     libraryMetadata,
+    currentLibrary,
+    standaloneMode,
     activePlacements,
     getStickerUrl,
     addSticker,
@@ -185,6 +239,7 @@ export const useStickersStore = defineStore('stickers', () => {
     spawnSticker,
     removePlacement,
     updatePlacement,
-    clearAll,
+    clearPlacements,
+    clearLibrary,
   }
 })

@@ -5,15 +5,18 @@ import { onMounted, ref } from 'vue'
 
 import { useStickersStore } from '../../../stores/stickers'
 
+const emit = defineEmits<{
+  (e: 'spawn-standalone', id: string): void
+}>()
 const stickersStore = useStickersStore()
-const { libraryMetadata } = storeToRefs(stickersStore)
+const { currentLibrary, standaloneMode } = storeToRefs(stickersStore)
 const fileInput = ref<HTMLInputElement>()
 
 // Map to store temporary preview URLs for the library grid
 const previews = ref<Record<string, string>>({})
 
 async function loadPreviews() {
-  for (const meta of libraryMetadata.value) {
+  for (const meta of currentLibrary.value) {
     if (!previews.value[meta.id]) {
       const url = await stickersStore.getStickerUrl(meta.id)
       if (url) {
@@ -51,7 +54,12 @@ async function handleFileUpload(e: Event) {
 }
 
 function spawn(id: string) {
-  stickersStore.spawnSticker(id, { duration: 600 })
+  if (standaloneMode.value) {
+    emit('spawn-standalone', id)
+  }
+  else {
+    stickersStore.spawnSticker(id, { duration: 60 })
+  }
 }
 
 async function remove(id: string) {
@@ -62,21 +70,37 @@ async function remove(id: string) {
 
 <template>
   <div class="max-h-96 min-h-60 flex flex-col gap-4 overflow-y-auto p-4">
-    <!-- Header / Upload -->
     <div class="flex items-center justify-between gap-4">
-      <h3 class="text-sm text-neutral-500 font-bold tracking-widest uppercase">
-        Sticker Library
-      </h3>
+      <div class="flex items-center gap-2">
+        <h3 class="text-sm text-neutral-500 font-bold tracking-widest uppercase">
+          Sticker Library
+        </h3>
+
+        <!-- Standalone Toggle -->
+        <button
+          :class="[
+            'flex items-center gap-1 px-2 py-0.5 rounded-full border transition-all duration-200 text-[10px] font-bold uppercase tracking-tight',
+            standaloneMode
+              ? 'bg-primary-500/10 border-primary-500/30 text-primary-600 dark:text-primary-400 shadow-[0_0_10px_rgba(139,92,246,0.1)]'
+              : 'bg-neutral-100 border-neutral-200 text-neutral-400 dark:bg-neutral-800 dark:border-neutral-700',
+          ]"
+          title="Toggle Standalone Window Mode"
+          @click="standaloneMode = !standaloneMode"
+        >
+          <div :class="[standaloneMode ? 'i-ph:app-window-fill' : 'i-ph:app-window-light', 'size-3']" />
+          Standalone
+        </button>
+      </div>
 
       <div class="flex items-center gap-2">
         <Button
           variant="secondary"
           size="sm"
           class="flex items-center gap-2"
-          @click="stickersStore.clearAll()"
+          @click="stickersStore.clearLibrary()"
         >
           <div class="i-ph:trash-bold size-3" />
-          Clear All
+          Clear Library
         </Button>
         <Button
           variant="primary"
@@ -100,11 +124,11 @@ async function remove(id: string) {
 
     <!-- Grid -->
     <div
-      v-if="libraryMetadata.length > 0"
+      v-if="currentLibrary.length > 0"
       class="grid grid-cols-3 gap-3"
     >
       <div
-        v-for="meta in libraryMetadata"
+        v-for="meta in currentLibrary"
         :key="meta.id"
         class="group relative aspect-square flex cursor-pointer items-center justify-center rounded-xl bg-neutral-100 p-2 transition-all dark:bg-neutral-800 hover:ring-2 hover:ring-primary-400"
         @click="spawn(meta.id)"

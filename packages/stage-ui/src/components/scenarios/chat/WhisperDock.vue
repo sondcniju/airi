@@ -7,12 +7,17 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useChatOrchestratorStore } from '../../../stores/chat'
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../stores/modules/consciousness'
+import { useLiveSessionStore } from '../../../stores/modules/live-session'
 import { useProvidersStore } from '../../../stores/providers'
 import { StickerManager } from '../stickers'
 
 const props = defineProps<{
   /** Tool definitions to pass through to chat.ingest */
   tools?: any[]
+}>()
+
+const emit = defineEmits<{
+  (e: 'spawn-standalone', id: string): void
 }>()
 
 const isOpen = ref(false)
@@ -25,6 +30,7 @@ const cardStore = useAiriCardStore()
 const consciousnessStore = useConsciousnessStore()
 const providersStore = useProvidersStore()
 const chatStore = useChatOrchestratorStore()
+const liveSessionStore = useLiveSessionStore()
 
 const { activeCard } = storeToRefs(cardStore)
 const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
@@ -60,9 +66,33 @@ async function send() {
   if (!text || isSending.value)
     return
 
+  console.log('[WhisperDock] Triggered send() with text:', text)
+  console.log('[WhisperDock] liveSessionStore state -> isActive:', liveSessionStore.isActive, 'isConnecting:', liveSessionStore.isConnecting)
+
   isSending.value = true
 
   try {
+    const DEBUG_FORCE_NO_FALLBACK = false
+
+    // Priority 1: Gemini Live Session (if active or connecting)
+    if (liveSessionStore.isActive || liveSessionStore.isConnecting || DEBUG_FORCE_NO_FALLBACK) {
+      console.log('[WhisperDock] Routing to Gemini Live execution block.')
+      if (liveSessionStore.isActive) {
+        console.log('[WhisperDock] Executing liveSessionStore.sendText()...')
+        liveSessionStore.sendText(text)
+        inputText.value = ''
+        isSending.value = false
+        dismiss()
+      }
+      else {
+        // Still connecting or disconnected, but we are enforcing Live-only for debugging.
+        console.warn(`[WhisperDock] Blocked! Live session is connecting (${liveSessionStore.isConnecting}) or inactive (${liveSessionStore.isActive}), and custom LLM fallback is disabled for debugging.`)
+        isSending.value = false
+      }
+      return
+    }
+
+    // Priority 2: Standard LLM Pipeline
     const provider = await providersStore.getProviderInstance(activeProvider.value)
     if (!provider || !activeModel.value) {
       console.warn('[WhisperDock] No provider or model configured')
@@ -113,7 +143,7 @@ function handleKeydown(e: KeyboardEvent) {
     <button
       v-if="!isOpen"
       :class="[
-        'fixed bottom-3 left-1/2 z-90',
+        'fixed bottom-2.5 left-1/2 z-90',
         '-translate-x-1/2',
         'flex items-center justify-center',
         'size-8 rounded-full',
@@ -153,7 +183,7 @@ function handleKeydown(e: KeyboardEvent) {
     <div
       v-if="isOpen"
       :class="[
-        'fixed bottom-3 left-1/2 z-90',
+        'fixed bottom-2.5 left-1/2 z-90',
         '-translate-x-1/2',
         'w-[min(calc(100vw-120px),420px)]',
         'flex items-center gap-2',
@@ -198,7 +228,7 @@ function handleKeydown(e: KeyboardEvent) {
             'z-100',
           ]"
         >
-          <StickerManager />
+          <StickerManager @spawn-standalone="id => emit('spawn-standalone', id)" />
         </div>
       </Transition>
 
