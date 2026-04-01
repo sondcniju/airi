@@ -85,7 +85,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
   const inferenceTokens = useLocalStorage('settings/gemini/inference-tokens', 0)
   const totalTokens = computed(() => voiceTokens.value + inferenceTokens.value)
   const tokenDetails = ref<any[]>([])
-  const voiceName = ref<'Leda' | 'Zephyr' | 'Achernar'>('Leda')
+  const voiceName = ref<'Leda' | 'Zephyr' | 'Achernar' | 'Algenib' | 'Fenrir'>('Leda')
   const isGroundingEnabled = useLocalStorage('settings/gemini/grounding', false)
   const outputMode = useLocalStorage<'gemini' | 'custom'>('settings/gemini/output-mode', 'gemini')
   const error = ref<string | null>(null)
@@ -100,6 +100,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
 
   // Internal tracking for the current live session to calculate deltas
   let sessionTokenHighWaterMark = 0
+  const activeAudioSources = new Set<AudioBufferSourceNode>()
 
   watch(isGroundingEnabled, (enabled) => {
     if (isActive.value && socket.value?.readyState === WebSocket.OPEN) {
@@ -430,14 +431,20 @@ export const useLiveSessionStore = defineStore('live-session', () => {
                   }
                 }
 
-                // NOTICE: Only emit literal hooks (which trigger Custom TTS in Stage.vue)
-                // when outputMode is 'custom'. In 'gemini' mode, Gemini's own audio
-                // is played directly from inlineData — no need to round-trip through TTS.
                 if (turnOutputMode === 'custom' && (speechOnly.trim() || speechOnly.includes(' '))) {
                   console.log(`[LiveSession] Forwarding literal to Custom TTS: "${speechOnly}"`)
                   await chatOrchestrator.emitTokenLiteralHooks(speechOnly, currentStreamContext!)
                 }
                 else if (turnOutputMode === 'gemini') {
+                  // Mute the Custom TTS, but we MUST emit at least one zero-length literal
+                  // to the orchestrator to set `currentChatIntentReceivedLiteral = true` in Stage.vue.
+                  // Otherwise, Stage.vue sees the turn end with 0 literals and assumes it was a non-streaming
+                  // failure, triggering a full-text TTS fallback (the "double playback" bug).
+                  if (!(currentStreamContext as any)._geminiLiteralHandled) {
+                    await chatOrchestrator.emitTokenLiteralHooks('', currentStreamContext!)
+                    ;(currentStreamContext as any)._geminiLiteralHandled = true
+                  }
+
                   // Log occasionally to confirm suppression is working without spamming
                   if (speechOnly.trim().length > 0 && Math.random() > 0.8) {
                     console.log(`[LiveSession] Gemini mode: suppressed Custom TTS for "${speechOnly.substring(0, 20)}..."`)
@@ -676,6 +683,41 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     } as any)
   }
 
+  function sendRealtimeAudio(base64Pcm: string) {
+    if (!socket.value || socket.value.readyState !== WebSocket.OPEN)
+      return
+
+    try {
+      socket.value.send(JSON.stringify({
+        realtimeInput: {
+          audio: {
+            mimeType: 'audio/pcm;rate=16000',
+            data: base64Pcm,
+          },
+        },
+      }))
+    }
+    catch (err) {
+      console.error(`[LiveSession] FAILED to send audio PCM chunk via WebSocket!`, err)
+    }
+  }
+
+  function sendAudioStreamEnd() {
+    if (!socket.value || socket.value.readyState !== WebSocket.OPEN)
+      return
+    try {
+      socket.value.send(JSON.stringify({
+        realtimeInput: {
+          audioStreamEnd: true,
+        },
+      }))
+      console.info('[LiveSession] Sent explicit audioStreamEnd signal to server.')
+    }
+    catch (err) {
+      console.error(`[LiveSession] FAILED to send audioStreamEnd via WebSocket!`, err)
+    }
+  }
+
   function toggle() {
     console.log('[LiveSession] Toggle requested. Current state:', { isActive: isActive.value, isConnecting: isConnecting.value })
     if (isActive.value || isConnecting.value) {
@@ -687,7 +729,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
   }
 
   function cycleVoice() {
-    const voices: Array<typeof voiceName.value> = ['Leda', 'Zephyr', 'Achernar']
+    const voices: Array<typeof voiceName.value> = ['Leda', 'Zephyr', 'Achernar', 'Algenib', 'Fenrir']
     const currentIndex = voices.indexOf(voiceName.value)
     const nextIndex = (currentIndex + 1) % voices.length
     voiceName.value = voices[nextIndex]
@@ -751,6 +793,9 @@ export const useLiveSessionStore = defineStore('live-session', () => {
 
       const now = ctx.currentTime
       const startTime = Math.max(now, audioPlaybackTime)
+
+      source.onended = () => activeAudioSources.delete(source)
+      activeAudioSources.add(source)
       source.start(startTime)
       audioPlaybackTime = startTime + audioBuffer.duration
     }
@@ -783,6 +828,12 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     toolCallCounter = 0
     resolvedToolRegistry = []
     sessionTokenHighWaterMark = 0
+    audioPlaybackTime = 0
+    for (const src of activeAudioSources) {
+      try { src.stop() }
+      catch {}
+    }
+    activeAudioSources.clear()
   }
 
   const visionStore = useVisionStore()
@@ -817,6 +868,8 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     cycleVoice,
     toggleOutputMode,
     sendText,
+    sendRealtimeAudio,
+    sendAudioStreamEnd,
     recordInferenceUsage,
     reset,
   }
