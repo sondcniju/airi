@@ -143,7 +143,7 @@ function handleKeydown(e: KeyboardEvent) {
     <button
       v-if="!isOpen"
       :class="[
-        'fixed bottom-3 left-1/2 z-90',
+        'fixed bottom-2.5 left-1/2 z-90',
         '-translate-x-1/2',
         'flex items-center justify-center',
         'size-8 rounded-full',
@@ -183,7 +183,7 @@ function handleKeydown(e: KeyboardEvent) {
     <div
       v-if="isOpen"
       :class="[
-        'fixed bottom-3 left-1/2 z-90',
+        'fixed bottom-2.5 left-1/2 z-90',
         '-translate-x-1/2',
         'w-[min(calc(100vw-120px),420px)]',
         'flex items-center gap-2',
