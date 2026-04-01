@@ -88,6 +88,9 @@ export const useLiveSessionStore = defineStore('live-session', () => {
 
   const socket = shallowRef<WebSocket | null>(null)
 
+  // Internal tracking for the current live session to calculate deltas
+  let sessionTokenHighWaterMark = 0
+
   watch(isGroundingEnabled, (enabled) => {
     if (isActive.value && socket.value?.readyState === WebSocket.OPEN) {
       console.log(`[LiveSession] Grounding toggled to ${enabled}. Restarting connection...`)
@@ -532,11 +535,20 @@ export const useLiveSessionStore = defineStore('live-session', () => {
           }
         }
 
-        if (response.usageMetadata) {
-          voiceTokens.value = response.usageMetadata.totalTokenCount ?? 0
-          tokenDetails.value = response.usageMetadata.responseTokensDetails ?? []
+        // Capture usage metadata for token tracking and cost calculation
+        const usage = response.usageMetadata || response.serverContent?.usageMetadata
+        if (usage) {
+          const totalInSession = usage.totalTokenCount ?? 0
+          const delta = Math.max(0, totalInSession - sessionTokenHighWaterMark)
+
+          if (delta > 0) {
+            voiceTokens.value += delta
+            sessionTokenHighWaterMark = totalInSession
+          }
+
+          tokenDetails.value = usage.responseTokensDetails ?? []
           console.debug(
-            `[LiveSession] usageMetadata: voiceTokens=${voiceTokens.value}, inferenceTokens=${inferenceTokens.value}, totalTokens=${totalTokens.value}`,
+            `[LiveSession] usageMetadata: delta=+${delta}, voiceTokens=${voiceTokens.value}, inferenceTokens=${inferenceTokens.value}, totalTokens=${totalTokens.value}`,
             tokenDetails.value,
           )
         }
@@ -663,6 +675,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     streamPosition = 0
     toolCallCounter = 0
     resolvedToolRegistry = []
+    sessionTokenHighWaterMark = 0
   }
 
   const visionStore = useVisionStore()

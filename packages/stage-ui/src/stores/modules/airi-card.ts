@@ -35,6 +35,7 @@ export interface HeartbeatConfig {
     start: string // e.g., '09:00'
     end: string // e.g., '23:00'
   }
+  respectSchedule: boolean
 }
 
 export interface ActingConfig {
@@ -368,7 +369,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
 
     const defaultHeartbeats: HeartbeatConfig = {
       enabled: false,
-      intervalMinutes: 30,
+      intervalMinutes: 5,
       prompt: DEFAULT_HEARTBEATS_PROMPT,
       injectIntoPrompt: true,
       useAsLocalGate: true,
@@ -381,6 +382,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         start: '09:00',
         end: '22:00',
       },
+      respectSchedule: true,
     }
 
     const defaultArtistry = {
@@ -490,6 +492,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
           start: existingExtension.heartbeats?.schedule?.start ?? defaultHeartbeats.schedule.start,
           end: existingExtension.heartbeats?.schedule?.end ?? defaultHeartbeats.schedule.end,
         },
+        respectSchedule: existingExtension.heartbeats?.respectSchedule ?? defaultHeartbeats.respectSchedule,
       },
       proactivity_metrics: {
         ttsCount: existingExtension.proactivity_metrics?.ttsCount ?? 0,

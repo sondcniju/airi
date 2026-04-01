@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { useLiveSessionStore } from '@proj-airi/stage-ui/stores/modules/live-session'
 import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
+import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 
 import ControlButtonTooltip from './control-button-tooltip.vue'
 import ControlButton from './control-button.vue'
@@ -16,11 +18,14 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const liveSessionStore = useLiveSessionStore()
 const visionStore = useVisionStore()
+const proactivityStore = useProactivityStore()
 const settingsStore = useSettings()
 
 const { estimatedCost, isActive: isLiveActive, isGroundingEnabled } = storeToRefs(liveSessionStore)
 const { isWitnessEnabled, status: visionStatus } = storeToRefs(visionStore)
 const { controlsIslandIconSize } = storeToRefs(settingsStore)
+const { heartbeatIntervalMinutes, isRespectScheduleEnabled } = storeToRefs(proactivityStore)
+const router = useRouter()
 
 // Grouped classes for icon / border / padding and combined style class
 const adjustStyleClasses = computed(() => {
@@ -72,6 +77,11 @@ function handleCaptureNow() {
   visionStore.heartbeat({ force: true })
   emit('close')
 }
+
+function handleOpenSettings() {
+  router.push('/settings')
+  emit('close')
+}
 </script>
 
 <template>
@@ -113,18 +123,18 @@ function handleCaptureNow() {
       </ControlButtonTooltip>
 
       <ControlButtonTooltip>
-        <ControlButton :button-style="adjustStyleClasses.button" @click="visionStore.cycleFrequency()">
+        <ControlButton :button-style="adjustStyleClasses.button" @click="proactivityStore.cycleHeartbeatInterval()">
           <div i-ph:heartbeat :class="adjustStyleClasses.icon" text="red-400" />
           <div absolute bottom-1 right-1 text="[8px]" font-black leading-none opacity-80>
-            {{ visionStore.witnessIntervalMinutes }}m
+            {{ heartbeatIntervalMinutes }}m
           </div>
         </ControlButton>
         <template #tooltip>
-          {{ t('tamagotchi.stage.controls-island.pulse-rate') }} ({{ visionStore.witnessIntervalMinutes }}m)
+          {{ t('tamagotchi.stage.controls-island.pulse-rate') }} ({{ heartbeatIntervalMinutes }}m)
         </template>
       </ControlButtonTooltip>
 
-      <!-- Row 2: Voice Cluster (DISABLED - pending voice feature implementation) -->
+      <!-- Row 2: Voice Cluster (Planned styles applied) -->
       <ControlButtonTooltip>
         <ControlButton :button-style="adjustStyleClasses.button" class="cursor-not-allowed opacity-30">
           <div i-solar:microphone-outline :class="adjustStyleClasses.icon" text="sky-400" />
@@ -136,7 +146,7 @@ function handleCaptureNow() {
 
       <ControlButtonTooltip>
         <ControlButton :button-style="adjustStyleClasses.button" class="cursor-not-allowed opacity-30">
-          <div i-solar:soundwave-outline :class="adjustStyleClasses.icon" text="green-400" />
+          <div i-solar:soundwave-outline :class="adjustStyleClasses.icon" text="sky-400" />
         </ControlButton>
         <template #tooltip>
           {{ t('tamagotchi.stage.controls-island.output-mode') }} (Planned)
@@ -144,44 +154,49 @@ function handleCaptureNow() {
       </ControlButtonTooltip>
 
       <ControlButtonTooltip>
-        <ControlButton :button-style="adjustStyleClasses.button" @click="isGroundingEnabled = !isGroundingEnabled">
-          <div
-            :class="[
-              isGroundingEnabled ? 'i-solar:globus-bold text-emerald-400' : 'i-solar:globus-outline text-neutral-400',
-              adjustStyleClasses.icon,
-            ]"
-          />
-        </ControlButton>
-        <template #tooltip>
-          {{ t('tamagotchi.stage.controls-island.grounding') }}: {{ isGroundingEnabled ? 'ON' : 'OFF' }}
-        </template>
-      </ControlButtonTooltip>
-
-      <!-- Row 3: System Cluster (DISABLED) -->
-      <ControlButtonTooltip>
         <ControlButton :button-style="adjustStyleClasses.button" class="cursor-not-allowed opacity-30">
-          <div i-solar:clock-circle-outline :class="adjustStyleClasses.icon" text="orange-400" />
-        </ControlButton>
-        <template #tooltip>
-          {{ t('tamagotchi.stage.controls-island.respect-schedule') }} (Planned)
-        </template>
-      </ControlButtonTooltip>
-
-      <ControlButtonTooltip>
-        <ControlButton :button-style="adjustStyleClasses.button" class="cursor-not-allowed opacity-30">
-          <div i-solar:user-speak-outline :class="adjustStyleClasses.icon" text="emerald-400" />
+          <div i-solar:user-speak-outline :class="adjustStyleClasses.icon" text="sky-400" />
         </ControlButton>
         <template #tooltip>
           {{ t('tamagotchi.stage.controls-island.cycle-voice') }} (Planned)
         </template>
       </ControlButtonTooltip>
 
-      <ControlButtonTooltip side="right">
-        <ControlButton :button-style="adjustStyleClasses.button" class="cursor-not-allowed opacity-30">
-          <div i-solar:settings-minimalistic-outline :class="adjustStyleClasses.icon" text="neutral-400" />
+      <!-- Row 3: System Cluster (Functional items marked amber) -->
+      <ControlButtonTooltip>
+        <ControlButton :button-style="adjustStyleClasses.button" @click="proactivityStore.toggleRespectSchedule()">
+          <div
+            :class="[
+              isRespectScheduleEnabled ? 'i-solar:clock-circle-bold text-amber-400' : 'i-solar:clock-circle-outline text-emerald-400',
+              adjustStyleClasses.icon,
+            ]"
+          />
         </ControlButton>
         <template #tooltip>
-          {{ t('tamagotchi.stage.controls-island.open-settings') }} (Planned)
+          {{ t('tamagotchi.stage.controls-island.respect-schedule') }}: {{ isRespectScheduleEnabled ? (t('tamagotchi.stage.controls-island.status-on') || 'ON') : (t('tamagotchi.stage.controls-island.status-off') || 'OFF') }}
+        </template>
+      </ControlButtonTooltip>
+
+      <ControlButtonTooltip>
+        <ControlButton :button-style="adjustStyleClasses.button" @click="isGroundingEnabled = !isGroundingEnabled">
+          <div
+            :class="[
+              isGroundingEnabled ? 'i-solar:globus-bold text-emerald-400' : 'i-solar:globus-outline text-amber-400',
+              adjustStyleClasses.icon,
+            ]"
+          />
+        </ControlButton>
+        <template #tooltip>
+          {{ t('tamagotchi.stage.controls-island.grounding') }}: {{ isGroundingEnabled ? (t('tamagotchi.stage.controls-island.status-on') || 'ON') : (t('tamagotchi.stage.controls-island.status-off') || 'OFF') }}
+        </template>
+      </ControlButtonTooltip>
+
+      <ControlButtonTooltip side="right">
+        <ControlButton :button-style="adjustStyleClasses.button" @click="handleOpenSettings">
+          <div i-solar:settings-minimalistic-outline :class="adjustStyleClasses.icon" text="amber-400" />
+        </ControlButton>
+        <template #tooltip>
+          {{ t('tamagotchi.stage.controls-island.open-settings') }}
         </template>
       </ControlButtonTooltip>
     </div>

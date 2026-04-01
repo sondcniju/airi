@@ -661,7 +661,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
             case 'usage':
               console.log('[ChatDebug] usage report:', event.usage)
               const liveSession = useLiveSessionStore()
-              liveSession.recordInferenceUsage(event.usage.totalTokenCount || event.usage.totalUsage || 0)
+              liveSession.recordInferenceUsage(event.usage.total_tokens || event.usage.totalTokenCount || event.usage.totalUsage || 0)
               break
             case 'error':
               throw event.error ?? new Error('Stream error')

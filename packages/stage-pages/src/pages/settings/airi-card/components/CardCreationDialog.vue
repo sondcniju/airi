@@ -128,7 +128,7 @@ Use brief pouty or dismissive mannerisms when sounding stubborn, embarrassed, br
 
 // Heartbeats configuration
 const heartbeatsEnabled = ref<boolean>(false)
-const heartbeatsIntervalMinutes = ref<number>(30)
+const heartbeatsIntervalMinutes = ref<number>(5)
 const heartbeatsPrompt = ref<string>('')
 const heartbeatsInjectIntoPrompt = ref<boolean>(true)
 const heartbeatsUseAsLocalGate = ref<boolean>(true)
@@ -137,6 +137,7 @@ const heartbeatsScheduleEnd = ref<string>('22:00')
 const heartbeatsContextWindowHistory = ref<boolean>(true)
 const heartbeatsContextSystemLoad = ref<boolean>(true)
 const heartbeatsContextUsageMetrics = ref<boolean>(true)
+const heartbeatsRespectSchedule = ref<boolean>(true)
 
 const staticSamplePayload = `[Sensor Data]
 User Idle: 15s
@@ -525,6 +526,7 @@ async function saveCard(card: Card): Promise<boolean> {
             start: heartbeatsScheduleStart.value,
             end: heartbeatsScheduleEnd.value,
           },
+          respectSchedule: heartbeatsRespectSchedule.value,
         },
         acting: {
           modelExpressionPrompt: selectedActingModelExpressionPrompt.value,
@@ -613,7 +615,7 @@ function initializeCard(): Card {
   }
 
   heartbeatsEnabled.value = airiExt?.heartbeats?.enabled ?? false
-  heartbeatsIntervalMinutes.value = airiExt?.heartbeats?.intervalMinutes ?? 30
+  heartbeatsIntervalMinutes.value = airiExt?.heartbeats?.intervalMinutes ?? 5
   heartbeatsPrompt.value = airiExt?.heartbeats?.prompt ?? DEFAULT_HEARTBEATS_PROMPT
   heartbeatsInjectIntoPrompt.value = airiExt?.heartbeats?.injectIntoPrompt ?? true
   heartbeatsUseAsLocalGate.value = airiExt?.heartbeats?.useAsLocalGate ?? true
@@ -622,6 +624,7 @@ function initializeCard(): Card {
   heartbeatsContextWindowHistory.value = airiExt?.heartbeats?.contextOptions?.windowHistory ?? true
   heartbeatsContextSystemLoad.value = airiExt?.heartbeats?.contextOptions?.systemLoad ?? true
   heartbeatsContextUsageMetrics.value = airiExt?.heartbeats?.contextOptions?.usageMetrics ?? true
+  heartbeatsRespectSchedule.value = airiExt?.heartbeats?.respectSchedule ?? true
 
   loadActingSpeechCapabilities(selectedSpeechProvider.value || speechProvider.value)
 
@@ -853,6 +856,7 @@ function getDefaultPlaceholder(defaultValue: string | undefined): string {
             v-model:heartbeats-context-window-history="heartbeatsContextWindowHistory"
             v-model:heartbeats-context-system-load="heartbeatsContextSystemLoad"
             v-model:heartbeats-context-usage-metrics="heartbeatsContextUsageMetrics"
+            v-model:heartbeats-respect-schedule="heartbeatsRespectSchedule"
             :sensor-payload="sensorPayload"
             :static-sample-payload="staticSamplePayload"
           />

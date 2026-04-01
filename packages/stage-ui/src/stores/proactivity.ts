@@ -19,6 +19,8 @@ import { useLLM } from './llm'
 import { useTextJournalStore } from './memory-text-journal'
 import { useAiriCardStore } from './modules/airi-card'
 import { useConsciousnessStore } from './modules/consciousness'
+import { useLiveSessionStore } from './modules/live-session'
+import { useVisionStore } from './modules/vision'
 import { useProvidersStore } from './providers'
 
 export const useProactivityStore = defineStore('proactivity', () => {
@@ -32,6 +34,8 @@ export const useProactivityStore = defineStore('proactivity', () => {
   const consciousnessStore = useConsciousnessStore()
   const providersStore = useProvidersStore()
   const backgroundStore = useBackgroundStore()
+  const liveSessionStore = useLiveSessionStore()
+  const visionStore = useVisionStore()
 
   // eslint-disable-next-line no-console
   console.log('[Proactivity] Proactivity Store initialized.')
@@ -235,8 +239,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
     const now = new Date()
 
     // Check schedule
-    // Schedule check
-    if (!options?.force && config?.schedule?.start && config.schedule.end) {
+    if (!options?.force && config?.respectSchedule && config?.schedule?.start && config.schedule.end) {
       const isInWindow = isWithinSchedule(config.schedule.start, config.schedule.end)
 
       if (!isInWindow) {
@@ -376,6 +379,12 @@ export const useProactivityStore = defineStore('proactivity', () => {
       })
       const rawReply = llmResponse.text
 
+      // Record token usage for persistent tracking
+      if (llmResponse.usage) {
+        const totalTokens = llmResponse.usage.total_tokens || (llmResponse.usage.prompt_tokens + llmResponse.usage.completion_tokens) || 0
+        liveSessionStore.recordInferenceUsage(totalTokens)
+      }
+
       // eslint-disable-next-line no-console
       console.log(`[Proactivity] LLM Raw Response: "${rawReply}"`)
 
@@ -481,6 +490,14 @@ export const useProactivityStore = defineStore('proactivity', () => {
         outputText: trimmedReply,
         toolCalls: [],
       }, streamingContext)
+
+      // Piggyback vision capture onto the proactivity heartbeat when Live API is active.
+      // This eliminates the need for a separate vision polling loop — proactivity's AFK,
+      // schedule, and interval gates naturally protect vision from wasted captures.
+      if (liveSessionStore.isActive && visionStore.isWitnessEnabled) {
+        console.log('[Proactivity] Live API active + Witness enabled → piggybacking vision capture.')
+        await visionStore.heartbeat({ force: true })
+      }
     }
     catch (err) {
       console.error('[Proactivity] Error during heartbeat evaluation:', err)
@@ -534,6 +551,78 @@ export const useProactivityStore = defineStore('proactivity', () => {
     return all
   }
 
+  // Presets for the heartbeat interval cycle button in the controls island.
+  const HEARTBEAT_INTERVAL_PRESETS = [2, 5, 10, 20]
+
+  // Computed read of the active card's heartbeat interval for UI binding.
+  const heartbeatIntervalMinutes = computed(() => {
+    return activeCard.value?.extensions?.airi?.heartbeats?.intervalMinutes ?? 5
+  })
+
+  /**
+   * Cycles the proactivity heartbeat interval through [2, 5, 10, 20] minute presets.
+   * If the current value is a custom value (not in presets), snaps to the first preset (2).
+   */
+  function cycleHeartbeatInterval() {
+    const current = heartbeatIntervalMinutes.value
+    const idx = HEARTBEAT_INTERVAL_PRESETS.indexOf(current)
+    const next = idx === -1
+      ? HEARTBEAT_INTERVAL_PRESETS[0] // Custom value → snap to first preset
+      : HEARTBEAT_INTERVAL_PRESETS[(idx + 1) % HEARTBEAT_INTERVAL_PRESETS.length]
+
+    const cardId = activeCardId.value
+    const card = activeCard.value
+    if (!card || !cardId)
+      return
+
+    airiCardStore.updateCard(cardId, {
+      extensions: {
+        ...card.extensions,
+        airi: {
+          ...card.extensions?.airi,
+          heartbeats: {
+            ...card.extensions?.airi?.heartbeats,
+            intervalMinutes: next,
+          },
+        },
+      },
+    } as any)
+
+    console.log(`[Proactivity] Cycled heartbeat interval: ${current}m → ${next}m`)
+  }
+
+  // Computed read of the active card's respectSchedule setting for UI binding.
+  const isRespectScheduleEnabled = computed(() => {
+    return activeCard.value?.extensions?.airi?.heartbeats?.respectSchedule ?? true
+  })
+
+  /**
+   * Toggles the "Respect Schedule" setting for the active card.
+   */
+  function toggleRespectSchedule() {
+    const cardId = activeCardId.value
+    const card = activeCard.value
+    if (!card || !cardId)
+      return
+
+    const next = !isRespectScheduleEnabled.value
+
+    airiCardStore.updateCard(cardId, {
+      extensions: {
+        ...card.extensions,
+        airi: {
+          ...card.extensions?.airi,
+          heartbeats: {
+            ...card.extensions?.airi?.heartbeats,
+            respectSchedule: next,
+          },
+        },
+      },
+    } as any)
+
+    console.log(`[Proactivity] Toggled respectSchedule: ${!next} → ${next}`)
+  }
+
   return {
     sessionMetrics,
     totalTurns,
@@ -553,5 +642,9 @@ export const useProactivityStore = defineStore('proactivity', () => {
     evaluateHeartbeat,
     startHeartbeatLoop,
     stopHeartbeatLoop,
+    heartbeatIntervalMinutes,
+    cycleHeartbeatInterval,
+    isRespectScheduleEnabled,
+    toggleRespectSchedule,
   }
 })

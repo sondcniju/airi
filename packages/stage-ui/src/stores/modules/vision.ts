@@ -1,9 +1,8 @@
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { isWithinSchedule, visionCaptureScreen } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
-import { useIntervalFn } from '@vueuse/core'
 import { defineStore, storeToRefs } from 'pinia'
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 
 import { useChatOrchestratorStore } from '../chat'
 import { useProvidersStore } from '../providers'
@@ -23,8 +22,9 @@ export const useVisionStore = defineStore('vision', () => {
   )
 
   // Witness (Proactive Ambient Vision)
+  // NOTICE: Vision no longer self-polls. The proactivity heartbeat drives vision captures
+  // when the Live API is active. isWitnessEnabled acts as a guard flag checked by proactivity.
   const isWitnessEnabled = useLocalStorageManualReset<boolean>('settings/vision/witness-enabled', false)
-  const witnessIntervalMinutes = useLocalStorageManualReset<number>('settings/vision/witness-interval', 5)
   const witnessPrompt = useLocalStorageManualReset<string>(
     'settings/vision/witness-prompt',
     'Carefully observe the user\'s screen and describe any interesting or relevant details you see, focusing on things that might spark a conversation or help you understand the user\'s current context better. Stay in character.',
@@ -52,7 +52,7 @@ export const useVisionStore = defineStore('vision', () => {
 
     if (!options?.force) {
       // Background interval: enforce the full interval duration minus a small 10s drift buffer
-      const intervalMs = witnessIntervalMinutes.value * 60 * 1000
+      const intervalMs = 2 * 60 * 1000 // Minimum cooldown between captures
       if (now - lastHeartbeatExec.value < (intervalMs - 10000)) {
         console.log(`[Vision Store] Background heartbeat skipped. Next allowed in ${intervalMs - (now - lastHeartbeatExec.value)}ms due to cross-window sync.`)
         return
@@ -121,33 +121,10 @@ export const useVisionStore = defineStore('vision', () => {
     }
   }
 
-  const { pause, resume } = useIntervalFn(heartbeat, computed(() => witnessIntervalMinutes.value * 60 * 1000), { immediate: false })
-
-  watch(isWitnessEnabled, (enabled) => {
-    console.log('[Vision Store] Witness enabled watcher fired:', enabled)
-    if (enabled) {
-      resume()
-      console.log('[Vision Store] Interval resumed. Triggering immediate pulse (forced).')
-      heartbeat({ force: true })
-    }
-    else {
-      pause()
-      console.log('[Vision Store] Interval paused.')
-    }
-  }, { immediate: true })
-
   function toggleWitness() {
     console.log('[Vision Store] toggleWitness() called. Current:', isWitnessEnabled.value)
     isWitnessEnabled.value = !isWitnessEnabled.value
     console.log('[Vision Store] toggleWitness() new state:', isWitnessEnabled.value)
-  }
-
-  function cycleFrequency() {
-    const intervals = [1, 5, 10, 30]
-    const currentIndex = intervals.indexOf(witnessIntervalMinutes.value)
-    const nextIndex = (currentIndex + 1) % intervals.length
-    witnessIntervalMinutes.value = intervals[nextIndex]
-    console.log('[Vision Store] Cycle frequency:', witnessIntervalMinutes.value)
   }
 
   // Computed properties
@@ -205,7 +182,6 @@ export const useVisionStore = defineStore('vision', () => {
 
     // Witness
     isWitnessEnabled,
-    witnessIntervalMinutes,
     witnessPrompt,
     respectSchedule,
     lastWitnessTime,
@@ -223,7 +199,6 @@ export const useVisionStore = defineStore('vision', () => {
     loadModelsForProvider,
     getModelsForProvider,
     toggleWitness,
-    cycleFrequency,
     heartbeat,
     resetState,
   }
