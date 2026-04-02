@@ -103,25 +103,29 @@ This document tracks the current development state of the AIRI project, specific
 - **Modular Wardrobe System**: Successfully implemented.
 - **Integrated Profile Switcher**: Successfully implemented in the Control Island.
 - **Character Photo Mode / Saved Shots**: Successfully implemented (Full composite capture + Gallery Download + Selfie Previews).
-- [ ] **Character Outfit & Habitat Management**:
-  - [ ] **Outfit Context**: Integrate available and active outfit labels into the Chat Context Manager.
-  - [ ] **Permanent Outfit Changes**: Implement `change_outfit` tool for non-ephemeral swaps (unlike ACT emotions).
-  - [ ] **Polymorphic Tool Logic**: Interface should support a single mutually exclusive swap + additive arrays for enabling/disabling layers/accessories.
+- **Character Outfit & Habitat Management**:
+    - [ ] **Live2D Expression Mapping**: Bridge functionality from VRM to allow mapping Live2D expressions to Control Island emojis.
+    - [ ] **Live2D Outfit System**: Port and enable the modular wardrobe/outfit system for Live2D models.
+    - [ ] **Outfit Context**: Integrate available and active outfit labels into the Chat Context Manager.
+    - [ ] **Permanent Outfit Changes (`change_outfit` tool)**: Implement a polymorphic tool for the AI to perform non-ephemeral swaps, supporting mutually exclusive swaps and additive layer/accessory controls. (Blocked until Live2D outfit system is ready).
 - **Browser-Integrated Card Imports (Phase 2)**: (Next Focus) Deep integration with external character sites via an in-app Electron browser. Hooks for direct importing while respecting site ads/iframes.
 - **Vision Feature Integration**: Bridge the interval-based "Vision Witness" feature from main branch (Alpha 22-23).
-  - [ ] **Research Upstream Logic**: Analyze the "jankier" screenshot hacks used in main and identify the core capture-and-prompt pipeline.
-  - [ ] **Architect Vision Store**: Implement a proper `VisionStore` in `packages/stage-ui` to handle both "Reactive Vision" (User-sent) and "Witness Vision" (Ambient).
-  - [ ] **Ambient Modality**: Evaluate if this belongs in a new "Ambient Image" provider class or works within existing VLM abstractions.
-  - [/] **Gemini Live API Integration**: Developed [Design Document](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/docs/design-gemini-live-api-integration.md). Includes plans for real-time multimodal I/O, tool call plumbing, and chat history inscription using the `google-genai` SDK.
-  - [ ] **ScrollLock Syncing Cleanup**: Fully remove or refactor the ScrollLock mic-toggle state syncing logic in the backend to prevent unwanted LED flickering and OS overlays. (Currently partially disabled in backend).
-- [ ] **MCP Management UI (Settings > Modules)**:
-  - [ ] Refactor the basic `mcp.vue` into a premium, Antigravity-inspired interface.
-  - [ ] Implement the **MCP Store** for curated server discovery (Search, Filesystem, GitHub).
-  - [ ] Implement the **Server Manager** with tool status counts (e.g., `91/91 tools`) and per-tool toggles.
-  - [ ] Add **Integrated Guidance** templates at the top of the configuration view.
-  - [ ] Add a "Refresh" capability to re-poll available tools without restarting the app.
-- [ ] **Privacy Indicator**: Add visual feedback in Controls Island when AIRI is "Watching".
-- [ ] **Provider Refactor (Low Priority)**: Split "Google Gemini API" (API Key) and "Google Gemini OAuth" (Bearer Token) into distinct provider types in `stores/providers.ts` to prevent credential misuse in standard Chat vs. Bidi endpoints.
+  - [x] **Research Upstream Logic**: Analyze the "jankier" screenshot hacks used in main and identify the core capture-and-prompt pipeline. [x]
+  - [x] **Architect Vision Store**: Implement a proper `VisionStore` in `packages/stage-ui` to handle both "Reactive Vision" (User-sent) and "Witness Vision" (Ambient). [x]
+  - [x] **Ambient Modality**: Evaluate if this belongs in a new "Ambient Image" provider class or works within existing VLM abstractions. [x]
+  - [x] **Gemini Live API Integration**: Developed [Design Document](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/docs/design-gemini-live-api-integration.md). Includes plans for real-time multimodal I/O, tool call plumbing, and chat history inscription using the `google-genai` SDK. [x]
+  - [/] **Gemini 2.5 vs 3.1 Support**: Implement support for both versions to compare the "richer" experience of 2.5 vs the standard 3.1 implementation. [/]
+  - [x] **ScrollLock Syncing Cleanup**: Fully remove or refactor the ScrollLock mic-toggle state syncing logic in the backend to prevent unwanted LED flickering and OS overlays. [x]
+- [ ] **Infrastructure & UI Health**:
+  - [ ] **Status Indicator Audit**: Revisit `settings>modules` and `settings>providers` to ensure the "green state" (connected/enabled) indicators are working accurately for all entries.
+- [x] **MCP Management UI (Settings > Modules)**: [x]
+  - [x] Refactor the basic `mcp.vue` into a premium, Antigravity-inspired interface. [x]
+  - [x] Implement the **MCP Store** for curated server discovery (Search, Filesystem, GitHub). [x]
+  - [x] Implement the **Server Manager** with tool status counts (e.g., `91/91 tools`) and per-tool toggles. [x]
+  - [x] Add **Integrated Guidance** templates at the top of the configuration view. [x]
+  - [x] Add a "Refresh" capability to re-poll available tools without restarting the app. [x]
+- [x] **Privacy Indicator**: Add visual feedback in Controls Island when AIRI is "Watching". [x]
+
 
 
 ## Defunct / Scrapped Ideas

@@ -6,26 +6,20 @@ import { getMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { Button } from '@proj-airi/ui'
 import { useDebounceFn } from '@vueuse/core'
 import { computed, onMounted, ref, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
 
 import {
   electronMcpApplyAndRestart,
   electronMcpGetConfig,
   electronMcpGetRuntimeStatus,
-  electronMcpListTools,
   electronMcpOpenConfigFile,
   electronMcpUpdateConfig,
 } from '../../../../shared/eventa'
 
 console.log('[MCP] Settings module loaded')
 
-const { t } = useI18n()
-
-// IPC Invokers
 const openConfigFile = useElectronEventaInvoke(electronMcpOpenConfigFile)
 const applyAndRestart = useElectronEventaInvoke(electronMcpApplyAndRestart)
 const getRuntimeStatus = useElectronEventaInvoke(electronMcpGetRuntimeStatus)
-const listTools = useElectronEventaInvoke(electronMcpListTools)
 const getConfig = useElectronEventaInvoke(electronMcpGetConfig)
 const updateConfig = useElectronEventaInvoke(electronMcpUpdateConfig)
 

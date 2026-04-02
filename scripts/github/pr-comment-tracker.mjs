@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 const REPO = 'moeru-ai/airi'
-const CATALOG_PATH = 'docs/FULL_UPSTREAM_PR_CATALOG.md'
+const CATALOG_PATH = 'docs/project-upstream-pr-catalog.md'
 const AGENT_LOGINS = ['gemini-code-assist', 'gemini-code-assist[bot]']
 const BOT_POSTFIX = '[bot]'
 const DELAY_MS = 1000

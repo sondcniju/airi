@@ -10,6 +10,7 @@
 ## Current Priorities
 
 - **PR #1065**: `fix(onboarding): allow manual model entry when list is empty`
+  - **Status**: ✅ **Squatted**. Integrated into fork's onboarding flow.
   - **Why it matters**: Good baseline fix for onboarding. More importantly, onboarding should stop acting like a weird shortlist-driven flow and expose the real provider surface instead of implying that unsupported providers do not exist.
   - **Fork direction**: Use this as the starting point for a broader onboarding refresh:
     - keep manual entry fallback
@@ -18,6 +19,7 @@
   - **Priority**: High (Under consideration)
 
 - **PR #917**: `feat(stage-tamagotchi): vision`
+  - **Status**: ⚪ **Ignored**. Half-baked merge upstream with non-tangible stubs.
   - **Why it matters**: Vision support / Screenshare API. Essential for "seeing" the screen (Minecraft/Factorio/etc).
   - **Status**: Active discussion (Mar 20). Blocking on `electron-audio-loopback` historically but core API is maturing.
   - **Priority**: High (Watch/Research)

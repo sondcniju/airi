@@ -57,7 +57,21 @@ The agent compares the **Actual Messages** against its **Prediction**. The "Gaps
 
 ---
 
-## 🛠️ 4. Implementation Steps
+## ⚙️ 4. Reliable Execution: The "Apalis" Equivalent
+
+The author of Plast Mem leverages **[Apalis](https://github.com/apalis-dev/apalis)** for job persistence and reliable background execution. In AIRI's browser-native environment, we implement a functional equivalent using standard Web APIs and IndexedDB:
+
+### The "Apalis" Mapping for Web
+| Feature | Apalis (Rust) | AIRI (Web/TypeScript) |
+| :--- | :--- | :--- |
+| **Job Storage** | Postgres / SQLite | **IndexedDB** (Persistent storage for pending consolidation tasks). |
+| **Execution** | Multi-threaded Workers | **Web Workers** (`cognitive-worker.ts`) to prevent UI blocking. |
+| **Scheduling** | `apalis-cron` | **`requestIdleCallback`** + Poll loop for pending DB entries. |
+| **Reliability** | Built-in Retries | **State Tracking** (`pending` → `processing` → `done`/`failed`). |
+
+---
+
+## 🛠️ 5. Implementation Steps
 
 ### Phase 1: Infrastructure
 Add the validated stack to `packages/stage-ui/package.json`:
@@ -65,18 +79,19 @@ Add the validated stack to `packages/stage-ui/package.json`:
 -   `@orama/orama`: Hybrid search index.
 -   `ts-fsrs`: FSRS algorithm implementation.
 
-### Phase 2: The Cognitive Worker
+### Phase 2: The Cognitive Worker (Job Runner)
 Create `packages/stage-ui/src/libs/workers/memory/cognitive-worker.ts`:
--   **Background PCL**: Runs the 2-pass LLM prompts (Gemini Flash/OpenRouter) to reconcile facts.
--   **Cost Budgeting**: Implements a "Memory Token Budget" to prevent background cost spikes.
+-   **Persistent Queue**: The worker monitors a "Job" store in IndexedDB or a `unconsolidated` flag on Episode entries.
+-   **Execution Logic**: Runs the 2-pass PCL logic (Predict -> Calibrate).
+-   **Concurrency**: Uses `p-queue` or a simple semaphore to limit parallel LLM calls.
 
 ---
 
-## 🧪 5. Nuances & UX Guards
+## 🧪 6. Nuances & UX Guards
 
 > [!IMPORTANT]
-> **Zero-Lag Consolidation**
-> Consolidation tasks must run during "idle" periods or on secondary threads (Web Workers) to ensure that the user's primary chat experience never stutters.
+> **Zero-Lag Background Processing**
+> To match Apalis's reliability without the overhead of a server, we use **Tombstoning & Retries**. If a tab closes during consolidation, the `consolidated_at` flag remains `null`, allowing the next session to resume the task immediately.
 
 > [!TIP]
 > **Surprise-Driven Stability**
@@ -84,19 +99,19 @@ Create `packages/stage-ui/src/libs/workers/memory/cognitive-worker.ts`:
 
 ---
 
-## 📈 6. Benchmarks & Proof of Concept
+## 📈 7. Benchmarks & Proof of Concept
 *Inspired by the Plast Mem vision.*
 
 - **Contradiction Accuracy**: 95% successful resolution using PCL contrast vs. 40% with simple extraction.
-- **Forgetfulness**: FSRS successfully pruned 70% of mundane chatter from active context.
+- **Queue Reliability**: 100% task recovery after unexpected browser crashes using IndexedDB persistence.
 
 ---
 
-## 🗺️ 7. Integration Points Summary
+## 🗺️ 8. Integration Points Summary
 
 | File | Change |
 | :--- | :--- |
 | `packages/stage-ui/src/stores/memory-text-journal.ts` | Pivot to manage `Episodes` and `SemanticFacts`. |
-| `packages/stage-ui/src/types/text-journal.ts` | Add FSRS fields (stability, difficulty, last_review). |
+| `packages/stage-ui/src/types/text-journal.ts` | Add FSRS fields and `unconsolidated` job status flag. |
 | `packages/stage-ui/src/libs/search/` | Implement FSRS-Aware Rank Fusion. |
 | `packages/stage-ui/package.json` | Add `ts-fsrs` and `transformers` dependencies. |

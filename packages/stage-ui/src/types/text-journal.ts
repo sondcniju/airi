@@ -1,4 +1,5 @@
-export type TextJournalEntrySource = 'tool' | 'chat' | 'proactivity' | 'user' | 'seed'
+export type TextJournalEntrySource = 'tool' | 'chat' | 'proactivity' | 'user' | 'seed' | 'episode'
+export type TextJournalEntryType = 'message' | 'episode'
 
 export interface TextJournalEntry {
   id: string
@@ -8,6 +9,20 @@ export interface TextJournalEntry {
   title: string
   content: string
   source: TextJournalEntrySource
+  type?: TextJournalEntryType
+
+  // FSRS fields
+  stability: number
+  difficulty: number
+  elapsed_days: number
+  scheduled_days: number
+  last_review: number
+  surprise?: number
+
+  // Search fields
+  embedding?: number[]
+  version?: string
+
   createdAt: number
   updatedAt: number
 }

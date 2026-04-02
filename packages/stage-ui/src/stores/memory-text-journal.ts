@@ -17,6 +17,20 @@ function normalizeEntry(entry: TextJournalEntry): TextJournalEntry {
     title: String(entry.title ?? ''),
     content: String(entry.content ?? ''),
     source: entry.source ?? 'tool',
+    type: entry.type ?? 'message',
+
+    // FSRS
+    stability: Number(entry.stability ?? 0),
+    difficulty: Number(entry.difficulty ?? 0),
+    elapsed_days: Number(entry.elapsed_days ?? 0),
+    scheduled_days: Number(entry.scheduled_days ?? 0),
+    last_review: Number(entry.last_review ?? entry.createdAt ?? Date.now()),
+    surprise: entry.surprise !== undefined ? Number(entry.surprise) : undefined,
+
+    // Search
+    embedding: Array.isArray(entry.embedding) ? entry.embedding : undefined,
+    version: entry.version,
+
     createdAt: Number.isFinite(entry.createdAt) ? Number(entry.createdAt) : Date.now(),
     updatedAt: Number.isFinite(entry.updatedAt) ? Number(entry.updatedAt) : Date.now(),
   }
@@ -95,6 +109,14 @@ export const useTextJournalStore = defineStore('text-journal', () => {
       title: (input.title?.trim() || 'Journal Entry'),
       content: input.content.trim(),
       source: input.source ?? 'tool',
+
+      // FSRS
+      stability: 0,
+      difficulty: 0,
+      elapsed_days: 0,
+      scheduled_days: 0,
+      last_review: now,
+
       createdAt: now,
       updatedAt: now,
     }
