@@ -2,16 +2,27 @@ import type { BrowserWindow } from 'electron'
 
 import type { MicToggleHotkey } from '../../../shared/eventa'
 
+import path from 'node:path'
+
+import { exec } from 'node:child_process'
+
 import { globalShortcut, ipcMain } from 'electron'
 
 let currentHotkey: MicToggleHotkey = 'Scroll'
 let currentWindow: BrowserWindow | null = null
+let macCapsLockPollingInterval: NodeJS.Timeout | null = null
+let lastMacCapsLockState: boolean | null = null
 
 /**
  * Stop any existing monitoring and unregister shortcuts
  */
 export function cleanupMicToggleShortcut() {
   globalShortcut.unregisterAll()
+  if (macCapsLockPollingInterval) {
+    clearInterval(macCapsLockPollingInterval)
+    macCapsLockPollingInterval = null
+  }
+  lastMacCapsLockState = null
   ipcMain.removeAllListeners('mic-state-changed')
 }
 
@@ -40,6 +51,32 @@ export function setupMicToggleShortcut(mainWindow: BrowserWindow, hotkey: MicTog
   // We will manually toggle it to keep the OS/User in sync.
 
   const registerShortcut = () => {
+    // 1. macOS specific handling for Caps Lock (polling workaround)
+    if (process.platform === 'darwin' && currentHotkey === 'Caps') {
+      const helperPath = path.join(__dirname, 'macos-capslock-check')
+      console.log(`[Mic Toggle] Using macOS polling fallback for Caps Lock. Helper: ${helperPath}`)
+
+      macCapsLockPollingInterval = setInterval(() => {
+        exec(helperPath, (error, stdout) => {
+          if (error) {
+            console.error(`[Mic Toggle] Error polling Caps Lock:`, error)
+            return
+          }
+
+          const currentState = stdout.trim() === '1'
+          if (lastMacCapsLockState !== null && currentState !== lastMacCapsLockState) {
+            console.log(`[Mic Toggle] Caps Lock state change detected (${lastMacCapsLockState} -> ${currentState}). Toggling mic.`)
+            if (currentWindow) {
+              currentWindow.webContents.send('toggle-mic-from-shortcut')
+            }
+          }
+          lastMacCapsLockState = currentState
+        })
+      }, 200) // Poll every 200ms
+      return
+    }
+
+    // 2. Standard globalShortcut for other keys/platforms
     try {
       const isRegistered = globalShortcut.register(electronKey, () => {
         console.log(`[Mic Toggle] Hotkey ${electronKey} pressed`)
