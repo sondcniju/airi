@@ -152,8 +152,8 @@ export function buildOpenAICompatibleProvider(
 
       const validationChecks = validation || []
       const hasApiKey = Boolean(apiKey)
-      // Prepare model auto-detection promise for checks that need it
-      const modelPromise = (async () => {
+      // Prepare model auto-detection function for checks that need it
+      const getModel = async () => {
         let detected = (resolvedCategory === 'speech') ? 'tts-1' : 'test'
         if (!hasApiKey)
           return detected
@@ -198,14 +198,14 @@ export function buildOpenAICompatibleProvider(
           }
         }
         return detected
-      })()
+      }
 
       // Health check = try generating content based on category
       const asyncChecks: Promise<Error | null>[] = []
       if (validationChecks.includes('health') && hasApiKey) {
         asyncChecks.push((async () => {
           try {
-            const model = await modelPromise
+            const model = await getModel()
             if (resolvedCategory === 'speech') {
               await generateSpeech({
                 apiKey,

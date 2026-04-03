@@ -2,11 +2,8 @@
 import type { OnboardingStepNextHandler, OnboardingStepPrevHandler } from './types'
 
 import { Button, Input } from '@proj-airi/ui'
-import { useIntervalFn } from '@vueuse/core'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-
-import { loginQwenPortalOAuth, pollQwenDeviceToken } from '../../../../libs/providers/providers/qwen-portal/oauth'
 
 const props = defineProps<{
   onNext: OnboardingStepNextHandler
@@ -15,77 +12,21 @@ const props = defineProps<{
 
 const { t } = useI18n()
 
-// Qwen State
-const isLoggingInQwen = ref(false)
-const qwenUserCode = ref('')
-const qwenVerificationUri = ref('')
-const qwenToken = ref<any>(null)
-const qwenError = ref('')
-
-let qwenDeviceCode = ''
-let qwenVerifier = ''
+// OpenRouter State
+const openRouterKey = ref('')
 
 // Deepgram State
 const senseKey = ref('')
 
-async function loginWithQwen() {
-  isLoggingInQwen.value = true
-  qwenError.value = ''
-
-  try {
-    const { verifier, deviceAuth } = await loginQwenPortalOAuth()
-    qwenVerifier = verifier
-    qwenDeviceCode = deviceAuth.device_code
-    qwenUserCode.value = deviceAuth.user_code
-    qwenVerificationUri.value = deviceAuth.verification_uri_complete || deviceAuth.verification_uri
-
-    // Open verification URI in a new tab
-    window.open(qwenVerificationUri.value, '_blank')
-
-    // Start polling
-    resumePolling()
-  }
-  catch (err: any) {
-    qwenError.value = err.message || 'Failed to initiate login'
-    isLoggingInQwen.value = false
-  }
-}
-
-const { pause: pausePolling, resume: resumePolling } = useIntervalFn(async () => {
-  if (!qwenDeviceCode)
-    return
-
-  try {
-    const result = await pollQwenDeviceToken(qwenDeviceCode, qwenVerifier)
-
-    if (result.status === 'success') {
-      qwenToken.value = result.token
-      isLoggingInQwen.value = false
-      qwenUserCode.value = ''
-      pausePolling()
-    }
-    else if (result.status === 'error') {
-      qwenError.value = result.message
-      isLoggingInQwen.value = false
-      pausePolling()
-    }
-  }
-  catch (err: any) {
-    qwenError.value = err.message || 'Polling failed'
-    isLoggingInQwen.value = false
-    pausePolling()
-  }
-}, 5000, { immediate: false })
-
 function handleNext() {
   props.onNext({
-    qwen: qwenToken.value,
-    deepgram: senseKey.value,
+    openrouter: openRouterKey.value.trim(),
+    deepgram: senseKey.value.trim(),
   })
 }
 
 const canGoNext = computed(() => {
-  return !!qwenToken.value && !!senseKey.value.trim()
+  return !!openRouterKey.value.trim() && !!senseKey.value.trim()
 })
 </script>
 
@@ -140,46 +81,38 @@ const canGoNext = computed(() => {
           <div class="flex flex-col gap-4">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div flex flex-col gap-1>
-                <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">Qwen Portal</span>
+                <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">OpenRouter (Free)</span>
                 <span class="max-w-md text-xs text-neutral-500 line-height-relaxed">
-                  {{ t('settings.dialogs.onboarding.senseSetup.qwenSubtext') }}
+                  {{ t('settings.dialogs.onboarding.senseSetup.openRouterSubtext') }}
                 </span>
               </div>
               <Button
-                v-if="!qwenToken && !qwenUserCode"
-                :loading="isLoggingInQwen"
-                variant="primary"
+                variant="secondary"
                 size="sm"
                 class="shrink-0"
-                @click="loginWithQwen"
+                as="a"
+                href="https://openrouter.ai/keys"
+                target="_blank"
               >
                 <template #icon>
-                  <div class="i-solar:login-3-bold-duotone h-4 w-4" />
+                  <div class="i-simple-icons:openrouter h-4 w-4" />
                 </template>
-                {{ t('settings.dialogs.onboarding.senseSetup.loginWithQwen') }}
+                {{ t('settings.dialogs.onboarding.senseSetup.getOpenRouterKey') }}
               </Button>
-              <div v-else-if="qwenToken" class="flex items-center gap-2 text-green-500">
-                <div class="i-solar:check-circle-bold h-5 w-5" />
-                <span class="text-xs font-semibold">Connected</span>
-              </div>
             </div>
 
-            <!-- Polling State UI -->
-            <div v-if="qwenUserCode" class="flex flex-col animate-fade-in gap-3 border border-primary-500/10 rounded-xl bg-primary-500/5 p-4">
-              <p class="text-center text-[10px] text-primary-500 font-bold tracking-widest uppercase">
-                Verification Code
-              </p>
-              <div class="py-2 text-center text-3xl text-neutral-800 font-bold tracking-widest font-mono dark:text-neutral-100">
-                {{ qwenUserCode }}
-              </div>
-              <p class="text-center text-[10px] text-neutral-400">
-                Please complete the login in your browser. Waiting for confirmation...
-              </p>
+            <!-- Key Input -->
+            <div flex flex-col gap-2>
+              <label class="text-[10px] text-neutral-400 font-semibold tracking-widest uppercase">
+                {{ t('settings.dialogs.onboarding.apiKey') }}
+              </label>
+              <Input
+                v-model="openRouterKey"
+                type="password"
+                placeholder="sk-or-..."
+                variant="primary-dimmed"
+              />
             </div>
-
-            <p v-if="qwenError" class="text-xs text-red-500">
-              {{ qwenError }}
-            </p>
           </div>
         </div>
       </section>

@@ -1,12 +1,14 @@
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { refManualReset } from '@vueuse/core'
 import { defineStore } from 'pinia'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 
+import { useOnboardingStore } from '../onboarding'
 import { useProvidersStore } from '../providers'
 
 export const useConsciousnessStore = defineStore('consciousness', () => {
   const providersStore = useProvidersStore()
+  const onboardingStore = useOnboardingStore()
 
   // State
   const activeProvider = useLocalStorageManualReset<string>('settings/consciousness/active-provider', '')
@@ -70,10 +72,34 @@ export const useConsciousnessStore = defineStore('consciousness', () => {
     return !!activeProvider.value && !!activeModel.value
   })
 
+  watch(providerModels, (models) => {
+    if (activeModel.value && models.length > 0 && !models.find(m => m.id === activeModel.value))
+      resetModelSelection()
+  })
+
   function resetState() {
     activeProvider.reset()
     resetModelSelection()
   }
+
+  // Watch for provider changes and load models
+  watch(activeProvider, async (newProvider) => {
+    if (newProvider) {
+      await loadModelsForProvider(newProvider)
+    }
+  }, { immediate: true })
+
+  // Self-healing: Reset active provider if it no longer exists
+  watch(activeProvider, () => {
+    // Bypass self-healing during onboarding
+    if (onboardingStore.needsOnboarding)
+      return
+
+    if (Object.keys(providersStore.providerMetadata).length > 0 && activeProvider.value && !providersStore.providerMetadata[activeProvider.value]) {
+      activeProvider.value = ''
+      activeModel.value = ''
+    }
+  }, { immediate: true })
 
   return {
     // State

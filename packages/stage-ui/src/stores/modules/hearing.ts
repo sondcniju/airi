@@ -12,6 +12,7 @@ import { toast } from 'vue-sonner'
 
 import vadWorkletUrl from '../../workers/vad/process.worklet?worker&url'
 
+import { useOnboardingStore } from '../onboarding'
 import { useProvidersStore } from '../providers'
 import { streamAliyunTranscription } from '../providers/aliyun/stream-transcription'
 import { streamWebSpeechAPITranscription } from '../providers/web-speech-api'
@@ -58,6 +59,7 @@ const STREAM_TRANSCRIPTION_EXECUTORS: Record<string, StreamTranscription> = {
 
 export const useHearingStore = defineStore('hearing-store', () => {
   const providersStore = useProvidersStore()
+  const onboardingStore = useOnboardingStore()
   const { allAudioTranscriptionProvidersMetadata } = storeToRefs(providersStore)
 
   // State
@@ -263,6 +265,26 @@ export const useHearingStore = defineStore('hearing-store', () => {
       ...response,
     }
   }
+
+  // Watch for provider changes and load models
+  watch(activeTranscriptionProvider, async (newProvider) => {
+    if (newProvider) {
+      await loadModelsForProvider(newProvider)
+    }
+  }, { immediate: true })
+  // Self-healing: Reset active provider if it no longer exists
+  watch(activeTranscriptionProvider, () => {
+    // Bypass self-healing during onboarding
+    if (onboardingStore.needsOnboarding)
+      return
+
+    if (Object.keys(providersStore.providerMetadata).length > 0 && activeTranscriptionProvider.value && !providersStore.providerMetadata[activeTranscriptionProvider.value]) {
+      console.warn(`[Hearing] Provider ${activeTranscriptionProvider.value} no longer exists. Resetting.`)
+      activeTranscriptionProvider.value = ''
+      activeTranscriptionModel.value = ''
+      activeCustomModelName.value = ''
+    }
+  }, { immediate: true })
 
   return {
     activeTranscriptionProvider,

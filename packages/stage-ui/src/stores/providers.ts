@@ -1233,22 +1233,17 @@ export const useProvidersStore = defineStore('providers', () => {
     'deepgram-tts': {
       id: 'deepgram-tts',
       category: 'speech',
-      pricing: 'free',
-      deployment: 'cloud',
-      beginnerRecommended: true,
       tasks: ['text-to-speech'],
       nameKey: 'settings.pages.providers.provider.deepgram-tts.title',
       name: 'Deepgram',
       descriptionKey: 'settings.pages.providers.provider.deepgram-tts.description',
-      description: 'High-Performance Aura - Low-latency speech synthesis for real-time agents',
+      description: 'deepgram.com',
       icon: 'i-simple-icons:deepgram',
       defaultOptions: () => ({
         baseUrl: 'https://unspeech.hyp3r.link/v1/',
       }),
       createProvider: async (config) => {
-        const apiKey = (config.apiKey as string | undefined)?.trim() ?? ''
-        const baseUrl = (config.baseUrl as string | undefined)?.trim() ?? ''
-        const provider = createUnDeepgram(apiKey, baseUrl) as SpeechProviderWithExtraOptions<string, UnDeepgramOptions>
+        const provider = createUnDeepgram((config.apiKey as string).trim(), (config.baseUrl as string).trim()) as SpeechProviderWithExtraOptions<string, UnDeepgramOptions>
         return provider
       },
       capabilities: {
@@ -1280,10 +1275,8 @@ export const useProvidersStore = defineStore('providers', () => {
             },
           ]
         },
-        listVoices: async (config: Record<string, unknown>) => {
-          const apiKey = (config.apiKey as string | undefined)?.trim() ?? ''
-          const baseUrl = (config.baseUrl as string | undefined)?.trim() ?? ''
-          const provider = createUnDeepgram(apiKey, baseUrl) as VoiceProviderWithExtraOptions<UnDeepgramOptions>
+        listVoices: async (config) => {
+          const provider = createUnDeepgram((config.apiKey as string).trim(), (config.baseUrl as string).trim()) as VoiceProviderWithExtraOptions<UnDeepgramOptions>
 
           const voices = await listVoices({
             ...provider.voice(),
@@ -1302,6 +1295,7 @@ export const useProvidersStore = defineStore('providers', () => {
         },
       },
       validators: {
+        chatPingCheckAvailable: false,
         validateProviderConfig: (config) => {
           const errors: Error[] = []
           if (!config.apiKey) {
@@ -1315,7 +1309,7 @@ export const useProvidersStore = defineStore('providers', () => {
 
           return {
             errors,
-            reason: errors.filter((e): e is Error => e instanceof Error).map(e => e.message).join(', '),
+            reason: errors.map(e => e.message).join(', '),
             valid: errors.length === 0,
           }
         },
@@ -2772,7 +2766,7 @@ export const useProvidersStore = defineStore('providers', () => {
   const providerMetadata = createProviderRegistry(t, providerDefinitions)
 
   // const validatedCredentials = ref<Record<string, string>>({})
-  const providerRuntimeState = ref<Record<string, ProviderRuntimeState>>({})
+  const providerRuntimeState = useLocalStorage<Record<string, ProviderRuntimeState>>('settings/providers/runtime', {})
   const providerValidationInFlight = new Map<string, Promise<boolean>>()
 
   const configuredProviders = computed(() => {
@@ -3108,8 +3102,10 @@ export const useProvidersStore = defineStore('providers', () => {
   function getProviderMetadata(providerId: string) {
     const metadata = providerMetadata[providerId]
 
-    if (!metadata)
-      throw new Error(`Provider metadata for ${providerId} not found`)
+    if (!metadata) {
+      console.warn(`Provider metadata for ${providerId} not found`)
+      return null as any
+    }
 
     return {
       ...metadata,
@@ -3155,8 +3151,10 @@ export const useProvidersStore = defineStore('providers', () => {
       return cached
 
     const metadata = providerMetadata[providerId]
-    if (!metadata)
-      throw new Error(`Provider metadata for ${providerId} not found`)
+    if (!metadata) {
+      console.warn(`Provider metadata for ${providerId} not found`)
+      return null as any
+    }
 
     // Web Speech API doesn't require credentials - use empty config
     let config = providerCredentials.value[providerId]
@@ -3323,6 +3321,7 @@ export const useProvidersStore = defineStore('providers', () => {
   return {
     providers: providerCredentials,
     getProviderConfig,
+    getDefaultProviderConfig,
     addedProviders,
     markProviderAdded,
     unmarkProviderAdded,

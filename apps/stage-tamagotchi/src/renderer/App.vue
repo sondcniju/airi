@@ -14,12 +14,17 @@ import { useTextJournalStore } from '@proj-airi/stage-ui/stores/memory-text-jour
 import { useModsServerChannelStore } from '@proj-airi/stage-ui/stores/mods/api/channel-server'
 import { useContextBridgeStore } from '@proj-airi/stage-ui/stores/mods/api/context-bridge'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useDiscordStore } from '@proj-airi/stage-ui/stores/modules/discord'
+import { useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
+import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useOnboardingStore } from '@proj-airi/stage-ui/stores/onboarding'
 import { usePerfTracerBridgeStore } from '@proj-airi/stage-ui/stores/perf-tracer-bridge'
 import { listProvidersForPluginHost, shouldPublishPluginHostCapabilities } from '@proj-airi/stage-ui/stores/plugin-host-capabilities'
 import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
+import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
+import { useSettingsStageModel } from '@proj-airi/stage-ui/stores/settings/stage-model'
 import { useTheme } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { onMounted, onUnmounted, watch } from 'vue'
@@ -74,6 +79,10 @@ const shortTermMemoryStore = useShortTermMemoryStore()
 usePerfTracerBridgeStore()
 
 const proactivityStore = useProactivityStore()
+const providersStore = useProvidersStore()
+const consciousnessStore = useConsciousnessStore()
+const speechStore = useSpeechStore()
+const stageModelStore = useSettingsStageModel()
 
 async function seedTextJournalEntryFromWindow() {
   await textJournalStore.load()
@@ -147,8 +156,10 @@ onMounted(async () => {
   const logStep = (label: string) => {
     console.log(`[App] ${label} (+${Math.round(performance.now() - startupAt)}ms)`)
   }
+  const hearingStore = useHearingStore()
 
   logStep('onMounted start')
+
   proactivityStore.registerTools(builtinTools)
   proactivityStore.startHeartbeatLoop()
 
@@ -183,7 +194,7 @@ onMounted(async () => {
   characterOrchestratorStore.initialize()
   logStep('Starting cursor tracking')
   await startTrackingCursorPoint()
-  logStep('Startup initialization complete')
+  // Startup initialization complete
 
   // Expose stage provider definitions to plugin host APIs.
   defineInvokeHandler(context.value, pluginProtocolListProviders, async () => listProvidersForPluginHost())

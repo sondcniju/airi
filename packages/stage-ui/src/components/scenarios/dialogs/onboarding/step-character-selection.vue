@@ -17,7 +17,6 @@ const cardStore = useAiriCardStore()
 const displayModelsStore = useDisplayModelsStore()
 
 const reluPreviewAttribute = new URL('../../../menu/relu.avif', import.meta.url).href
-
 const fileInput = ref<HTMLInputElement | null>(null)
 
 interface CharacterMetadata extends Partial<AiriCard> {
@@ -77,8 +76,6 @@ function parsePngCharaPayload(buffer: ArrayBuffer): CharacterMetadata | null {
   return null
 }
 
-const resolvedPreviews = ref<Record<string, string>>({})
-
 const starterCharacters = computed(() => {
   const seen = new Set<string>()
   return Array.from(cardStore.cards.entries())
@@ -92,8 +89,11 @@ const starterCharacters = computed(() => {
       return false
     })
     .map(([id, card]) => {
-      let preview = resolvedPreviews.value[id] || ''
-      if (card.name === 'ReLU' || card.name === 'Relu')
+      const displayModelId = card.extensions?.airi?.modules?.displayModelId
+      const model = displayModelsStore.displayModels.find(m => m.id === displayModelId)
+      let preview = model?.previewImage || ''
+
+      if (!preview && (card.name === 'ReLU' || card.name === 'Relu'))
         preview = reluPreviewAttribute
 
       return {
@@ -105,24 +105,8 @@ const starterCharacters = computed(() => {
     })
 })
 
-async function resolvePreviews() {
-  for (const [id, card] of cardStore.cards.entries()) {
-    if (card.name === 'ReLU' || card.name === 'Relu')
-      continue
-
-    const displayModelId = card.extensions?.airi?.modules?.displayModelId
-    if (displayModelId) {
-      const model = await displayModelsStore.getDisplayModel(displayModelId)
-      if (model?.previewImage) {
-        resolvedPreviews.value[id] = model.previewImage
-      }
-    }
-  }
-}
-
 onMounted(async () => {
   await displayModelsStore.loadDisplayModelsFromIndexedDB()
-  await resolvePreviews()
 })
 
 function selectCharacter(id: string) {

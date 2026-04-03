@@ -10,6 +10,7 @@ import { computed, onMounted, watch } from 'vue'
 import { toXml } from 'xast-util-to-xml'
 import { x } from 'xastscript'
 
+import { useOnboardingStore } from '../onboarding'
 import { useProactivityStore } from '../proactivity'
 import { useProvidersStore } from '../providers'
 
@@ -23,6 +24,7 @@ export function toSignedPercent(value: number): string {
 
 export const useSpeechStore = defineStore('speech', () => {
   const providersStore = useProvidersStore()
+  const onboardingStore = useOnboardingStore()
   const { allAudioSpeechProvidersMetadata } = storeToRefs(providersStore)
 
   // State
@@ -126,42 +128,41 @@ export const useSpeechStore = defineStore('speech', () => {
     return availableVoices.value[provider] || []
   }
 
-  // Watch for provider changes and load voices
+  // Watch for provider changes and load voices/models
   watch(activeSpeechProvider, async (newProvider) => {
     if (newProvider) {
-      await loadVoicesForProvider(newProvider)
+      await Promise.all([
+        loadVoicesForProvider(newProvider),
+        providersStore.fetchModelsForProvider(newProvider),
+      ])
       // Don't reset voice settings when changing providers to allow for persistence
     }
-  }, {
-    // REVIEW: should we always load voices on init? What will happen when network is not available?
-    immediate: true,
-  })
+  }, { immediate: true })
+
+  // Self-healing: Reset active provider if it no longer exists
+  watch([activeSpeechProvider, () => providersStore.providerMetadata], () => {
+    // Bypass self-healing during onboarding
+    if (onboardingStore.needsOnboarding)
+      return
+
+    const providerId = activeSpeechProvider.value
+    if (providerId === 'speech-noop')
+      return
+
+    const metadataLoaded = Object.keys(providersStore.providerMetadata).length > 0
+
+    // Only reset if metadata is loaded and the provider actually doesn't exist in metadata
+    if (metadataLoaded && !providersStore.providerMetadata[providerId]) {
+      activeSpeechProvider.value = 'speech-noop'
+      activeSpeechModel.value = ''
+      activeSpeechVoiceId.value = ''
+      activeSpeechVoice.value = undefined
+    }
+  }, { immediate: true })
 
   if (!activeSpeechProvider.value) {
     activeSpeechProvider.value = 'speech-noop'
   }
-
-  watch(
-    () => providersStore.configuredSpeechProvidersMetadata.map(provider => provider.id),
-    (configuredProviderIds) => {
-      if (!activeSpeechProvider.value || activeSpeechProvider.value === 'speech-noop')
-        return
-
-      // NOTICE: only reset when the provider has actually been validated and found unconfigured.
-      // Skip reset if validation hasn't run yet (validatedCredentialHash is undefined)
-      // to avoid a race condition where immediate watcher fires before async validation completes.
-      const runtimeState = providersStore.providerRuntimeState[activeSpeechProvider.value]
-      if (runtimeState && runtimeState.validatedCredentialHash === undefined)
-        return
-
-      if (!configuredProviderIds.includes(activeSpeechProvider.value)) {
-        activeSpeechProvider.value = 'speech-noop'
-        activeSpeechModel.value = ''
-        activeSpeechVoiceId.value = ''
-        activeSpeechVoice.value = undefined
-      }
-    },
-  )
 
   onMounted(() => {
     loadVoicesForProvider(activeSpeechProvider.value).then(() => {

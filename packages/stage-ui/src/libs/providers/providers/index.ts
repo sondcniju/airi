@@ -27,7 +27,6 @@ import './modelscope'
 import './ollama'
 import './cloudflare-workers-ai'
 import './azure-ai-foundry'
-import './qwen-portal'
 
 export {
   getDefinedProvider,

@@ -54,27 +54,67 @@ async function configureEasyMode(data: any) {
   if (!data)
     return
 
-  // 1. Configure Qwen Portal (Consciousness)
-  if (data.qwen) {
-    providers.value['qwen-portal'] = {
-      apiKey: data.qwen.access_token,
-      refreshToken: data.qwen.refresh_token,
-      expiresAt: data.qwen.expires_at,
+  // 1. Configure OpenRouter (Consciousness)
+  if (data.openrouter) {
+    const orKey = data.openrouter.trim()
+    // Ensure we have the base config with defaults (like baseUrl)
+    const defaultConfig = providersStore.getDefaultProviderConfig('openrouter-ai')
+
+    // Set credentials first
+    providers.value['openrouter-ai'] = {
+      ...defaultConfig,
+      ...providers.value['openrouter-ai'],
+      apiKey: orKey,
     }
-    addedProviders.value['qwen-portal'] = true
-    consciousnessStore.activeProvider = 'qwen-portal'
-    // Default to a sensible Qwen model if known, or let it load
-    consciousnessStore.activeModel = 'coder-model'
+    addedProviders.value['openrouter-ai'] = true
+
+    // Now force it as configured. This will cache the new apiKey hash.
+    providersStore.forceProviderConfigured('openrouter-ai')
+
+    // Trigger lazy fetching so models are ready for selection
+    void providersStore.fetchModelsForProvider('openrouter-ai')
   }
 
   // 2. Configure Deepgram (Speech & Hearing)
   if (data.deepgram) {
     const dgKey = data.deepgram.trim()
-    providers.value['deepgram-tts'] = { apiKey: dgKey }
-    providers.value['deepgram-transcription'] = { apiKey: dgKey }
-    addedProviders.value['deepgram-tts'] = true
-    addedProviders.value['deepgram-transcription'] = true
 
+    // Setup TTS credentials
+    const dgtConfig = providersStore.getDefaultProviderConfig('deepgram-tts')
+    providers.value['deepgram-tts'] = {
+      ...dgtConfig,
+      ...providers.value['deepgram-tts'],
+      apiKey: dgKey,
+    }
+    providersStore.forceProviderConfigured('deepgram-tts')
+
+    // Setup Transcription credentials
+    const dgSttConfig = providersStore.getDefaultProviderConfig('deepgram-transcription')
+    providers.value['deepgram-transcription'] = {
+      ...dgSttConfig,
+      ...providers.value['deepgram-transcription'],
+      apiKey: dgKey,
+    }
+    providersStore.forceProviderConfigured('deepgram-transcription')
+
+    // Trigger lazy fetching
+    void providersStore.fetchModelsForProvider('deepgram-tts')
+    void providersStore.fetchModelsForProvider('deepgram-transcription')
+  }
+
+  // CRITICAL: Wait for the providersStore to propagate the "configured" status
+  // before we try to set them as active in the module stores.
+  await nextTick()
+  // Wait a tiny bit more for cross-window sync if needed (though nextTick + persistent store should be enough)
+  await new Promise(resolve => setTimeout(resolve, 50))
+
+  // 3. Assign Modules
+  if (data.openrouter) {
+    consciousnessStore.activeProvider = 'openrouter-ai'
+    consciousnessStore.activeModel = 'openrouter/free'
+  }
+
+  if (data.deepgram) {
     // Set Active Speech
     speechStore.activeSpeechProvider = 'deepgram-tts'
     speechStore.activeSpeechModel = 'aura-2'
@@ -85,7 +125,7 @@ async function configureEasyMode(data: any) {
     hearingStore.activeTranscriptionModel = 'nova-3'
   }
 
-  // Save changes
+  // Final save
   await nextTick()
 }
 

@@ -7,9 +7,13 @@ import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models
 import { useModsServerChannelStore } from '@proj-airi/stage-ui/stores/mods/api/channel-server'
 import { useContextBridgeStore } from '@proj-airi/stage-ui/stores/mods/api/context-bridge'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
+import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useOnboardingStore } from '@proj-airi/stage-ui/stores/onboarding'
 import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
+import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
+import { useSettingsStageModel } from '@proj-airi/stage-ui/stores/settings/stage-model'
 import { useTheme } from '@proj-airi/ui'
 import { StageTransitionGroup } from '@proj-airi/ui-transitions'
 import { storeToRefs } from 'pinia'
@@ -38,6 +42,10 @@ const { isDark } = useTheme()
 const cardStore = useAiriCardStore()
 const analyticsStore = useSharedAnalyticsStore()
 const proactivityStore = useProactivityStore()
+const providersStore = useProvidersStore()
+const consciousnessStore = useConsciousnessStore()
+const speechStore = useSpeechStore()
+const stageModelStore = useSettingsStageModel()
 
 const primaryColor = computed(() => {
   return isDark.value
@@ -98,6 +106,24 @@ onMounted(async () => {
   console.log('[App] Loading models...')
   await displayModelsStore.loadDisplayModelsFromIndexedDB()
   await settingsStore.initializeStageModel()
+
+  // Expose stores for live debugging
+  const airi = {
+    providers: providersStore,
+    consciousness: consciousnessStore,
+    speech: speechStore,
+    cards: cardStore,
+    models: displayModelsStore,
+    stageModel: stageModelStore,
+    settings: settingsStore,
+    onboarding: onboardingStore,
+    chat: chatSessionStore,
+    orchestrator: characterOrchestratorStore,
+  }
+  // @ts-expect-error - exposing to window for debugging
+  window.airi = airi
+  console.log('--- [AIRI DEBUG] Store bridge active: window.airi is ready ---')
+
   console.log('[App] onMounted complete')
 })
 

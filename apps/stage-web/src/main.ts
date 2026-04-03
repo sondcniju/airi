@@ -6,6 +6,12 @@ import NProgress from 'nprogress'
 
 import { autoAnimatePlugin } from '@formkit/auto-animate/vue'
 import { isEnvTruthy } from '@proj-airi/stage-shared'
+import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
+import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
+import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
+import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
+import { useSettingsStageModel } from '@proj-airi/stage-ui/stores/settings/stage-model'
 import { MotionPlugin } from '@vueuse/motion'
 import { createPinia } from 'pinia'
 import { setupLayouts } from 'virtual:generated-layouts'
@@ -86,7 +92,23 @@ if (import.meta.env.DEV && !import.meta.env.SSR) {
 
   observer.observe(document.body, { childList: true, subtree: true })
 
-  // Disconnect on timeout in case the MutationObserver is left here forever.
-  // `observer.disconnect()` is idempotent, so it's safe to call it multiple times.
   setTimeout(() => observer.disconnect(), 15 * 1000)
+}
+
+// Expose stores for live debugging (Unconditional for direct debug access)
+try {
+  const airi = {
+    providersStore: useProvidersStore(pinia),
+    consciousnessStore: useConsciousnessStore(pinia),
+    speechStore: useSpeechStore(pinia),
+    cardStore: useAiriCardStore(pinia),
+    displayModelsStore: useDisplayModelsStore(pinia),
+    stageModelStore: useSettingsStageModel(pinia),
+  }
+  // @ts-expect-error - exposing to window for debugging
+  window.airi = airi
+  console.log('--- [AIRI DEBUG] Store bridge active: window.airi is ready ---')
+}
+catch (e) {
+  console.error('--- [AIRI DEBUG] Failed to initialize store bridge ---', e)
 }

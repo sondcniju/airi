@@ -2,7 +2,7 @@ import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { isWithinSchedule, visionCaptureScreen } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { defineStore, storeToRefs } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { useChatOrchestratorStore } from '../chat'
 import { useProvidersStore } from '../providers'
@@ -171,6 +171,15 @@ export const useVisionStore = defineStore('vision', () => {
     resetModelSelection()
     contextWindow.reset()
   }
+
+  // Self-healing: Reset active provider if it no longer exists
+  watch(activeProvider, (newVal) => {
+    if (newVal && !providersStore.providerMetadata[newVal]) {
+      console.warn(`[Vision] Provider ${newVal} no longer exists. Resetting.`)
+      activeProvider.value = ''
+      resetModelSelection()
+    }
+  }, { immediate: true })
 
   return {
     // State

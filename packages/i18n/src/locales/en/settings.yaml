@@ -25,9 +25,9 @@ dialogs:
       description: "Configure your companion's core senses to begin."
       consciousness: 'Consciousness'
       speech: 'Speech & Hearing'
-      loginWithQwen: 'Login with Qwen Portal'
-      qwenSubtext: 'Free-to-start, daily quota included. Simply sign in with Google—no
-        API key required.'
+      getOpenRouterKey: 'Get OpenRouter Key'
+      openRouterSubtext: 'Fast, high-quality, and free models. No complex verification
+        required.'
       deepgramSubtext: '$200 credits for initial signups. Approximately 50 hours of
         transcription/speech services included.'
       senseKey: 'Sense Key'
@@ -968,21 +968,6 @@ pages:
       minimax-global:
         description: Aggressive Pricing - High-performance LLMs at market-low rates
         title: MiniMax Global
-      qwen-portal:
-        title: Qwen Portal
-        description: Moderate free usage tier, no API key needed, decent roleplaying model
-        oauth:
-          title: Qwen Authorization
-          start: Authorize
-          description: Authorize AIRI to access Qwen models via OAuth.
-          instruction: Open the link and enter the code to authorize AIRI.
-          user_code: User Code
-          open_browser: Open Browser
-          status:
-            pending: Waiting for authorization...
-            success: Successfully authorized Qwen!
-            error: Authorization failed. Please try again.
-            timeout: Authorization timed out.
       mistral:
         description: European Open-Weights - High-efficiency, low-latency models
         title: Mistral
