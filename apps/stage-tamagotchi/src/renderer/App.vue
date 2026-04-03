@@ -172,6 +172,8 @@ onMounted(async () => {
   const serverChannelConfig = await getServerChannelConfig()
   logStep('Received server channel config')
   serverChannelSettingsStore.websocketTlsConfig = serverChannelConfig.websocketTlsConfig
+  serverChannelSettingsStore.authToken = serverChannelConfig.authToken
+  serverChannelSettingsStore.hostname = serverChannelConfig.hostname
 
   logStep('Initializing server channel store')
   await serverChannelStore.initialize({ possibleEvents: ['ui:configure'] }).catch(err => console.error('Failed to initialize Mods Server Channel in App.vue:', err))

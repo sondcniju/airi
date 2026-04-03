@@ -589,5 +589,3 @@ export function setupApp(options?: AppOptions): { app: H3, closeAllPeers: () => 
     closeAllPeers,
   }
 }
-
-export const { app, closeAllPeers: _ } = setupApp()

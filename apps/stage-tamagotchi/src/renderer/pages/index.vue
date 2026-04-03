@@ -525,8 +525,10 @@ onMounted(async () => {
 
   if (window.electron?.ipcRenderer) {
     window.electron.ipcRenderer.on('toggle-mic-from-shortcut', () => {
-      console.info('[Main Page] Toggling mic from shortcut')
+      const oldState = settingsAudioDeviceStore.enabled
+      console.info(`[Renderer] Received 'toggle-mic-from-shortcut' event. Current mic enabled: ${oldState}`)
       settingsAudioDeviceStore.enabled = !settingsAudioDeviceStore.enabled
+      console.info(`[Renderer] Mic state flipped to: ${settingsAudioDeviceStore.enabled}`)
     })
   }
 })

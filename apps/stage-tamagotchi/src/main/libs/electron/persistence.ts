@@ -30,9 +30,22 @@ export interface CreateConfigOptions<T> {
 
 const persistenceMap = new Map<string, unknown>()
 const diagnosticsMap = new Map<string, ConfigDiagnostics<unknown>>()
+const configRegistry = new Set<Config<any>>()
+
+function getUserDataPath() {
+  try {
+    return app.getPath('userData')
+  }
+  catch (e) {
+    // Fallback or early access might fail on some platforms/versions if called too early
+    console.error('[Persistence] Failed to get userData path:', e)
+    return ''
+  }
+}
 
 function createConfigPath(namespace: string, filename: string) {
-  return join(app.getPath('userData'), `${namespace}-${filename}`)
+  const path = join(getUserDataPath(), `${namespace}-${filename}`)
+  return path
 }
 
 async function ensureConfigDirectory(path: string) {
@@ -132,6 +145,7 @@ export function createConfig<TSchema extends PersistedSchema>(
       const raw = readFileSync(path, { encoding: 'utf-8' })
       const parsed = parseWithSchema(raw, schema)
       if (parsed.value !== undefined) {
+        console.log(`[Persistence] Loaded config from ${path}:`, parsed.value)
         const diagnostics = recordDiagnostics({
           status: 'ok',
           path,
@@ -141,6 +155,7 @@ export function createConfig<TSchema extends PersistedSchema>(
         return diagnostics
       }
 
+      console.warn(`[Persistence] Invalid config at ${path}. Issues:`, parsed.issues)
       const fallback = options?.default
       const diagnostics = recordDiagnostics({
         status: 'invalid',
@@ -176,19 +191,22 @@ export function createConfig<TSchema extends PersistedSchema>(
   }
 
   const update = (newData: InferOutput<TSchema>) => {
+    console.log(`[Persistence] Updating config ${key}. New data:`, newData)
     persistenceMap.set(key, newData)
     save()
   }
 
   const flush = () => {
+    const path = configPath()
     try {
       const data = persistenceMap.get(key)
       if (data !== undefined) {
-        writeFileSync(configPath(), JSON.stringify(data))
+        console.log(`[Persistence] Sync flushing config to ${path}`)
+        writeFileSync(path, JSON.stringify(data))
       }
     }
     catch (error) {
-      console.error('Failed to flush config', error)
+      console.error(`[Persistence] Failed to flush config to ${path}`, error)
     }
   }
 
@@ -196,11 +214,22 @@ export function createConfig<TSchema extends PersistedSchema>(
 
   const getDiagnostics = () => diagnosticsMap.get(key) as ConfigDiagnostics<InferOutput<TSchema>> | undefined
 
-  return {
+  const configInstance: Config<TSchema> = {
     setup,
     get,
     update,
     flush,
     getDiagnostics,
+  }
+
+  configRegistry.add(configInstance)
+
+  return configInstance
+}
+
+export function flushAllConfigs() {
+  console.log(`[Persistence] Flushing all ${configRegistry.size} configs...`)
+  for (const config of configRegistry) {
+    config.flush()
   }
 }

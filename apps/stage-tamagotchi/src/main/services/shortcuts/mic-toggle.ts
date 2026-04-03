@@ -2,11 +2,11 @@ import type { BrowserWindow } from 'electron'
 
 import type { MicToggleHotkey } from '../../../shared/eventa'
 
-import path from 'node:path'
+import { execFile } from 'node:child_process'
+import { chmodSync, existsSync } from 'node:fs'
+import { join } from 'node:path'
 
-import { exec } from 'node:child_process'
-
-import { globalShortcut, ipcMain } from 'electron'
+import { app, globalShortcut, ipcMain } from 'electron'
 
 let currentHotkey: MicToggleHotkey = 'Scroll'
 let currentWindow: BrowserWindow | null = null
@@ -51,23 +51,50 @@ export function setupMicToggleShortcut(mainWindow: BrowserWindow, hotkey: MicTog
   // We will manually toggle it to keep the OS/User in sync.
 
   const registerShortcut = () => {
-    // 1. macOS specific handling for Caps Lock (polling workaround)
     if (process.platform === 'darwin' && currentHotkey === 'Caps') {
-      const helperPath = path.join(__dirname, 'macos-capslock-check')
-      console.log(`[Mic Toggle] Using macOS polling fallback for Caps Lock. Helper: ${helperPath}`)
+      const helperPath = join(app.getAppPath(), 'src/main/services/shortcuts/macos-capslock-check')
+      console.log(`[Mic Toggle] Using macOS polling fallback for Caps Lock.`)
+      console.log(`[Mic Toggle] Expected helper path: ${helperPath}`)
+
+      // Verify helper existence
+      if (!existsSync(helperPath)) {
+        console.error(`[Mic Toggle] CRITICAL: Native helper not found at ${helperPath}`)
+      }
+      else {
+        try {
+          chmodSync(helperPath, '755')
+          console.log(`[Mic Toggle] Native helper found and ready.`)
+        }
+        catch (e) {
+          console.error(`[Mic Toggle] Failed to chmod helper: ${e}`)
+        }
+      }
 
       macCapsLockPollingInterval = setInterval(() => {
-        exec(helperPath, (error, stdout) => {
+        // Heartbeat logging every 30 seconds
+        if (Date.now() % 30000 < 200) {
+          console.log('[@proj-airi/stage-tamagotchi] [MicToggle] macOS Caps Lock poller heartbeat...')
+        }
+
+        execFile(helperPath, (error, stdout) => {
           if (error) {
-            console.error(`[Mic Toggle] Error polling Caps Lock:`, error)
+            console.error(`[@proj-airi/stage-tamagotchi] [MicToggle] Poller error: ${error.message}`)
             return
           }
 
-          const currentState = stdout.trim() === '1'
+          const stdoutTrimmed = stdout.trim()
+          const currentState = stdoutTrimmed === '1'
+
           if (lastMacCapsLockState !== null && currentState !== lastMacCapsLockState) {
-            console.log(`[Mic Toggle] Caps Lock state change detected (${lastMacCapsLockState} -> ${currentState}). Toggling mic.`)
+            console.log(`[@proj-airi/stage-tamagotchi] [MicToggle] Caps Lock state changed: ${lastMacCapsLockState} -> ${currentState}`)
+
             if (currentWindow) {
-              currentWindow.webContents.send('toggle-mic-from-shortcut')
+              const timestamp = Date.now()
+              console.log(`[@proj-airi/stage-tamagotchi] [MicToggle] Emitting toggle-mic-from-shortcut at ${timestamp}`)
+              currentWindow.webContents.send('toggle-mic-from-shortcut', { timestamp })
+            }
+            else {
+              console.warn(`[Mic Toggle] No active window to send toggle event to.`)
             }
           }
           lastMacCapsLockState = currentState
@@ -81,7 +108,7 @@ export function setupMicToggleShortcut(mainWindow: BrowserWindow, hotkey: MicTog
       const isRegistered = globalShortcut.register(electronKey, () => {
         console.log(`[Mic Toggle] Hotkey ${electronKey} pressed`)
         if (currentWindow) {
-          currentWindow.webContents.send('toggle-mic-from-shortcut')
+          currentWindow.webContents.send('toggle-mic-from-shortcut', { timestamp: Date.now() })
         }
       })
 

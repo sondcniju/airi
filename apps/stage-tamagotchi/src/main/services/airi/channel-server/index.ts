@@ -213,10 +213,18 @@ export async function setupServerChannel(params: { lifecycle: Lifecycle }): Prom
   channelServerConfigStore.setup()
 
   const storedConfig = await getChannelServerConfig()
+  console.log('[Main/ServerChannel] Loaded stored config. Token exists:', !!storedConfig.authToken)
 
   if (!storedConfig.authToken) {
-    storedConfig.authToken = randomUUID()
+    const newToken = randomUUID()
+    console.log('[Main/ServerChannel] No authToken found. Generating new one:', newToken)
+    storedConfig.authToken = newToken
     channelServerConfigStore.update(storedConfig)
+    channelServerConfigStore.flush()
+    console.log('[Main/ServerChannel] authToken generated and flushed.')
+  }
+  else {
+    console.log('[Main/ServerChannel] Using existing authToken:', storedConfig.authToken)
   }
 
   const serverChannel = createServer({
@@ -386,18 +394,29 @@ export async function createServerChannelService(params: { serverChannel: Server
     console.log('[Main/ServerChannel] getServerChannelConfig invoked')
     const config = await getChannelServerConfig()
     console.log(`[Main/ServerChannel] getServerChannelConfig resolved in ${Date.now() - startedAt}ms`)
-    return { websocketTlsConfig: config.tlsConfig || null }
+    return {
+      websocketTlsConfig: config.tlsConfig || null,
+      authToken: config.authToken,
+      hostname: config.hostname,
+    }
   })
 
   defineInvokeHandler(context, electronApplyServerChannelConfig, async (req) => {
     try {
       const current = await getChannelServerConfig()
-      const next = await normalizeChannelServerOptions({ tlsConfig: req?.websocketTlsConfig }, current)
-      const changed = JSON.stringify(next.tlsConfig) !== JSON.stringify(current.tlsConfig)
+      const next = await normalizeChannelServerOptions({
+        tlsConfig: req?.websocketTlsConfig,
+        authToken: req?.authToken,
+        hostname: req?.hostname,
+      }, current)
 
+      const tlsChanged = JSON.stringify(next.tlsConfig) !== JSON.stringify(current.tlsConfig)
+
+      // Update and flush synchronously
       channelServerConfigStore.update(next)
+      await channelServerConfigStore.flush()
 
-      if (changed) {
+      if (tlsChanged) {
         await params.serverChannel.stop()
         await params.serverChannel.updateConfig({
           port: getServerChannelPort(),
@@ -407,10 +426,15 @@ export async function createServerChannelService(params: { serverChannel: Server
         await params.serverChannel.start()
       }
       else {
+        // Ensure it's running
         await params.serverChannel.start()
       }
 
-      return { websocketTlsConfig: next.tlsConfig || null }
+      return {
+        websocketTlsConfig: next.tlsConfig || null,
+        authToken: next.authToken,
+        hostname: next.hostname,
+      }
     }
     catch (error) {
       useLogg('main/server-runtime').withError(error).error('Failed to apply server channel configuration')

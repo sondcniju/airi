@@ -18,6 +18,7 @@ import { openDebugger, setupDebugger } from './app/debugger'
 import { createGlobalAppConfig } from './configs/global'
 import { emitAppBeforeQuit, emitAppReady, emitAppWindowAllClosed } from './libs/bootkit/lifecycle'
 import { setElectronMainDirname } from './libs/electron/location'
+import { flushAllConfigs } from './libs/electron/persistence'
 import { createI18n } from './libs/i18n'
 import { createServerChannelService, setupServerChannel } from './services/airi/channel-server'
 import { createI18nService } from './services/airi/i18n'
@@ -222,7 +223,8 @@ app.whenReady().then(async () => {
 
       import('./libs/bootkit/lifecycle').then((m) => {
         m.onAppBeforeQuit(() => {
-          deps.appConfig.flush()
+          console.log('[@proj-airi/stage-tamagotchi] App is quitting, flushing all configs...')
+          flushAllConfigs()
         })
       })
 
@@ -281,8 +283,34 @@ app.on('window-all-closed', () => {
   }
 })
 
-app.on('before-quit', async () => {
-  emitAppBeforeQuit()
-  injeca.stop()
-  cleanupMicToggleShortcut()
+let isQuitting = false
+app.on('before-quit', async (event) => {
+  if (isQuitting)
+    return
+
+  event.preventDefault()
+  isQuitting = true
+
+  console.log('[@proj-airi/stage-tamagotchi] Shutdown sequence started...')
+
+  try {
+    // NOTICE: We await the initialization-level hooks and the DI container stop
+    // sequence to ensure all services have a chance to flush state or close handles.
+    await emitAppBeforeQuit()
+    await injeca.stop()
+    cleanupMicToggleShortcut()
+    console.log('[@proj-airi/stage-tamagotchi] Shutdown complete. Quitting...')
+  }
+  catch (err) {
+    console.error('[@proj-airi/stage-tamagotchi] Error during shutdown sequence:', err)
+  }
+  finally {
+    app.quit()
+  }
 })
+
+// NOTICE: Handle termination signals to ensure Electron's quit sequence is triggered
+// even when the app is started from a terminal that is subsequently closed.
+process.on('SIGINT', () => app.quit())
+process.on('SIGTERM', () => app.quit())
+process.on('SIGHUP', () => app.quit())
