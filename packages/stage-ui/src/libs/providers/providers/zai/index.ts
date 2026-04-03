@@ -1,15 +1,14 @@
 import { createZai } from '@xsai-ext/providers/create'
 import { z } from 'zod'
 
-import { ProviderValidationCheck } from '../../types'
 import { createOpenAICompatibleValidators } from '../../validators'
 import { defineProvider } from '../registry'
 
 const zaiConfigSchema = z.object({
   apiKey: z
-    .string('API Key'),
+    .string(),
   baseUrl: z
-    .string('Base URL')
+    .string()
     .optional()
     .default('https://api.z.ai/api/paas/v4'),
 })
@@ -47,7 +46,7 @@ export const providerZai = defineProvider<ZaiConfig>({
   },
   validators: {
     ...createOpenAICompatibleValidators({
-      checks: [ProviderValidationCheck.Connectivity, ProviderValidationCheck.ModelList, ProviderValidationCheck.ChatCompletions],
+      checks: ['connectivity', 'model_list', 'chat_completions'],
     }),
   },
 })

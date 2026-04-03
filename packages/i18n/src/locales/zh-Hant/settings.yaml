@@ -730,6 +730,9 @@ pages:
       openai:
         description: Industry Standard - Reliable flagship models for chat, coding, and vision
         title: OpenAI
+      azure-openai:
+        title: Azure OpenAI 服務
+        description: 企業級 AI 規模化 - 為關鍵業務提供安全、合規且專用的基礎設施
       openai-compatible:
         description: Bring Your Own Endpoint - Connect any OpenAI-style API or self-hosted gateway
         title: OpenAI 兼容性
@@ -777,6 +780,9 @@ pages:
       xai:
         description: Grok Native - Real-time access to X/Twitter data
         title: xAI
+      zai:
+        title: Z.ai (智譜 AI)
+        description: 智能體專家 - 業界領先的角色扮演模型，提供極具性價比的 $10/月 編程套餐
       xai-audio-speech:
         description: Real-time Intelligence - Native xAI speech synthesis
         title: xAI Grok TTS
@@ -790,12 +796,15 @@ pages:
         description: GenAI Observability - Free tier for model evaluation
         title: Comet API
       openai-audio-speech:
+        title: OpenAI TTS
         description: Industry Standard - Reliable flagship TTS voices from OpenAI
       openai-compatible-audio-speech:
+        title: OpenAI 兼容 TTS
         description: Bring Your Own Endpoint - Connect any OpenAI-style TTS API or self-hosted gateway
       player2-speech:
         description: Game-Ready AI - High-fidelity character voices with zero developer costs and revenue sharing
       comet-api-speech:
+        title: CometAPI TTS
         description: Unified Speech Gateway - Hosted speech models through Comet API
       chatterbox:
         description: Advanced Voice Engine - Supports tags, profiles, presets, and high-performance playback
@@ -1035,10 +1044,14 @@ wip:
     此功能正在開發中，尚未公開發佈。請在未來的更新中再次查看此功能。
 
       openai-audio-transcription:
+        title: OpenAI 語音識別
         description: Industry Standard - Reliable and widely compatible Whisper API
       openai-compatible-audio-transcription:
+        title: OpenAI 兼容語音識別
         description: Bring Your Own Endpoint - Custom OpenAI-compatible STT endpoint
       aliyun-nls-transcription:
+        title: 阿里雲 NLS 語音識別
         description: Multilingual Powerhouse - Robust real-time STT with deep Chinese dialect support
       comet-api-transcription:
+        title: CometAPI 語音識別
         description: Enterprise-grade cloud transcription

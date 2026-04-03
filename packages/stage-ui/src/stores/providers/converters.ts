@@ -123,6 +123,8 @@ export function convertProviderDefinitionToMetadata(
   const keyExtractor = (input: string): string => input
   const category = getCategoryFromTasks(definition.tasks)
   const schemaDefaults = extractSchemaDefaults(definition, t)
+  const allValidators = (definition.validators?.validateProvider || []).map(creator => creator({ t }))
+  const hasManualValidators = allValidators.some(v => v.manualOnly)
 
   const business = definition.business?.({ t })
   const pricing = business?.pricing
@@ -261,31 +263,33 @@ export function convertProviderDefinitionToMetadata(
         await validateProvider(plan, { t })
         return buildConfigValidationResult(plan)
       },
-      runManualValidation: async (config) => {
-        const plan = getValidatorsOfProvider({
-          definition,
-          config,
-          schemaDefaults,
-          contextOptions: { t },
-        })
+      runManualValidation: hasManualValidators
+        ? async (config) => {
+          const plan = getValidatorsOfProvider({
+            definition,
+            config,
+            schemaDefaults,
+            contextOptions: { t },
+          })
 
-        const steps = await validateProviderManual(plan, { t })
-        const invalidSteps = steps.filter(step => step.status === 'invalid')
-        if (invalidSteps.length === 0) {
+          const steps = await validateProviderManual(plan, { t })
+          const invalidSteps = steps.filter(step => step.status === 'invalid')
+          if (invalidSteps.length === 0) {
+            return {
+              errors: [],
+              reason: '',
+              valid: true,
+            }
+          }
+
+          const reasons = invalidSteps.map(step => step.reason).filter(Boolean)
           return {
-            errors: [],
-            reason: '',
-            valid: true,
+            errors: invalidSteps.map(step => new Error(step.reason || `${step.id} is invalid`)),
+            reason: reasons.join('; '),
+            valid: false,
           }
         }
-
-        const reasons = invalidSteps.map(step => step.reason).filter(Boolean)
-        return {
-          errors: invalidSteps.map(step => new Error(step.reason || `${step.id} is invalid`)),
-          reason: reasons.join('; '),
-          valid: false,
-        }
-      },
+        : undefined,
     },
     transcriptionFeatures: definition.capabilities?.transcription
       ? {

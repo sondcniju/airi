@@ -27,7 +27,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@moeru/eventa": "^1.0.0-beta.1",
+    "@moeru/eventa": "catalog:",
     "@vueuse/core": "catalog:",
     "pinia": "catalog:",
     "vue": "catalog:"

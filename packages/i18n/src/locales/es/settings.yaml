@@ -810,6 +810,10 @@ pages:
         description: Industry Standard - Reliable flagship models for chat, coding, and
           vision
         title: OpenAI
+      azure-openai:
+        title: Azure OpenAI Service
+        description: IA Empresarial a Escala - Infraestructura segura, compatible y dedicada
+          para aplicaciones críticas
       openai-compatible:
         description: Bring Your Own Endpoint - Connect any OpenAI-style API or
           self-hosted gateway
@@ -861,6 +865,10 @@ pages:
       xai:
         description: Grok Native - Real-time access to X/Twitter data
         title: xAI
+      zai:
+        title: Z.ai (Zhipu AI)
+        description: Potencia Agéntica - Los mejores modelos de rol con planes de programación
+          económicos de $10/mes
       xai-audio-speech:
         description: Real-time Intelligence - Native xAI speech synthesis
         title: xAI Grok TTS
@@ -875,14 +883,17 @@ pages:
         description: GenAI Observability - Free tier for model evaluation
         title: Comet API
       openai-audio-speech:
+        title: OpenAI TTS
         description: Industry Standard - Reliable flagship TTS voices from OpenAI
       openai-compatible-audio-speech:
+        title: OpenAI Compatible TTS
         description: Bring Your Own Endpoint - Connect any OpenAI-style TTS API or
           self-hosted gateway
       player2-speech:
         description: Game-Ready AI - High-fidelity character voices with zero developer
           costs and revenue sharing
       comet-api-speech:
+        title: CometAPI TTS
         description: Unified Speech Gateway - Hosted speech models through Comet API
       chatterbox:
         description: Advanced Voice Engine - Supports tags, profiles, presets, and
@@ -1131,10 +1142,14 @@ wip:
     Check back in future updates for this functionality.
 
       openai-audio-transcription:
+        title: OpenAI STT
         description: Industry Standard - Reliable and widely compatible Whisper API
       openai-compatible-audio-transcription:
+        title: OpenAI Compatible STT
         description: Bring Your Own Endpoint - Custom OpenAI-compatible STT endpoint
       aliyun-nls-transcription:
+        title: Aliyun NLS STT
         description: Multilingual Powerhouse - Robust real-time STT with deep Chinese dialect support
       comet-api-transcription:
+        title: CometAPI STT
         description: Enterprise-grade cloud transcription

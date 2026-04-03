@@ -730,6 +730,9 @@ pages:
       openai:
         description: Industry Standard - Reliable flagship models for chat, coding, and vision
         title: OpenAI
+      azure-openai:
+        title: Azure OpenAI Service
+        description: IA d'entreprise à l'échelle - Infrastructure sécurisée, conforme et dédiée
       openai-compatible:
         description: Bring Your Own Endpoint - Connect any OpenAI-style API or self-hosted gateway
         title: Compatible avec OpenAI
@@ -777,6 +780,9 @@ pages:
       xai:
         description: Grok Native - Real-time access to X/Twitter data
         title: xAI
+      zai:
+        title: Z.ai (Zhipu AI)
+        description: Expert en Agents - Les meilleurs modèles de jeu de rôle avec des forfaits de codage à 10 $/mois
       xai-audio-speech:
         description: Real-time Intelligence - Native xAI speech synthesis
         title: xAI Grok TTS
@@ -790,12 +796,15 @@ pages:
         description: GenAI Observability - Free tier for model evaluation
         title: Comet API
       openai-audio-speech:
+        title: OpenAI TTS
         description: Industry Standard - Reliable flagship TTS voices from OpenAI
       openai-compatible-audio-speech:
+        title: OpenAI Compatible TTS
         description: Bring Your Own Endpoint - Connect any OpenAI-style TTS API or self-hosted gateway
       player2-speech:
         description: Game-Ready AI - High-fidelity character voices with zero developer costs and revenue sharing
       comet-api-speech:
+        title: CometAPI TTS
         description: Unified Speech Gateway - Hosted speech models through Comet API
       chatterbox:
         description: Advanced Voice Engine - Supports tags, profiles, presets, and high-performance playback
@@ -1035,10 +1044,14 @@ wip:
     Cette fonctionnalité est actuellement en cours de développement et n'est pas disponible publiquement. Revenez ultérieurement pour les mises-à-jour futures.
 
       openai-audio-transcription:
+        title: Transcription vocal OpenAI
         description: Industry Standard - Reliable and widely compatible Whisper API
       openai-compatible-audio-transcription:
+        title: Transcription vocal compatible OpenAI
         description: Bring Your Own Endpoint - Custom OpenAI-compatible STT endpoint
       aliyun-nls-transcription:
+        title: Transcription vocal Aliyun NLS
         description: Multilingual Powerhouse - Robust real-time STT with deep Chinese dialect support
       comet-api-transcription:
+        title: Transcription vocal CometAPI
         description: Enterprise-grade cloud transcription

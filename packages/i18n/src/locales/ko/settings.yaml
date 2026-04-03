@@ -730,6 +730,9 @@ pages:
       openai:
         description: Industry Standard - Reliable flagship models for chat, coding, and vision
         title: OpenAI
+      azure-openai:
+        title: Azure OpenAI Service
+        description: 엔터프라이즈 AI 스케일링 - 미션 크리티컬 앱을 위한 안전하고 규정 준수 전용 인프라
       openai-compatible:
         description: Bring Your Own Endpoint - Connect any OpenAI-style API or self-hosted gateway
         title: OpenAI 호환
@@ -777,6 +780,9 @@ pages:
       xai:
         description: Grok Native - Real-time access to X/Twitter data
         title: xAI
+      zai:
+        title: Z.ai (Zhipu AI)
+        description: 에이전트 파워하우스 - 월 10달러의 저렴한 코딩 플랜과 동급 최고의 롤플레잉 모델
       xai-audio-speech:
         description: Real-time Intelligence - Native xAI speech synthesis
         title: xAI Grok TTS
@@ -790,12 +796,15 @@ pages:
         description: GenAI Observability - Free tier for model evaluation
         title: Comet API
       openai-audio-speech:
+        title: OpenAI TTS
         description: Industry Standard - Reliable flagship TTS voices from OpenAI
       openai-compatible-audio-speech:
+        title: OpenAI 호환 TTS
         description: Bring Your Own Endpoint - Connect any OpenAI-style TTS API or self-hosted gateway
       player2-speech:
         description: Game-Ready AI - High-fidelity character voices with zero developer costs and revenue sharing
       comet-api-speech:
+        title: CometAPI TTS
         description: Unified Speech Gateway - Hosted speech models through Comet API
       chatterbox:
         description: Advanced Voice Engine - Supports tags, profiles, presets, and high-performance playback
@@ -1035,10 +1044,14 @@ wip:
     이 기능은 현재 개발 중이며 아직 공개되지 않았습니다. 이 기능은 향후 업데이트에서 다시 확인해 보세요.
 
       openai-audio-transcription:
+        title: OpenAI 음성 인식
         description: Industry Standard - Reliable and widely compatible Whisper API
       openai-compatible-audio-transcription:
+        title: OpenAI 호환 음성 인식
         description: Bring Your Own Endpoint - Custom OpenAI-compatible STT endpoint
       aliyun-nls-transcription:
+        title: Aliyun NLS 음성 인식
         description: Multilingual Powerhouse - Robust real-time STT with deep Chinese dialect support
       comet-api-transcription:
+        title: CometAPI 음성 인식
         description: Enterprise-grade cloud transcription

@@ -25,7 +25,7 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@moeru/eventa": "^1.0.0-beta.1",
+    "@moeru/eventa": "catalog:",
     "@pixiv/three-vrm": "^3.5.1",
     "@pixiv/three-vrm-animation": "^3.5.1",
     "@pixiv/three-vrm-core": "^3.5.1",
@@ -34,11 +34,11 @@
     "@tresjs/cientos": "^5.4.0",
     "@tresjs/core": "^5.5.0",
     "@tresjs/post-processing": "^3.4.0",
-    "@vueuse/core": "^14.2.1",
+    "@vueuse/core": "catalog:",
     "culori": "^4.0.2",
     "es-toolkit": "catalog:",
     "localforage": "^1.10.0",
-    "pinia": "^3.0.4",
+    "pinia": "catalog:",
     "postprocessing": "^6.38.3",
     "three": "^0.183.1",
     "vue": "catalog:",
