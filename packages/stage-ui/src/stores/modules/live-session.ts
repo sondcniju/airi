@@ -349,6 +349,9 @@ export const useLiveSessionStore = defineStore('live-session', () => {
           model: MODEL,
           generationConfig,
           tools: geminiTools.length > 0 ? geminiTools : undefined,
+          historyConfig: {
+            initialHistoryInClientContent: true,
+          },
           systemInstruction: {
             parts: [{
               text: airiCard.systemPrompt || 'You are an AI assistant.',
@@ -369,6 +372,23 @@ export const useLiveSessionStore = defineStore('live-session', () => {
           console.log('[LiveSession] Setup complete!')
           isActive.value = true
           isConnecting.value = false
+
+          // Inject historical turns if present (Gemini Live context restoration)
+          const history = chatSession.messages.filter(m => m.role === 'user' || m.role === 'assistant')
+          if (history.length > 0) {
+            const turns = history.map(m => ({
+              role: m.role === 'assistant' ? 'model' : 'user',
+              parts: [{ text: m.content }],
+            }))
+
+            ws.send(JSON.stringify({
+              clientContent: {
+                turns,
+                turnComplete: true,
+              },
+            }))
+            console.log(`[LiveSession] Injected ${turns.length} historical turns into Bidi session`)
+          }
         }
 
         if (response.serverContent) {
