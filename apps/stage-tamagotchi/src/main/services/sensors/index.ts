@@ -12,14 +12,12 @@ import si from 'systeminformation'
 import { useLogg } from '@guiiai/logg'
 import { defineInvokeHandler } from '@moeru/eventa'
 import {
-
   sensorsGetActiveWindow,
   sensorsGetActiveWindowHistory,
   sensorsGetIdleTime,
   sensorsGetLocalTime,
   sensorsGetSystemLoad,
   sensorsGetVolumeLevel,
-
 } from '@proj-airi/stage-shared'
 import { powerMonitor } from 'electron'
 
@@ -33,27 +31,26 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
   let lastActiveWinErrorTime = 0
   const ERROR_LOG_INTERVAL = 60000 // Only log once per minute
 
-  // Initialize Win32 FFI bridge once at startup
+  // Initialize Win32 FFI bridge via Koffi once at startup
   let win32Bridge: any = null
   if (process.platform === 'win32') {
     try {
-      const ffi = require('ffi-napi')
+      const koffi = require('koffi')
+      const user32 = koffi.load('user32.dll')
+      const kernel32 = koffi.load('kernel32.dll')
+
       win32Bridge = {
-        user32: new ffi.Library('user32', {
-          GetForegroundWindow: ['pointer', []],
-          GetWindowTextW: ['int', ['pointer', 'pointer', 'int']],
-          GetWindowThreadProcessId: ['uint', ['pointer', 'pointer']],
-        }),
-        kernel32: new ffi.Library('kernel32', {
-          OpenProcess: ['pointer', ['uint', 'bool', 'uint']],
-          QueryFullProcessImageNameW: ['bool', ['pointer', 'uint', 'pointer', 'pointer']],
-          CloseHandle: ['bool', ['pointer']],
-        }),
+        GetForegroundWindow: user32.func('GetForegroundWindow', 'void *', []),
+        GetWindowTextW: user32.func('GetWindowTextW', 'int', ['void *', 'char16_t *', 'int']),
+        GetWindowThreadProcessId: user32.func('GetWindowThreadProcessId', 'uint32', ['void *', 'uint32 *']),
+        OpenProcess: kernel32.func('OpenProcess', 'void *', ['uint32', 'bool', 'uint32']),
+        QueryFullProcessImageNameW: kernel32.func('QueryFullProcessImageNameW', 'bool', ['void *', 'uint32', 'char16_t *', 'uint32 *']),
+        CloseHandle: kernel32.func('CloseHandle', 'bool', ['void *']),
       }
-      log.debug('Win32 FFI bridge initialized successfully.')
+      log.debug('Win32 FFI bridge initialized via Koffi.')
     }
     catch (err) {
-      log.withError(err).warn('Failed to initialize Win32 FFI bridge. Native fallbacks will be unavailable.')
+      log.withError(err).warn('Failed to initialize Koffi Win32 bridge. Native fallbacks will be unavailable.')
     }
   }
 
@@ -70,51 +67,65 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
     catch (err) {
       const now = Date.now()
       if (now - lastActiveWinErrorTime > ERROR_LOG_INTERVAL) {
-        log.withError(err).debug('Native active-win failed; attempting FFI fallback.')
+        // eslint-disable-next-line no-console
+        console.log('[getActiveWindowInfo] active-win failed, using Koffi fallback.')
         lastActiveWinErrorTime = now
       }
 
-      // High-performance N-API fallback for Windows
+      // High-performance Koffi fallback for Windows
       if (win32Bridge) {
         try {
-          const { user32, kernel32 } = win32Bridge
-          const hwnd = user32.GetForegroundWindow()
-          if (!hwnd || hwnd.isNull())
+          const { GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId, OpenProcess, QueryFullProcessImageNameW, CloseHandle } = win32Bridge
+          const hwnd = GetForegroundWindow()
+
+          if (!hwnd) {
+            process.stdout.write('[getActiveWindowInfo] No foreground window found.\n')
             return null
+          }
 
           // Get Title
-          const titleBuffer = Buffer.allocUnsafe(512)
-          const titleLen = user32.GetWindowTextW(hwnd, titleBuffer, 255)
-          const title = titleBuffer.toString('utf16le', 0, titleLen * 2).replace(/\0/g, '').trim()
+          const titleBuffer = Buffer.alloc(1024)
+          const titleLen = GetWindowTextW(hwnd, titleBuffer, 512)
+          const title = titleBuffer.toString('utf16le', 0, titleLen * 2).replace(/\0/g, '').trim() || 'Untitled'
+          process.stdout.write(`[getActiveWindowInfo] detected title: ${title}\n`)
 
           // Get Process Name
           let processName = 'Unknown'
-          const pidBuffer = Buffer.allocUnsafe(4)
-          user32.GetWindowThreadProcessId(hwnd, pidBuffer)
-          const pid = pidBuffer.readUInt32LE(0)
+          const pidBuffer = [0]
+          GetWindowThreadProcessId(hwnd, pidBuffer)
+          const pid = pidBuffer[0]
 
           const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-          const hProcess = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid)
+          const PROCESS_QUERY_INFORMATION = 0x0400
+          const PROCESS_VM_READ = 0x0010
 
-          if (hProcess && !hProcess.isNull()) {
-            const pathBuffer = Buffer.allocUnsafe(4096)
-            const sizeBuffer = Buffer.allocUnsafe(4)
-            sizeBuffer.writeUInt32LE(2048)
+          let hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid)
+          if (!hProcess) {
+            // Fallback for some processes that require full query rights
+            hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid)
+          }
 
-            if (kernel32.QueryFullProcessImageNameW(hProcess, 0, pathBuffer, sizeBuffer)) {
-              const fullPath = pathBuffer.toString('utf16le', 0, sizeBuffer.readUInt32LE(0) * 2).replace(/\0/g, '').trim()
+          if (hProcess) {
+            const pathBuffer = Buffer.alloc(1024)
+            const sizeBuffer = [512]
+            if (QueryFullProcessImageNameW(hProcess, 0, pathBuffer, sizeBuffer)) {
+              const fullPath = pathBuffer.toString('utf16le', 0, sizeBuffer[0] * 2).replace(/\0/g, '').trim()
               processName = fullPath.split(/[\\/]/).pop()?.replace(/\.[^/.]+$/, '') || 'Unknown'
             }
-            kernel32.CloseHandle(hProcess)
+            CloseHandle(hProcess)
+          }
+          // Only log if we finally found something or if it's still unknown after fallback
+          if (processName !== 'Unknown') {
+            process.stdout.write(`[getActiveWindowInfo] detected processName: ${processName}\n`)
           }
 
           return {
-            title: title || 'Unknown',
-            processName: processName || 'Foreground',
+            title,
+            processName,
           }
         }
         catch (nativeErr) {
-          log.withError(nativeErr).debug('N-API fallback execution failed.')
+          process.stdout.write(`[getActiveWindowInfo] Koffi fallback execution failed: ${String(nativeErr)}\n`)
         }
       }
     }

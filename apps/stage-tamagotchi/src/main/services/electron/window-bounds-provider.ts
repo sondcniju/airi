@@ -21,45 +21,49 @@ function createWindowsPoller(nativeId: string, callback: BoundsCallback): { stop
   let stopped = false
   let timer: NodeJS.Timeout | null = null
 
-  // Native FFI Hook for Windows User32
-  let user32: any = null
+  // Native FFI Hook for Windows User32 via Koffi
+  let win32: any = null
   try {
-    const ffi = require('ffi-napi')
-    user32 = new ffi.Library('user32', {
-      GetWindowRect: ['bool', ['pointer', 'pointer']],
-      IsWindow: ['bool', ['pointer']],
+    const koffi = require('koffi')
+    const user32 = koffi.load('user32.dll')
+
+    koffi.struct('RECT', {
+      left: 'int32',
+      top: 'int32',
+      right: 'int32',
+      bottom: 'int32',
     })
+
+    win32 = {
+      GetWindowRect: user32.func('GetWindowRect', 'bool', ['void *', 'RECT *']),
+      IsWindow: user32.func('IsWindow', 'bool', ['void *']),
+    }
   }
   catch (err) {
-    console.error('[WindowBounds] Failed to load ffi-napi for native bounds:', err)
+    console.error('[WindowBounds] Failed to load Koffi for native bounds:', err)
   }
 
   function poll() {
     if (stopped)
       return
 
-    if (!user32) {
+    if (!win32) {
       callback(null)
       timer = setTimeout(poll, 1000)
       return
     }
 
     try {
-      const hwnd = Buffer.alloc(8)
-      hwnd.writeBigInt64LE(BigInt(nativeId))
+      const hwnd = BigInt(nativeId)
 
-      if (user32.IsWindow(hwnd)) {
-        const rect = Buffer.alloc(16) // 4 ints * 4 bytes
-        if (user32.GetWindowRect(hwnd, rect)) {
-          const left = rect.readInt32LE(0)
-          const top = rect.readInt32LE(4)
-          const right = rect.readInt32LE(8)
-          const bottom = rect.readInt32LE(12)
+      if (win32.IsWindow(hwnd)) {
+        const rect: any = {}
+        if (win32.GetWindowRect(hwnd, rect)) {
           callback({
-            x: left,
-            y: top,
-            width: right - left,
-            height: bottom - top,
+            x: rect.left,
+            y: rect.top,
+            width: rect.right - rect.left,
+            height: rect.bottom - rect.top,
           })
         }
         else {

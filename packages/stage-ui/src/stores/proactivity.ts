@@ -93,7 +93,6 @@ export const useProactivityStore = defineStore('proactivity', () => {
   }
 
   async function updateSensors() {
-    return // NOTICE: Temporarily disabled to restore 60FPS baseline performance
     // eslint-disable-next-line no-console
     console.log('[Proactivity] Starting updateSensors tick...')
     console.time('[Proactivity] updateSensors')
@@ -206,7 +205,9 @@ export const useProactivityStore = defineStore('proactivity', () => {
         const active = history.pop()
 
         if (active) {
-          payload += `Active Program: ${active.window.processName}\n`
+          if (active.window.processName && active.window.processName !== 'Unknown') {
+            payload += `Active Program: ${active.window.processName}\n`
+          }
           payload += `Active Window Title: ${active.window.title}\n`
         }
 
@@ -217,7 +218,11 @@ export const useProactivityStore = defineStore('proactivity', () => {
             const end = new Date(entry.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
             const durationSec = Math.floor(entry.durationMs / 1000)
             const durationStr = durationSec < 60 ? `${durationSec}s` : `${Math.floor(durationSec / 60)}m`
-            payload += `[ ${entry.window.processName} | ${entry.window.title} ] [ ${durationStr} ] [ ${start} - ${end} ]\n`
+
+            const name = (entry.window.processName && entry.window.processName !== 'Unknown')
+              ? `${entry.window.processName} | `
+              : ''
+            payload += `[ ${name}${entry.window.title} ] [ ${durationStr} ] [ ${start} - ${end} ]\n`
           })
         }
       }
@@ -259,7 +264,6 @@ export const useProactivityStore = defineStore('proactivity', () => {
   })
 
   async function evaluateHeartbeat(options?: { force?: boolean }) {
-    return // NOTICE: Temporarily disabled to restore 60FPS baseline performance
     console.time('[Proactivity] evaluateHeartbeat')
     try {
       if (isHeartbeatEvaluating.value && !options?.force) {
