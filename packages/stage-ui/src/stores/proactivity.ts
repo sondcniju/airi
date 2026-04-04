@@ -93,8 +93,6 @@ export const useProactivityStore = defineStore('proactivity', () => {
   }
 
   async function updateSensors() {
-    return // TEMPORARILY DISABLED FOR PERF TESTING
-
     // Fallback for non-electron or missing invoker
     const now = new Date()
     locTime.value = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
@@ -226,8 +224,6 @@ export const useProactivityStore = defineStore('proactivity', () => {
   })
 
   async function evaluateHeartbeat(options?: { force?: boolean }) {
-    return // TEMPORARILY DISABLED FOR PERF TESTING
-
     if (isHeartbeatEvaluating.value && !options?.force) {
       // eslint-disable-next-line no-console
       console.log('[Proactivity] Evaluation already in progress, skipping.')
@@ -253,12 +249,12 @@ export const useProactivityStore = defineStore('proactivity', () => {
     const now = new Date()
 
     // Check schedule
-    if (!options?.force && config?.respectSchedule && config?.schedule?.start && config.schedule.end) {
-      const isInWindow = isWithinSchedule(config.schedule.start, config.schedule.end)
+    if (!options?.force && config?.respectSchedule && config?.schedule?.start && config?.schedule?.end) {
+      const isInWindow = isWithinSchedule(config!.schedule!.start, config!.schedule!.end)
 
       if (!isInWindow) {
         // eslint-disable-next-line no-console
-        console.log(`[Proactivity] Aborted: Outside schedule window (${config.schedule.start} - ${config.schedule.end}).`)
+        console.log(`[Proactivity] Aborted: Outside schedule window (${config!.schedule!.start} - ${config!.schedule!.end}).`)
         return
       }
     }
@@ -288,13 +284,13 @@ export const useProactivityStore = defineStore('proactivity', () => {
           console.log(`[Proactivity] OS Sensor -> Idle Time: ${idleTime}ms`)
 
           // If useAsLocalGate is true, abort if user is idle for more than 60 seconds (likely AFK)
-          if (!options?.force && config.useAsLocalGate && (idleTime !== undefined && idleTime > 60000)) {
+          if (!options?.force && config!.useAsLocalGate && (idleTime !== undefined && idleTime > 60000)) {
             // eslint-disable-next-line no-console
             console.log('[Proactivity] Aborted: Local Gate is active and user is idle (> 60s), likely AFK.', { idleTime })
             return
           }
 
-          if (config.injectIntoPrompt) {
+          if (config!.injectIntoPrompt) {
             await updateSensors()
             idleData = `\n${sensorPayload.value}`
           }
@@ -348,10 +344,10 @@ export const useProactivityStore = defineStore('proactivity', () => {
         if (msg.role === 'user' || msg.role === 'assistant') {
           let msgContent = ''
           if (typeof msg.content === 'string') {
-            msgContent = msg.content
+            msgContent = msg.content as string
           }
           else if (Array.isArray(msg.content)) {
-            msgContent = msg.content.map((part: any) => {
+            msgContent = (msg.content as any[]).map((part: any) => {
               if (typeof part === 'string')
                 return part
               if (part && typeof part === 'object' && 'text' in part)
@@ -360,7 +356,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
             }).join('')
           }
           if (msgContent) {
-            messages.push({ role: msg.role, content: msgContent })
+            messages.push({ role: msg.role as 'user' | 'assistant', content: msgContent })
           }
         }
       }
