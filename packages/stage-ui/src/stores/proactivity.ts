@@ -119,13 +119,16 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
       // Memoize usage metrics once per tick
       const oneHourAgo = Date.now() - 3600000
-      recentJournalEntryCount.value = textJournalStore.entries.filter((entry) => {
-        return entry.characterId === activeCardId.value && (entry.createdAt || 0) > oneHourAgo
-      }).length
+
+      // Only iterate once per tick
+      const journalEntries = textJournalStore.entries
+      recentJournalEntryCount.value = journalEntries.reduce((count, entry) => {
+        return (entry.characterId === activeCardId.value && (entry.createdAt || 0) > oneHourAgo) ? count + 1 : count
+      }, 0)
 
       const recentMessages = chatSession.messages.filter(m => (m.createdAt || 0) > oneHourAgo)
-      recentTtsCount.value = recentMessages.filter(m => m.role === 'assistant').length
-      recentSttCount.value = recentMessages.filter(m => m.role === 'user').length
+      recentTtsCount.value = recentMessages.reduce((count, m) => m.role === 'assistant' ? count + 1 : count, 0)
+      recentSttCount.value = recentMessages.reduce((count, m) => m.role === 'user' ? count + 1 : count, 0)
       recentChatCount.value = recentMessages.length
 
       if (getSystemLoadInvoke) {
@@ -145,7 +148,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
     }
   }
 
-  const { pause } = useIntervalFn(updateSensors, 10000, { immediate: true })
+  const { pause } = useIntervalFn(updateSensors, 30000, { immediate: true })
 
   onUnmounted(() => {
     pause()

@@ -763,9 +763,7 @@ function handleAnimationFinished() {
   // Cycle logic (Tier 1: Card Subset | Tier 2: Global)
   const cardIdleAnimations = activeCard.value?.extensions?.airi?.acting?.idleAnimations || []
   const hasCardSubset = cardIdleAnimations.length > 0
-  const isEnabled = hasCardSubset ? cardIdleAnimations.length > 1 : vrmStore.vrmIdleCycleEnabled
-
-  if (isEnabled) {
+  if (vrmEffectiveIdleCycleEnabled.value) {
     const keys = hasCardSubset ? cardIdleAnimations : customVrmAnimationsStore.animationKeys
 
     // Fall back to the original full subset if none of the customized ones are currently valid
@@ -795,6 +793,7 @@ function handleAnimationFinished() {
 
 onUnmounted(() => {
   lipSyncStarted.value = false
+  clearAnimationTimers()
 })
 
 // Resume audio context on first user interaction (browser requirement)

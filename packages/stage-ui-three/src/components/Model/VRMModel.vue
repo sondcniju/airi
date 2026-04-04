@@ -687,8 +687,12 @@ onMounted(async () => {
   })
 
   // watch if the idle animation should be updated
-  watch(() => props.idleAnimation, async (newAnimUrl) => {
-    if (!vrm.value || !vrmAnimationMixer.value || !newAnimUrl)
+  watch(() => props.idleAnimation, async (newAnimUrl, oldAnimUrl) => {
+    // Guard: ignore if URL hasn't changed or isn't provided
+    if (!newAnimUrl || newAnimUrl === oldAnimUrl)
+      return
+
+    if (!vrm.value || !vrmAnimationMixer.value)
       return
 
     try {
@@ -800,7 +804,10 @@ watch([() => modelStore.activeExpressions, modelLoaded], ([active, loaded]) => {
 
   for (const name of modelStore.availableExpressions) {
     const weight = active[name] || 0
-    vrm.value.expressionManager.setValue(name, weight)
+    // Optimization: query current weight to minimize manager updates
+    if (vrm.value.expressionManager.getValue(name) !== weight) {
+      vrm.value.expressionManager.setValue(name, weight)
+    }
   }
   vrm.value.expressionManager.update()
 }, { deep: true })

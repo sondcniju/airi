@@ -403,6 +403,13 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     await loadSession(characterIndex.activeSessionId)
     ensureSession(characterIndex.activeSessionId)
 
+    // NOTICE: Ensure prompt is up to date immediately after card-switch context is resolved.
+    refreshActiveSystemMessage({
+      sessionId: characterIndex.activeSessionId,
+      characterId: characterId,
+      prompt: systemPrompt.value,
+    })
+
     console.info('[ChatSession] ensureActiveSessionForCharacter:resolved', {
       characterId,
       activeSessionId: activeSessionId.value,
@@ -480,13 +487,30 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   }
 
   /**
-   * Refreshes the root system message in the active session to reflect
-   * current character settings without resetting the chat.
+   * Refreshes the root system message in a session to reflect
+   * current (or provided) character settings without resetting the chat.
    */
-  function refreshActiveSystemMessage() {
-    const sessionId = activeSessionId.value
+  function refreshActiveSystemMessage(options?: { sessionId?: string, characterId?: string, prompt?: string }) {
+    const sessionId = options?.sessionId ?? activeSessionId.value
     if (!sessionId || !ready.value)
       return
+
+    const meta = sessionMetas.value[sessionId]
+    if (!meta)
+      return
+
+    // NOTICE: Strict integrity check to prevent cross-session prompt pollution.
+    // If we're updating by reactive systemPrompt change, we must ensure the
+    // session actually belongs to the active card.
+    const targetCharacterId = options?.characterId ?? activeCardId.value
+    if (meta.characterId !== targetCharacterId) {
+      console.warn('[ChatSession] Skipping prompt refresh: session characterId mismatch', {
+        sessionId,
+        sessionCharacterId: meta.characterId,
+        targetCharacterId,
+      })
+      return
+    }
 
     const currentMessages = sessionMessages.value[sessionId]
     if (!currentMessages || currentMessages.length === 0)
@@ -497,11 +521,17 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     if (firstMessage.role !== 'system')
       return
 
-    const nextSystemMessage = generateInitialMessage()
+    const nextSystemMessage = options?.prompt
+      ? generateInitialMessageFromPrompt(options.prompt, targetCharacterId)
+      : generateInitialMessage()
+
     if (firstMessage.content === nextSystemMessage.content)
       return
 
-    console.info('[ChatSession] Refreshing active system message from character settings')
+    console.info('[ChatSession] Refreshing system message from character settings', {
+      sessionId,
+      characterId: targetCharacterId,
+    })
     const nextMessages = [nextSystemMessage, ...currentMessages.slice(1)]
     setSessionMessages(sessionId, nextMessages)
   }
