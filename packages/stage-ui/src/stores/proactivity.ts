@@ -129,23 +129,23 @@ export const useProactivityStore = defineStore('proactivity', () => {
       ] = await Promise.allSettled(probes)
 
       // Map settled results back to reactive state
-      if (idleMsResult.status === 'fulfilled' && idleMsResult.value !== undefined) {
-        idleTimeSec.value = Math.floor(idleMsResult.value / 1000)
+      if (idleMsResult.status === 'fulfilled' && (idleMsResult as any).value !== undefined) {
+        idleTimeSec.value = Math.floor((idleMsResult as any).value / 1000)
       }
       if (activeWinResult.status === 'fulfilled') {
-        activeWinStr.value = activeWinResult.value?.title || ''
+        activeWinStr.value = (activeWinResult as any).value?.title || ''
       }
       if (winHistoryResult.status === 'fulfilled') {
-        winHistory.value = winHistoryResult.value || []
+        winHistory.value = (winHistoryResult as any).value || []
       }
       if (sysLoadResult.status === 'fulfilled') {
-        sysLoad.value = sysLoadResult.value
+        sysLoad.value = (sysLoadResult as any).value
       }
-      if (locTimeResult.status === 'fulfilled' && locTimeResult.value) {
-        locTime.value = locTimeResult.value
+      if (locTimeResult.status === 'fulfilled' && (locTimeResult as any).value) {
+        locTime.value = (locTimeResult as any).value
       }
       if (volLevelResult.status === 'fulfilled') {
-        volLevel.value = volLevelResult.value
+        volLevel.value = (volLevelResult as any).value
       }
 
       // Single-pass optimization for usage metrics

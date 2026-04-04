@@ -113,9 +113,14 @@ This document tracks the current development state of the AIRI project, specific
         - **Performance Optimization**: Minimize main-thread blocking and resource consumption during sensor polling and evaluation ticks.
         - **Context Parity**: Ensure the proactivity engine receives the same high-fidelity context payload (same sensors, tool definitions, and history) as the standard chat pipeline to prevent inconsistent reasoning or a "brain-split" where the AI thinks it has access to sensors/tools that are actually missing or broken.
 
-- **TTS & Ingestion Stability**:
-    - [ ] **Chat-Box TTS Restoration**: Investigate and fix the recurring issue where chat-box output becomes silent while other ingestion paths (e.g., Whisperdock) remain audible.
-    - [ ] **Consistent Tool Architecture**: Consolidate tool definitions and pipeline registration logic across all entry points (Chatbox, Whisperdock, Proactivity, Google Live API) to eliminate duplicate logic and ensure consistent tool availability.
+- **Speech Experience & Transformation**:
+    - [ ] **Universal Speech Transformer**: Develop a lightweight middleware for the Speech Module to clean/transform text before TTS synthesis.
+        - **Narrative Logic**: Mute or Flatten asterisks and parentheses.
+        - **Visual Cleanup**: Strip emojis and Kaomojis.
+        - **Tilde Handling**: Substitution strings for phrases like "nyan".
+        - **Cost Optimization**: Alphanumeric guard and URL/Markdown stripping.
+        - **UI Location**: Integrated into the left column of the Speech Settings Module.
+        - **Spec**: See [docs/blueprint-tts-universal-speech-transformer.md](docs/blueprint-tts-universal-speech-transformer.md).
 
 - **Character Outfit & Habitat Management**:
     - [ ] **Live2D Expression Mapping**: Bridge functionality from VRM to allow mapping Live2D expressions to Control Island emojis.
@@ -125,12 +130,10 @@ This document tracks the current development state of the AIRI project, specific
 - **Browser-Integrated Card Imports (Phase 2)**: (Next Focus) Deep integration with external character sites via an in-app Electron browser. Hooks for direct importing while respecting site ads/iframes.
 - **Vision Feature Integration**:
   - [/] **Gemini 2.5 vs 3.1 Support**: Implement support for both versions to compare the "richer" experience of 2.5 vs the standard 3.1 implementation. [/]
-- **Discord Bot Enhancements**:
-    - [ ] **Discord Proactive Messaging**: Implement proactive message routing to Discord based on recent activity heuristics (e.g., routing heartbeats to the last active channel used by the user).
-    - [ ] **Slash Command: Character Switching**: Add a `/character` slash command to allow switching the active AIRI card directly from Discord.
-    - [ ] **Slash Command: Manual Emotions**: Add an `/emotion` slash command to manually trigger character expressions/animations on the desktop avatar from Discord.
-    - [ ] **Inline Artistry**: Integrate Artistry/Image generation into the Discord pipeline, allowing the bot to return generated images (widgets/backgrounds) as inline attachments in the Discord chat.
-    - [ ] **Interruption & Barge-in (Research)**: Investigate technical feasibility for conversational interruption/barge-in within the Discord bot context, allowing for more natural, overlapping dialogue.
+- **Discord Bot Revamp**:
+  - [ ] **Unified Discord Service**: Transition the Discord bot from a standalone process to a native AIRI service with a deep, meaningful integration (slash commands, character syncing, and native context routing).
+  - [ ] **Advanced Features**: Implementation of character switching (`/character`), manual emotion triggering (`/emotion`), proactive heartbeat routing, and inline Artistry/media attachments.
+  - [ ] **Full Spec**: See [docs/feat__discord-revamp.md](docs/feat__discord-revamp.md) for the detailed technical roadmap and command registry.
 
 - **Infrastructure & UI Health**:
     - [ ] **Settings - System Revamp**: Completely overhaul the `settings > system` page to resolve the current "hodge-podge" of disjointed, nested, and potentially duplicated settings:
