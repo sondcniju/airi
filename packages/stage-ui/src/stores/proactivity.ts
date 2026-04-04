@@ -93,63 +93,97 @@ export const useProactivityStore = defineStore('proactivity', () => {
   }
 
   async function updateSensors() {
-    return // DISABLED: Restoring performance-focused state per user request
+    return // NOTICE: Temporarily disabled to restore 60FPS baseline performance
+    // eslint-disable-next-line no-console
+    console.log('[Proactivity] Starting updateSensors tick...')
+    console.time('[Proactivity] updateSensors')
     // Fallback for non-electron or missing invoker
     const now = new Date()
     locTime.value = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
 
-    if (!isElectron)
+    if (!isElectron) {
+      console.timeEnd('[Proactivity] updateSensors')
       return
+    }
 
     try {
-      await textJournalStore.load()
+      // Parallelize all OS sensor probes to reduce total latency to the slowest single call.
+      const probes = [
+        textJournalStore.load(),
+        getIdleTimeInvoke ? getIdleTimeInvoke() : Promise.resolve(undefined),
+        getActiveWindowInvoke ? getActiveWindowInvoke() : Promise.resolve(undefined),
+        getActiveWindowHistoryInvoke ? getActiveWindowHistoryInvoke() : Promise.resolve([]),
+        getSystemLoadInvoke ? getSystemLoadInvoke() : Promise.resolve(null),
+        getLocalTimeInvoke ? getLocalTimeInvoke() : Promise.resolve(undefined),
+        getVolumeLevelInvoke ? getVolumeLevelInvoke() : Promise.resolve(undefined),
+      ]
 
-      if (getIdleTimeInvoke) {
-        const idleMs = await getIdleTimeInvoke()
-        idleTimeSec.value = idleMs !== undefined ? Math.floor(idleMs / 1000) : undefined
+      const [
+        _journalLoad,
+        idleMsResult,
+        activeWinResult,
+        winHistoryResult,
+        sysLoadResult,
+        locTimeResult,
+        volLevelResult,
+      ] = await Promise.allSettled(probes)
+
+      // Map settled results back to reactive state
+      if (idleMsResult.status === 'fulfilled' && idleMsResult.value !== undefined) {
+        idleTimeSec.value = Math.floor(idleMsResult.value / 1000)
+      }
+      if (activeWinResult.status === 'fulfilled') {
+        activeWinStr.value = activeWinResult.value?.title || ''
+      }
+      if (winHistoryResult.status === 'fulfilled') {
+        winHistory.value = winHistoryResult.value || []
+      }
+      if (sysLoadResult.status === 'fulfilled') {
+        sysLoad.value = sysLoadResult.value
+      }
+      if (locTimeResult.status === 'fulfilled' && locTimeResult.value) {
+        locTime.value = locTimeResult.value
+      }
+      if (volLevelResult.status === 'fulfilled') {
+        volLevel.value = volLevelResult.value
       }
 
-      if (getActiveWindowInvoke) {
-        const activeWin = await getActiveWindowInvoke()
-        activeWinStr.value = activeWin?.title || ''
-      }
-
-      if (getActiveWindowHistoryInvoke) {
-        winHistory.value = await getActiveWindowHistoryInvoke() || []
-      }
-
-      // Memoize usage metrics once per tick
+      // Single-pass optimization for usage metrics
       const oneHourAgo = Date.now() - 3600000
+      const currentCardId = activeCardId.value
 
-      // Only iterate once per tick
-      const journalEntries = textJournalStore.entries
+      const journalEntries = textJournalStore.entries ?? []
       recentJournalEntryCount.value = journalEntries.reduce((count, entry) => {
-        return (entry.characterId === activeCardId.value && (entry.createdAt || 0) > oneHourAgo) ? count + 1 : count
+        return (entry.characterId === currentCardId && (entry.createdAt || 0) > oneHourAgo) ? count + 1 : count
       }, 0)
 
-      const recentMessages = chatSession.messages.filter(m => (m.createdAt || 0) > oneHourAgo)
-      recentTtsCount.value = recentMessages.reduce((count, m) => m.role === 'assistant' ? count + 1 : count, 0)
-      recentSttCount.value = recentMessages.reduce((count, m) => m.role === 'user' ? count + 1 : count, 0)
-      recentChatCount.value = recentMessages.length
-
-      if (getSystemLoadInvoke) {
-        sysLoad.value = await getSystemLoadInvoke()
+      // Combined message metrics (TTS, STT, Total) in one pass
+      let tts = 0
+      let stt = 0
+      let total = 0
+      const messages = chatSession.messages ?? []
+      for (const m of messages) {
+        if ((m.createdAt || 0) > oneHourAgo) {
+          total++
+          if (m.role === 'assistant')
+            tts++
+          else if (m.role === 'user')
+            stt++
+        }
       }
-
-      if (getLocalTimeInvoke) {
-        locTime.value = await getLocalTimeInvoke()
-      }
-
-      if (getVolumeLevelInvoke) {
-        volLevel.value = await getVolumeLevelInvoke()
-      }
+      recentTtsCount.value = tts
+      recentSttCount.value = stt
+      recentChatCount.value = total
     }
     catch (err) {
       console.warn('[Proactivity] Failed to poll sensors for preview:', err)
     }
+    finally {
+      console.timeEnd('[Proactivity] updateSensors')
+    }
   }
 
-  const { pause } = useIntervalFn(updateSensors, 30000, { immediate: true })
+  const { pause } = useIntervalFn(updateSensors, 10000, { immediate: true })
 
   onUnmounted(() => {
     pause()
@@ -225,297 +259,303 @@ export const useProactivityStore = defineStore('proactivity', () => {
   })
 
   async function evaluateHeartbeat(options?: { force?: boolean }) {
-    return // DISABLED: Restoring performance-focused state per user request
-    if (isHeartbeatEvaluating.value && !options?.force) {
-      // eslint-disable-next-line no-console
-      console.log('[Proactivity] Evaluation already in progress, skipping.')
-      return
-    }
-
-    // eslint-disable-next-line no-console
-    console.log('[Proactivity] Ticking evaluation loop...', { force: !!options?.force })
-
-    if (!activeCard.value) {
-      // eslint-disable-next-line no-console
-      console.log('[Proactivity] Aborted: No active card selected.', { activeCard: activeCard.value })
-      return
-    }
-
-    const config = activeCard.value?.extensions?.airi?.heartbeats
-    if (!config?.enabled && !options?.force) {
-      // eslint-disable-next-line no-console
-      console.log('[Proactivity] Aborted: Heartbeats are disabled for this card.', { config })
-      return
-    }
-
-    const now = new Date()
-
-    // Check schedule
-    if (!options?.force && config?.respectSchedule && config?.schedule?.start && config?.schedule?.end) {
-      const isInWindow = isWithinSchedule(config!.schedule!.start, config!.schedule!.end)
-
-      if (!isInWindow) {
-        // eslint-disable-next-line no-console
-        console.log(`[Proactivity] Aborted: Outside schedule window (${config!.schedule!.start} - ${config!.schedule!.end}).`)
-        return
-      }
-    }
-
-    // Check interval
-    // Check interval
-    const intervalMs = (config?.intervalMinutes || 1) * 60 * 1000
-    const timeSinceLast = now.getTime() - lastHeartbeatTime.value
-    const timeLeftMs = Math.max(0, intervalMs - timeSinceLast)
-
-    if (!options?.force && timeLeftMs > 0) {
-      const mins = Math.floor(timeLeftMs / 60000)
-      const secs = Math.floor((timeLeftMs % 60000) / 1000)
-      // eslint-disable-next-line no-console
-      console.log(`[Proactivity] Next evaluation due in: ${mins}m ${secs}s (Interval: ${config?.intervalMinutes}m)`)
-      return
-    }
-
-    let idleData = ''
-    if (config?.useAsLocalGate || config?.injectIntoPrompt) {
-      if (isElectron && getIdleTimeInvoke) {
-        try {
-          // eslint-disable-next-line no-console
-          console.log('[Proactivity] Querying OS Sensors via Eventa...')
-          const idleTime = await getIdleTimeInvoke()
-          // eslint-disable-next-line no-console
-          console.log(`[Proactivity] OS Sensor -> Idle Time: ${idleTime}ms`)
-
-          // If useAsLocalGate is true, abort if user is idle for more than 60 seconds (likely AFK)
-          if (!options?.force && config!.useAsLocalGate && (idleTime !== undefined && idleTime > 60000)) {
-            // eslint-disable-next-line no-console
-            console.log('[Proactivity] Aborted: Local Gate is active and user is idle (> 60s), likely AFK.', { idleTime })
-            return
-          }
-
-          if (config!.injectIntoPrompt) {
-            await updateSensors()
-            idleData = `\n${sensorPayload.value}`
-          }
-        }
-        catch (err) {
-          console.warn('[Proactivity] Failed to fetch OS sensors:', err)
-        }
-      }
-      else {
-        // eslint-disable-next-line no-console
-        console.log('[Proactivity] Skipping sensors: Browser environment or invokers missing.')
-      }
-    }
-
-    lastHeartbeatTime.value = now.getTime()
-    isHeartbeatEvaluating.value = true
-
+    return // NOTICE: Temporarily disabled to restore 60FPS baseline performance
+    console.time('[Proactivity] evaluateHeartbeat')
     try {
-      const promptText = (config?.prompt || 'Evaluate heartbeat and situational context.') + idleData
-      // eslint-disable-next-line no-console
-      console.log(`[Proactivity] >>> TRIGGERING LLM <<< Prompt:\n${promptText}`)
-
-      const messages: { role: 'system' | 'user' | 'assistant', content: string }[] = []
-
-      if (airiCardStore.systemPrompt) {
-        // I know this nu uh, better than loading all language on rehypeShiki (from chat session store)
-        const codeBlockSystemPrompt = '- For any programming code block, always specify the programming language that supported on @shikijs/rehype on the rendered markdown, eg. ```python ... ```\n'
-        const mathSyntaxSystemPrompt = '- For any math equation, use LaTeX format, eg: $ x^3 $, always escape dollar sign outside math equation\n'
-
-        messages.push({
-          role: 'system',
-          content: codeBlockSystemPrompt + mathSyntaxSystemPrompt + airiCardStore.systemPrompt,
-        })
-      }
-
-      const contextsSnapshot = chatContext.getContextsSnapshot()
-      if (Object.keys(contextsSnapshot).length > 0) {
-        messages.push({
-          role: 'user',
-          content: 'These are the contextual information retrieved or on-demand updated from other modules, you may use them as context for chat, or reference of the next action, tool call, etc.:\n'
-            + `${Object.entries(contextsSnapshot).map(([key, value]) => `Module ${key}: ${JSON.stringify(value)}`).join('\n')}\n`,
-        })
-      }
-
-      const sessionId = chatSession.activeSessionId
-      const sessionMessages = chatSession.sessionMessages[sessionId] || []
-
-      // Inject the last 6 messages (approx 3 turns) for conversational context
-      const recentMessages = sessionMessages.slice(-6)
-      for (const msg of recentMessages) {
-        if (msg.role === 'user' || msg.role === 'assistant') {
-          let msgContent = ''
-          if (typeof msg.content === 'string') {
-            msgContent = msg.content as string
-          }
-          else if (Array.isArray(msg.content)) {
-            msgContent = (msg.content as any[]).map((part: any) => {
-              if (typeof part === 'string')
-                return part
-              if (part && typeof part === 'object' && 'text' in part)
-                return String(part.text ?? '')
-              return ''
-            }).join('')
-          }
-          if (msgContent) {
-            messages.push({ role: msg.role as 'user' | 'assistant', content: msgContent })
-          }
-        }
-      }
-
-      messages.push({ role: 'user', content: promptText })
-
-      const activeProviderId = consciousnessStore.activeProvider
-      const activeModel = consciousnessStore.activeModel
-
-      if (!activeProviderId) {
-        console.warn('[Proactivity] Aborted: No active LLM provider found.')
-        return
-      }
-
-      // eslint-disable-next-line no-console
-      console.log('[Proactivity] Resolving Provider Instance:', { activeProviderId, activeModel })
-      const activeProvider = await providersStore.getProviderInstance(activeProviderId) as any
-
-      if (!activeProvider) {
-        console.warn('[Proactivity] Aborted: Failed to instantiate LLM provider.', { activeProviderId })
-        return
-      }
-
-      // NOTICE: Uses the top-level resolveRegisteredTools function (also used by LiveSessionStore)
-      const resolvedTools = resolveRegisteredTools
-
-      const llmResponse = await llmStore.generate(activeModel, activeProvider, messages, {
-        tools: resolvedTools,
-        supportsTools: true,
-      })
-      const rawReply = llmResponse.text
-
-      // Record token usage for persistent tracking
-      if (llmResponse.usage) {
-        const totalTokens = llmResponse.usage.total_tokens || (llmResponse.usage.prompt_tokens + llmResponse.usage.completion_tokens) || 0
-        liveSessionStore.recordInferenceUsage(totalTokens)
-      }
-
-      // eslint-disable-next-line no-console
-      console.log(`[Proactivity] LLM Raw Response: "${rawReply}"`)
-
-      // NOTICE: `NO_REPLY` is a control sentinel for proactive heartbeats, not user-facing content.
-      // If the model returns it exactly, we must stop here so it never reaches chat history, stage
-      // replay, captions, or TTS.
-      if ((rawReply || '').trim() === 'NO_REPLY') {
-        console.log('[Proactivity] AI decided to remain silent via NO_REPLY sentinel.')
-        return
-      }
-
-      const composedMessageSnapshot = toRaw(chatSession.sessionMessages[sessionId] || [])
-
-      const rawStreamingContext: ChatStreamEventContext = {
-        message: { role: 'user', content: '[Heartbeat Check]', createdAt: Date.now(), id: nanoid() },
-        contexts: toRaw(chatContext.getContextsSnapshot()),
-        composedMessage: composedMessageSnapshot as any,
-      }
-
-      // Deep clone to ensure serializability for IPC (prevents DataCloneError)
-      const streamingContext = JSON.parse(JSON.stringify(rawStreamingContext))
-
-      const buildingMessage: StreamingAssistantMessage = {
-        role: 'assistant',
-        content: '',
-        slices: [],
-        tool_results: [],
-        createdAt: Date.now(),
-        id: nanoid(),
-      }
-
-      await chatOrchestrator.emitBeforeMessageComposedHooks('[Proactive Heartbeat]', streamingContext)
-
-      const categorizer = createStreamingCategorizer(activeProviderId)
-      let streamPosition = 0
-
-      const updateUI = () => {
-        if (sessionId === chatSession.activeSessionId) {
-          chatOrchestrator.streamingMessage = JSON.parse(JSON.stringify(buildingMessage))
-        }
-      }
-
-      const parser = useLlmmarkerParser({
-        onLiteral: async (literal) => {
-          categorizer.consume(literal)
-          const speechOnly = categorizer.filterToSpeech(literal, streamPosition)
-          streamPosition += literal.length
-
-          if (speechOnly.trim()) {
-            buildingMessage.content += speechOnly
-            await chatOrchestrator.emitTokenLiteralHooks(speechOnly, streamingContext)
-
-            const lastSlice = buildingMessage.slices.at(-1)
-            if (lastSlice?.type === 'text') {
-              lastSlice.text += speechOnly
-            }
-            else {
-              buildingMessage.slices.push({ type: 'text', text: speechOnly })
-            }
-          }
-          updateUI()
-        },
-        onSpecial: async (special) => {
-          await chatOrchestrator.emitTokenSpecialHooks(special, streamingContext)
-        },
-        onEnd: (fullText) => {
-          const finalCategorization = categorizeResponse(fullText, activeProviderId)
-          buildingMessage.categorization = {
-            speech: finalCategorization.speech,
-            reasoning: finalCategorization.reasoning,
-          }
-          updateUI()
-        },
-      })
-
-      await parser.consume(rawReply || '')
-      await parser.end()
-
-      const trimmedReply = (buildingMessage.content as string).trim()
-
-      if (!trimmedReply) {
+      if (isHeartbeatEvaluating.value && !options?.force) {
         // eslint-disable-next-line no-console
-        console.log('[Proactivity] AI decided to remain silent.')
+        console.log('[Proactivity] Evaluation already in progress, skipping.')
         return
       }
 
       // eslint-disable-next-line no-console
-      console.log(`[Proactivity] Success! Injecting message into UI: ${trimmedReply}`)
+      console.log('[Proactivity] Ticking evaluation loop...', { force: !!options?.force })
 
-      await chatOrchestrator.emitStreamEndHooks(streamingContext)
-      await chatOrchestrator.emitAssistantResponseEndHooks(trimmedReply, streamingContext)
-
-      // Inscribe the proactive turn properly
-      chatSession.inscribeTurn(buildingMessage as any, sessionId)
-
-      if (sessionId === chatSession.activeSessionId) {
-        chatOrchestrator.streamingMessage = { role: 'assistant', content: '', slices: [], tool_results: [] }
+      if (!activeCard.value) {
+        // eslint-disable-next-line no-console
+        console.log('[Proactivity] Aborted: No active card selected.', { activeCard: activeCard.value })
+        return
       }
 
-      await chatOrchestrator.emitAssistantMessageHooks(buildingMessage, trimmedReply, streamingContext)
-      await chatOrchestrator.emitChatTurnCompleteHooks({
-        output: buildingMessage,
-        outputText: trimmedReply,
-        toolCalls: [],
-      }, streamingContext)
-
-      // Piggyback vision capture onto the proactivity heartbeat when Live API is active.
-      // This eliminates the need for a separate vision polling loop — proactivity's AFK,
-      // schedule, and interval gates naturally protect vision from wasted captures.
-      if (liveSessionStore.isActive && visionStore.isWitnessEnabled) {
-        console.log('[Proactivity] Live API active + Witness enabled → piggybacking vision capture.')
-        await visionStore.heartbeat({ force: true })
+      const config = activeCard.value?.extensions?.airi?.heartbeats
+      if (!config?.enabled && !options?.force) {
+        // eslint-disable-next-line no-console
+        console.log('[Proactivity] Aborted: Heartbeats are disabled for this card.', { config })
+        return
       }
-    }
-    catch (err) {
-      console.error('[Proactivity] Error during heartbeat evaluation:', err)
+
+      const now = new Date()
+
+      // Check schedule
+      if (!options?.force && config?.respectSchedule && config?.schedule?.start && config?.schedule?.end) {
+        const isInWindow = isWithinSchedule(config!.schedule!.start, config!.schedule!.end)
+
+        if (!isInWindow) {
+          // eslint-disable-next-line no-console
+          console.log(`[Proactivity] Aborted: Outside schedule window (${config!.schedule!.start} - ${config!.schedule!.end}).`)
+          return
+        }
+      }
+
+      // Check interval
+      // Check interval
+      const intervalMs = (config?.intervalMinutes || 1) * 60 * 1000
+      const timeSinceLast = now.getTime() - lastHeartbeatTime.value
+      const timeLeftMs = Math.max(0, intervalMs - timeSinceLast)
+
+      if (!options?.force && timeLeftMs > 0) {
+        const mins = Math.floor(timeLeftMs / 60000)
+        const secs = Math.floor((timeLeftMs % 60000) / 1000)
+        // eslint-disable-next-line no-console
+        console.log(`[Proactivity] Next evaluation due in: ${mins}m ${secs}s (Interval: ${config?.intervalMinutes}m)`)
+        return
+      }
+
+      let idleData = ''
+      if (config?.useAsLocalGate || config?.injectIntoPrompt) {
+        if (isElectron && getIdleTimeInvoke) {
+          try {
+            // eslint-disable-next-line no-console
+            console.log('[Proactivity] Querying OS Sensors via Eventa...')
+            const idleTime = await getIdleTimeInvoke()
+            // eslint-disable-next-line no-console
+            console.log(`[Proactivity] OS Sensor -> Idle Time: ${idleTime}ms`)
+
+            // If useAsLocalGate is true, abort if user is idle for more than 60 seconds (likely AFK)
+            if (!options?.force && config!.useAsLocalGate && (idleTime !== undefined && idleTime > 60000)) {
+              // eslint-disable-next-line no-console
+              console.log('[Proactivity] Aborted: Local Gate is active and user is idle (> 60s), likely AFK.', { idleTime })
+              return
+            }
+
+            if (config!.injectIntoPrompt) {
+              await updateSensors()
+              idleData = `\n${sensorPayload.value}`
+            }
+          }
+          catch (err) {
+            console.warn('[Proactivity] Failed to fetch OS sensors:', err)
+          }
+        }
+        else {
+          // eslint-disable-next-line no-console
+          console.log('[Proactivity] Skipping sensors: Browser environment or invokers missing.')
+        }
+      }
+
+      lastHeartbeatTime.value = now.getTime()
+      isHeartbeatEvaluating.value = true
+
+      try {
+        const promptText = (config?.prompt || 'Evaluate heartbeat and situational context.') + idleData
+        // eslint-disable-next-line no-console
+        console.log(`[Proactivity] >>> TRIGGERING LLM <<< Prompt:\n${promptText}`)
+
+        const messages: { role: 'system' | 'user' | 'assistant', content: string }[] = []
+
+        if (airiCardStore.systemPrompt) {
+          // I know this nu uh, better than loading all language on rehypeShiki (from chat session store)
+          const codeBlockSystemPrompt = '- For any programming code block, always specify the programming language that supported on @shikijs/rehype on the rendered markdown, eg. ```python ... ```\n'
+          const mathSyntaxSystemPrompt = '- For any math equation, use LaTeX format, eg: $ x^3 $, always escape dollar sign outside math equation\n'
+
+          messages.push({
+            role: 'system',
+            content: codeBlockSystemPrompt + mathSyntaxSystemPrompt + airiCardStore.systemPrompt,
+          })
+        }
+
+        const contextsSnapshot = chatContext.getContextsSnapshot()
+        if (Object.keys(contextsSnapshot).length > 0) {
+          messages.push({
+            role: 'user',
+            content: 'These are the contextual information retrieved or on-demand updated from other modules, you may use them as context for chat, or reference of the next action, tool call, etc.:\n'
+              + `${Object.entries(contextsSnapshot).map(([key, value]) => `Module ${key}: ${JSON.stringify(value)}`).join('\n')}\n`,
+          })
+        }
+
+        const sessionId = chatSession.activeSessionId
+        const sessionMessages = chatSession.sessionMessages[sessionId] || []
+
+        // Inject the last 6 messages (approx 3 turns) for conversational context
+        const recentMessages = sessionMessages.slice(-6)
+        for (const msg of recentMessages) {
+          if (msg.role === 'user' || msg.role === 'assistant') {
+            let msgContent = ''
+            if (typeof msg.content === 'string') {
+              msgContent = msg.content as string
+            }
+            else if (Array.isArray(msg.content)) {
+              msgContent = (msg.content as any[]).map((part: any) => {
+                if (typeof part === 'string')
+                  return part
+                if (part && typeof part === 'object' && 'text' in part)
+                  return String(part.text ?? '')
+                return ''
+              }).join('')
+            }
+            if (msgContent) {
+              messages.push({ role: msg.role as 'user' | 'assistant', content: msgContent })
+            }
+          }
+        }
+
+        messages.push({ role: 'user', content: promptText })
+
+        const activeProviderId = consciousnessStore.activeProvider
+        const activeModel = consciousnessStore.activeModel
+
+        if (!activeProviderId) {
+          console.warn('[Proactivity] Aborted: No active LLM provider found.')
+          return
+        }
+
+        // eslint-disable-next-line no-console
+        console.log('[Proactivity] Resolving Provider Instance:', { activeProviderId, activeModel })
+        const activeProvider = await providersStore.getProviderInstance(activeProviderId) as any
+
+        if (!activeProvider) {
+          console.warn('[Proactivity] Aborted: Failed to instantiate LLM provider.', { activeProviderId })
+          return
+        }
+
+        // NOTICE: Uses the top-level resolveRegisteredTools function (also used by LiveSessionStore)
+        const resolvedTools = resolveRegisteredTools
+
+        const llmResponse = await llmStore.generate(activeModel, activeProvider, messages, {
+          tools: resolvedTools,
+          supportsTools: true,
+        })
+        const rawReply = llmResponse.text
+
+        // Record token usage for persistent tracking
+        if (llmResponse.usage) {
+          const totalTokens = llmResponse.usage.total_tokens || (llmResponse.usage.prompt_tokens + llmResponse.usage.completion_tokens) || 0
+          liveSessionStore.recordInferenceUsage(totalTokens)
+        }
+
+        // eslint-disable-next-line no-console
+        console.log(`[Proactivity] LLM Raw Response: "${rawReply}"`)
+
+        // NOTICE: `NO_REPLY` is a control sentinel for proactive heartbeats, not user-facing content.
+        // If the model returns it exactly, we must stop here so it never reaches chat history, stage
+        // replay, captions, or TTS.
+        if ((rawReply || '').trim() === 'NO_REPLY') {
+          console.log('[Proactivity] AI decided to remain silent via NO_REPLY sentinel.')
+          return
+        }
+
+        const composedMessageSnapshot = toRaw(chatSession.sessionMessages[sessionId] || [])
+
+        const rawStreamingContext: ChatStreamEventContext = {
+          message: { role: 'user', content: '[Heartbeat Check]', createdAt: Date.now(), id: nanoid() },
+          contexts: toRaw(chatContext.getContextsSnapshot()),
+          composedMessage: composedMessageSnapshot as any,
+        }
+
+        // Deep clone to ensure serializability for IPC (prevents DataCloneError)
+        const streamingContext = JSON.parse(JSON.stringify(rawStreamingContext))
+
+        const buildingMessage: StreamingAssistantMessage = {
+          role: 'assistant',
+          content: '',
+          slices: [],
+          tool_results: [],
+          createdAt: Date.now(),
+          id: nanoid(),
+        }
+
+        await chatOrchestrator.emitBeforeMessageComposedHooks('[Proactive Heartbeat]', streamingContext)
+
+        const categorizer = createStreamingCategorizer(activeProviderId)
+        let streamPosition = 0
+
+        const updateUI = () => {
+          if (sessionId === chatSession.activeSessionId) {
+            chatOrchestrator.streamingMessage = JSON.parse(JSON.stringify(buildingMessage))
+          }
+        }
+
+        const parser = useLlmmarkerParser({
+          onLiteral: async (literal) => {
+            categorizer.consume(literal)
+            const speechOnly = categorizer.filterToSpeech(literal, streamPosition)
+            streamPosition += literal.length
+
+            if (speechOnly.trim()) {
+              buildingMessage.content += speechOnly
+              await chatOrchestrator.emitTokenLiteralHooks(speechOnly, streamingContext)
+
+              const lastSlice = buildingMessage.slices.at(-1)
+              if (lastSlice?.type === 'text') {
+                lastSlice.text += speechOnly
+              }
+              else {
+                buildingMessage.slices.push({ type: 'text', text: speechOnly })
+              }
+            }
+            updateUI()
+          },
+          onSpecial: async (special) => {
+            await chatOrchestrator.emitTokenSpecialHooks(special, streamingContext)
+          },
+          onEnd: (fullText) => {
+            const finalCategorization = categorizeResponse(fullText, activeProviderId)
+            buildingMessage.categorization = {
+              speech: finalCategorization.speech,
+              reasoning: finalCategorization.reasoning,
+            }
+            updateUI()
+          },
+        })
+
+        await parser.consume(rawReply || '')
+        await parser.end()
+
+        const trimmedReply = (buildingMessage.content as string).trim()
+
+        if (!trimmedReply) {
+          // eslint-disable-next-line no-console
+          console.log('[Proactivity] AI decided to remain silent.')
+          return
+        }
+
+        // eslint-disable-next-line no-console
+        console.log(`[Proactivity] Success! Injecting message into UI: ${trimmedReply}`)
+
+        await chatOrchestrator.emitStreamEndHooks(streamingContext)
+        await chatOrchestrator.emitAssistantResponseEndHooks(trimmedReply, streamingContext)
+
+        // Inscribe the proactive turn properly
+        chatSession.inscribeTurn(buildingMessage as any, sessionId)
+
+        if (sessionId === chatSession.activeSessionId) {
+          chatOrchestrator.streamingMessage = { role: 'assistant', content: '', slices: [], tool_results: [] }
+        }
+
+        await chatOrchestrator.emitAssistantMessageHooks(buildingMessage, trimmedReply, streamingContext)
+        await chatOrchestrator.emitChatTurnCompleteHooks({
+          output: buildingMessage,
+          outputText: trimmedReply,
+          toolCalls: [],
+        }, streamingContext)
+
+        // Piggyback vision capture onto the proactivity heartbeat when Live API is active.
+        // This eliminates the need for a separate vision polling loop — proactivity's AFK,
+        // schedule, and interval gates naturally protect vision from wasted captures.
+        if (liveSessionStore.isActive && visionStore.isWitnessEnabled) {
+          console.log('[Proactivity] Live API active + Witness enabled → piggybacking vision capture.')
+          await visionStore.heartbeat({ force: true })
+        }
+      }
+      catch (err) {
+        console.error('[Proactivity] Error during heartbeat evaluation:', err)
+      }
+      finally {
+        isHeartbeatEvaluating.value = false
+      }
     }
     finally {
-      isHeartbeatEvaluating.value = false
+      console.timeEnd('[Proactivity] evaluateHeartbeat')
     }
   }
 
