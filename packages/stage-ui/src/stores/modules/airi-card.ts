@@ -859,8 +859,9 @@ export function buildSystemPrompt(card: AiriCard | undefined) {
     )
   }
 
-  if (card.extensions?.airi?.artistry?.provider && card.extensions?.airi?.artistry?.widgetInstruction) {
-    components.push(card.extensions.airi.artistry.widgetInstruction)
+  const artistry = card.extensions?.airi?.artistry
+  if (artistry?.provider && artistry.provider !== 'none' && artistry.widgetInstruction) {
+    components.push(artistry.widgetInstruction)
   }
 
   return components.join('\n')

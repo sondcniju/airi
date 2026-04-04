@@ -165,6 +165,7 @@ const consciousnessProviderOptions = computed(() => {
 
 const artistryProviderOptions = computed(() => {
   return [
+    { value: 'none', label: 'None (Disabled)' },
     { value: 'replicate', label: 'Replicate' },
     { value: 'comfyui', label: 'ComfyUI' },
   ]
