@@ -105,7 +105,18 @@ This document tracks the current development state of the AIRI project, specific
   - Used for isolating features into clean PR branches.
 
 ## Pending Items (Roadmap)
-- **AIRI Card Export Preview Modes**: Explore an optional export mode that bakes the currently selected stage background into the composed PNG preview, while keeping the current transparent/framed export as the default. This should stay optional so card portability and predictable framing are not lost.
+- **Artistry & Proactivity Refinement**:
+    - [ ] **Artistry Character Toggle**: Allow users to fully disable artistry features on a per-character basis, which will dynamically update the character's system prompt builder to omit relevant image-generation instructions and tool definitions.
+    - [ ] **Artistry Global "None" Provider**: Implement a "none" state at the global provider level to allow disabling image generation across the entire app, regardless of individual character settings.
+    - [ ] **Proactivity Pipeline Overhaul**: Revisit the end-to-end proactivity pipeline focusing on three key tenets:
+        - **Cross-Platform Compatibility**: Ensure robust performance on Windows, macOS, and Linux with graceful fallbacks for platform-specific sensors (e.g., fallback for PowerShell-based volume on non-Windows).
+        - **Performance Optimization**: Minimize main-thread blocking and resource consumption during sensor polling and evaluation ticks.
+        - **Context Parity**: Ensure the proactivity engine receives the same high-fidelity context payload (same sensors, tool definitions, and history) as the standard chat pipeline to prevent inconsistent reasoning or a "brain-split" where the AI thinks it has access to sensors/tools that are actually missing or broken.
+
+- **TTS & Ingestion Stability**:
+    - [ ] **Chat-Box TTS Restoration**: Investigate and fix the recurring issue where chat-box output becomes silent while other ingestion paths (e.g., Whisperdock) remain audible.
+    - [ ] **Consistent Tool Architecture**: Consolidate tool definitions and pipeline registration logic across all entry points (Chatbox, Whisperdock, Proactivity, Google Live API) to eliminate duplicate logic and ensure consistent tool availability.
+
 - **Character Outfit & Habitat Management**:
     - [ ] **Live2D Expression Mapping**: Bridge functionality from VRM to allow mapping Live2D expressions to Control Island emojis.
     - [ ] **Live2D Outfit System**: Port and enable the modular wardrobe/outfit system for Live2D models.
@@ -115,7 +126,24 @@ This document tracks the current development state of the AIRI project, specific
 - **Vision Feature Integration**:
   - [/] **Gemini 2.5 vs 3.1 Support**: Implement support for both versions to compare the "richer" experience of 2.5 vs the standard 3.1 implementation. [/]
 - **Infrastructure & UI Health**:
-  - [ ] **Status Indicator Audit**: Revisit `settings>modules` and `settings>providers` to ensure the "green state" (connected/enabled) indicators are working accurately for all entries.
+    - [ ] **Settings - System Revamp**: Completely overhaul the `settings > system` page to resolve the current "hodge-podge" of disjointed, nested, and potentially duplicated settings:
+        - **Consolidation**: Pivot away from deep nesting and instead group related settings on a single, well-organized page with clear section headers.
+        - **Developer Mode Relegation**: Move developer-specific tools and configuration out of the main system flow to prevent clutter for standard users.
+        - **Deduplication Audit**: Conduct a full audit to identify and merge settings that are currently duplicated across different pages (e.g., speech or consciousness settings appearing in multiple places).
+        - **Emphasis on Discoverability**: Focus on a flatter hierarchy where most critical system options are accessible without multiple layers of navigation.
+    - [ ] **Context-Width Global Mapping**: Implement a global storage map (local storage) that links `providerId` and `modelName` to a user-defined `contextWidth`.
+    - [ ] **Generation Tab Persistence**: Update the generation settings tab to automatically update this global map when a value greater than 0 is set.
+    - [ ] **Context-Width Inheritance**: Refine the chatbox loading-bar logic to coalesce settings: if a character's context width is unset, it should inherit the value from the global map matching the active provider/model pair.
+    - [ ] **Control Island Mutual Exclusion**: Refactor the Control Islands (Main and Gemini/Module-specific) to ensure only one can be open at a time; opening one should automatically close any other open island.
+    - [ ] **Gemini Control Island Auto-Hide Logic**: Update the button behaviors in the Gemini/Module Control Island to match the "Main" island's established UX:
+        - **Toggle buttons** (e.g., Grounding toggle, Voice/Custom mode toggle) should trigger an auto-hide of the island panel.
+        - **Cycle buttons** (e.g., Interval cycling) should keep the island panel open for further interaction.
+    - [ ] **Status Indicator Audit**: Revisit `settings>modules` and `settings>providers` to ensure the "green state" (connected/enabled) indicators are working accurately for all entries.
+    - [ ] **Model Selector Stability (Research & Design)**: Investigate and resolve the "reactive reset" bug where selecting a temporary preview model in the Model Selector is overridden by the active character's stored model configuration:
+        - **Problem**: Users on character "Mint" (set to `mint123.vrm`) select `mint456.vrm` in the Model Selector for a temporary preview; reactive logic currently forces a reset back to `mint123.vrm` after a few moments.
+        - **Proposed Solution**: Detect when the user is in the Model Selector route/page and suppress the character-scoped model restoration logic.
+        - **UI Enhancement**: If the active character's model configuration differs from the current Model Selector preview, display a non-intrusive warning: *"Your model will be restored to the one set on your character once you leave this page unless you click Apply Now."*
+        - **Current Workaround (Kludgy)**: Users are currently forced to "Set model to {character}" just to avoid a reset, even if they aren't ready to commit to the change.
 - [x] **Privacy Indicator**: Add visual feedback in Controls Island when AIRI is "Watching". [x]
 - **[Experimental] Widget-Native Transient Chat Bubbles**:
   - Context-aware, at-a-glance chat history overlaid directly on the transparent `Stage.vue` model layer.
