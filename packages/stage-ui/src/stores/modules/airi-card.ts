@@ -6,7 +6,7 @@ import { useModelStore } from '@proj-airi/stage-ui-three'
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
 import { safeParse } from 'valibot'
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { DEFAULT_ACTING_MODEL_EXPRESSION_PROMPT, DEFAULT_ACTING_SPEECH_EXPRESSION_PROMPT, DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT, DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT, DEFAULT_HEARTBEATS_PROMPT, DEFAULT_POST_HISTORY_INSTRUCTIONS } from '../../constants/prompts/character-defaults'
@@ -164,6 +164,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   const live2dStore = useLive2d()
   const vrmStore = useModelStore()
   const backgroundStore = useBackgroundStore()
+  const isModelSyncPrevented = ref(false)
 
   const {
     activeProvider: activeConsciousnessProvider,
@@ -277,11 +278,10 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     const card = cards.value.get(id)
     if (!card)
       return undefined
-
     return resolveAiriExtension(card).modules?.displayModelId
   }
 
-  async function applyCardState(card: AiriCard | undefined, force = false) {
+  async function syncCardState(card: AiriCard | undefined, force = false) {
     if (!card)
       return
 
@@ -311,41 +311,39 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     if (nextSpeechVoiceId && activeSpeechVoiceId.value !== nextSpeechVoiceId)
       activeSpeechVoiceId.value = nextSpeechVoiceId
 
-    // 3. Sync Models & Parameters
-    const newModelId = extension.modules?.displayModelId
-    const modelChanged = newModelId && newModelId !== stageModelStore.stageModelSelected
+    // 3. Sync Models & Parameters (ONLY if not prevented)
+    if (!isModelSyncPrevented.value || force) {
+      const newModelId = extension.modules?.displayModelId
+      const modelChanged = newModelId && newModelId !== stageModelStore.stageModelSelected
 
-    if (newModelId && (force || modelChanged)) {
-      stageModelStore.stageModelSelected = newModelId
-      // updateStageModel has internal stability guards for blob URL creation
-      await stageModelStore.updateStageModel()
-    }
+      if (newModelId && (force || modelChanged)) {
+        stageModelStore.stageModelSelected = newModelId
+        // updateStageModel has internal stability guards for blob URL creation
+        await stageModelStore.updateStageModel()
+      }
 
-    // Surgical sync of Live2D parameters if they belong to the active model
-    const selectedModel = await displayModelsStore.getDisplayModel(stageModelStore.stageModelSelected)
-    if (selectedModel?.format === DisplayModelFormat.Live2dZip && extension.modules?.live2d) {
-      if (extension.modules.live2d.activeExpressions)
-        live2dStore.activeExpressions = { ...extension.modules.live2d.activeExpressions }
-      if (extension.modules.live2d.modelParameters)
-        live2dStore.modelParameters = { ...extension.modules.live2d.modelParameters }
+      // Surgical sync of Live2D parameters if they belong to the active model
+      const selectedModel = await displayModelsStore.getDisplayModel(stageModelStore.stageModelSelected)
+      if (selectedModel?.format === DisplayModelFormat.Live2dZip && extension.modules?.live2d) {
+        if (extension.modules.live2d.activeExpressions)
+          live2dStore.activeExpressions = { ...extension.modules.live2d.activeExpressions }
+        if (extension.modules.live2d.modelParameters)
+          live2dStore.modelParameters = { ...extension.modules.live2d.modelParameters }
 
-      // Only trigger full view update if the model profile itself changed or forced
-      if (force || modelChanged) {
-        live2dStore.shouldUpdateView()
+        // Only trigger full view update if the model profile itself changed or forced
+        if (force || modelChanged) {
+          live2dStore.shouldUpdateView()
+        }
+      }
+      else if (selectedModel?.format === DisplayModelFormat.VRM && (force || modelChanged)) {
+        vrmStore.shouldUpdateView()
       }
     }
-    else if (selectedModel?.format === DisplayModelFormat.VRM && (force || modelChanged)) {
-      vrmStore.shouldUpdateView()
-    }
-
-    // Background syncing to a global store is no longer needed manually.
-    // The backgroundStore uses a computed property `activeBackgroundUrl`
-    // derived directly from the active card's `activeBackgroundId`.
   }
 
   async function activateCard(id: string, force = false) {
     activeCardId.value = id
-    await applyCardState(cards.value.get(id), force)
+    await syncCardState(cards.value.get(id), force)
   }
 
   function resolveAiriExtension(card: Card | ccv3.CharacterCardV3): AiriExtension {
@@ -736,7 +734,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   }
 
   watch(activeCard, async (newCard: AiriCard | undefined) => {
-    await applyCardState(newCard)
+    await syncCardState(newCard)
   })
 
   function resetState() {
@@ -758,6 +756,8 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     resetState,
     initialize,
     seedDefaults,
+    isModelSyncPrevented,
+    syncCardState,
 
     updateCardOutfits: (id: string, outfits: AiriOutfit[]) => {
       const card = cards.value.get(id)

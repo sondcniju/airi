@@ -21,6 +21,7 @@ This document tracks the current development state of the AIRI project, specific
 ## Recent Changes (in `airi-rebase-scratch`)
 
 #### 2026-04-04 - Control Island UX & Modular Artistry
+- **Model Selector Stability**: Fixed a regression where character card updates (e.g. from proactivity heartbeats) would force-reset the renderer's model while the user was in the Model Selector.
 - **Control Island Mutual Exclusion**: Refactored the UI to ensure the Main island and Gemini/Module islands auto-collapse each other, preventing desktop clutter.
 - **Gemini Control Island UX**: Implemented specialized auto-hide logic (Action vs. Cycle) and disabled legacy settings buttons to match the premium Main island experience.
 - **Native Performance (Koffi)**: Migrated the proactivity sensor pipeline to Koffi for Win32 FFI, achieving sub-1s telemetry heartbeat ticks (optimized from ~1.5s).
