@@ -1,4 +1,4 @@
-<picture>
+﻿<picture>
   <source
     width="100%"
     srcset="./content/public/banner-dark-1280x640.avif"
@@ -14,10 +14,10 @@
 
 <h1 align="center">Projet AIRI</h1>
 
-<p align="center">Re-création de Neuro-sama, un conteneur d'âme pour waifu / personnages virtuels IA afin de les amener dans notre monde.</p>
+<p align="center">Re-crÃ©ation de Neuro-sama, un conteneur d'Ã¢me pour waifu / personnages virtuels IA afin de les amener dans notre monde.</p>
 
 <p align="center">
-  [<a href="https://discord.gg/TgQ3Cu2F7A">Rejoindre le serveur Discord</a>] [<a href="https://airi.moeru.ai">Essayez-le</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/README.md">English</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.zh-CN.md">简体中文</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ja-JP.md">日本語</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ru-RU.md">Русский</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.vi.md">Tiếng Việt</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ko-KR.md">한국어</a>]
+  [<a href="https://discord.gg/TgQ3Cu2F7A">Rejoindre le serveur Discord</a>] [<a href="https://airi.moeru.ai">Essayez-le</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/README.md">English</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.zh-CN.md">ç®€ä½“ä¸­æ–‡</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ja-JP.md">æ—¥æœ¬èªž</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ru-RU.md">Ð ÑƒÑÑÐºÐ¸Ð¹</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.vi.md">Tiáº¿ng Viá»‡t</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ko-KR.md">í•œêµ­ì–´</a>]
 </p>
 
 <p align="center">
@@ -32,7 +32,7 @@
 
 <p float="left" align="center">
   <!-- readme-section:release-binary-windows -->
-  <a href="https://github.com/moeru-ai/airi/releases/download/v0.9.0-stable.20260403/AIRI-0.9.0-stable.20260403-windows-x64-setup.exe">
+  <a href="https://github.com/moeru-ai/airi/releases/download/v0.9.0-stable.20260404/AIRI-0.9.0-stable.20260403-windows-x64-setup.exe">
     <picture>
       <source
         width="33%"
@@ -48,7 +48,7 @@
     </picture>
   </a>
   <!-- readme-section:release-binary-macos -->
-  <a href="https://github.com/moeru-ai/airi/releases/download/v0.9.0-stable.20260403/AIRI-0.9.0-stable.20260403-darwin-arm64.dmg">
+  <a href="https://github.com/moeru-ai/airi/releases/download/v0.9.0-stable.20260404/AIRI-0.9.0-stable.20260403-darwin-arm64.dmg">
     <picture>
       <source
         width="33%"
@@ -113,73 +113,73 @@
 </p>
 
 <p align="center">
-  <a href="https://www.producthunt.com/products/airi?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-airi" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=993524&theme=neutral&t=1752696535380" alt="AIRI - Un conteneur d'âmes cyber vivantes, re-création de Neuro-sama | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
+  <a href="https://www.producthunt.com/products/airi?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-airi" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=993524&theme=neutral&t=1752696535380" alt="AIRI - Un conteneur d'Ã¢mes cyber vivantes, re-crÃ©ation de Neuro-sama | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
   <a href="https://trendshift.io/repositories/14636" target="_blank"><img src="https://trendshift.io/api/badge/repositories/14636" alt="moeru-ai%2Fairi | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 </p>
 
-> Fortement inspiré par [Neuro-sama](https://www.youtube.com/@Neurosama)
+> Fortement inspirÃ© par [Neuro-sama](https://www.youtube.com/@Neurosama)
 
 > [!WARNING]
-> **Attention :** Nous **n'avons pas** de crypto-monnaie ou de token officiel associé à ce projet. Veuillez vérifier les informations et procéder avec prudence.
+> **Attention :** Nous **n'avons pas** de crypto-monnaie ou de token officiel associÃ© Ã  ce projet. Veuillez vÃ©rifier les informations et procÃ©der avec prudence.
 
 > [!NOTE]
 >
-> Nous avons une organisation dédiée [@proj-airi](https://github.com/proj-airi) pour tous les sous-projets issus du Projet AIRI. Découvrez-la !
+> Nous avons une organisation dÃ©diÃ©e [@proj-airi](https://github.com/proj-airi) pour tous les sous-projets issus du Projet AIRI. DÃ©couvrez-la !
 >
-> RAG, système de mémoire, base de données intégrée, icônes, utilitaires Live2D, et plus encore !
+> RAG, systÃ¨me de mÃ©moire, base de donnÃ©es intÃ©grÃ©e, icÃ´nes, utilitaires Live2D, et plus encore !
 
 > [!TIP]
-> Nous avons un projet de traduction sur [Crowdin](https://crowdin.com/project/proj-airi). Si vous repérez une traduction inexacte, n’hésitez pas à contribuer ou à proposer une correction sur Crowdin.
+> Nous avons un projet de traduction sur [Crowdin](https://crowdin.com/project/proj-airi). Si vous repÃ©rez une traduction inexacte, nâ€™hÃ©sitez pas Ã  contribuer ou Ã  proposer une correction sur Crowdin.
 > <a href="https://crowdin.com/project/proj-airi" target="_blank" rel="nofollow"><img style="width: 140px; height: 40px;" src="https://badges.crowdin.net/badge/light/crowdin-on-dark.png" srcset="https://badges.crowdin.net/badge/light/crowdin-on-dark.png 1x, https://badges.crowdin.net/badge/light/crowdin-on-dark@2x.png 2x" alt="Crowdin | Agile localization for tech companies" width="140" height="40" /></a>
 
-Avez-vous rêvé d’avoir un être cyber vivant (waifu numérique, animal de compagnie digital) ou un compagnon numérique avec lequel jouer et discuter ?
+Avez-vous rÃªvÃ© dâ€™avoir un Ãªtre cyber vivant (waifu numÃ©rique, animal de compagnie digital) ou un compagnon numÃ©rique avec lequel jouer et discuter ?
 
-Avec la puissance des modèles de langage modernes comme [ChatGPT](https://chatgpt.com) et le célèbre [Claude](https://claude.ai), demander à un être virtuel de jouer un rôle et de discuter est déjà simple pour tout le monde. Des plateformes comme [Character.ai (c.ai)](https://character.ai) et [JanitorAI](https://janitorai.com/) ainsi que des playgrounds locaux comme [SillyTavern](https://github.com/SillyTavern/SillyTavern) offrent déjà des solutions assez bonnes pour une expérience de chat ou de jeu d’aventure visuel.
+Avec la puissance des modÃ¨les de langage modernes comme [ChatGPT](https://chatgpt.com) et le cÃ©lÃ¨bre [Claude](https://claude.ai), demander Ã  un Ãªtre virtuel de jouer un rÃ´le et de discuter est dÃ©jÃ  simple pour tout le monde. Des plateformes comme [Character.ai (c.ai)](https://character.ai) et [JanitorAI](https://janitorai.com/) ainsi que des playgrounds locaux comme [SillyTavern](https://github.com/SillyTavern/SillyTavern) offrent dÃ©jÃ  des solutions assez bonnes pour une expÃ©rience de chat ou de jeu dâ€™aventure visuel.
 
-> Mais qu’en est-il de la possibilité de jouer à des jeux et de voir ce que vous codez ? Discuter tout en jouant à des jeux, en regardant des vidéos, et être capable de faire beaucoup d’autres choses.
+> Mais quâ€™en est-il de la possibilitÃ© de jouer Ã  des jeux et de voir ce que vous codez ? Discuter tout en jouant Ã  des jeux, en regardant des vidÃ©os, et Ãªtre capable de faire beaucoup dâ€™autres choses.
 
-Peut-être connaissez-vous déjà [Neuro-sama](https://www.youtube.com/@Neurosama). Elle est actuellement la meilleure VTuber virtuelle capable de jouer, discuter et interagir avec vous et les participants. Certains appellent ce type d’être « humain digital ». **Malheureusement, comme ce n’est pas open source, vous ne pouvez pas interagir avec elle après la fin de ses streams.**
+Peut-Ãªtre connaissez-vous dÃ©jÃ  [Neuro-sama](https://www.youtube.com/@Neurosama). Elle est actuellement la meilleure VTuber virtuelle capable de jouer, discuter et interagir avec vous et les participants. Certains appellent ce type dâ€™Ãªtre Â« humain digital Â». **Malheureusement, comme ce nâ€™est pas open source, vous ne pouvez pas interagir avec elle aprÃ¨s la fin de ses streams.**
 
-Ainsi, ce projet AIRI offre une autre possibilité : **vous permettre de posséder votre vie digitale, votre cyber-vie, facilement, partout et à tout moment**.
+Ainsi, ce projet AIRI offre une autre possibilitÃ© : **vous permettre de possÃ©der votre vie digitale, votre cyber-vie, facilement, partout et Ã  tout moment**.
 
-## Journaux de développement et mises à jour récentes
+## Journaux de dÃ©veloppement et mises Ã  jour rÃ©centes
 
 - [DevLog @ 01.01.2026](https://airi.moeru.ai/docs/en/blog/DevLog-2026.01.01/) du 1er janvier 2026
 - [DevLog @ 20.10.2025](https://airi.moeru.ai/docs/en/blog/DevLog-2025.10.20/) du 20 octobre 2025
-- [DevLog @ 05.08.2025](https://airi.moeru.ai/docs/en/blog/DevLog-2025.08.05/) du 5 août 2025
-- [DevLog @ 01.08.2025](https://airi.moeru.ai/docs/en/blog/DevLog-2025.08.01/) du 1er août 2025
+- [DevLog @ 05.08.2025](https://airi.moeru.ai/docs/en/blog/DevLog-2025.08.05/) du 5 aoÃ»t 2025
+- [DevLog @ 01.08.2025](https://airi.moeru.ai/docs/en/blog/DevLog-2025.08.01/) du 1er aoÃ»t 2025
 - [DevLog @ 18.07.2025](https://airi.moeru.ai/docs/en/blog/DevLog-2025.07.18/) du 18 juillet 2025
 - [DreamLog 0x1](https://airi.moeru.ai/docs/en/blog/dreamlog-0x1/) du 16 juin 2025
 - ...plus sur le [site de documentation](https://airi.moeru.ai/docs)
 
-## Qu’est-ce qui rend ce projet spécial ?
+## Quâ€™est-ce qui rend ce projet spÃ©cial ?
 
-Contrairement aux autres projets open source VTuber basés sur l’IA, アイリ a été construit dès le départ avec le support de nombreuses technologies Web comme [WebGPU](https://www.w3.org/TR/webgpu/), [WebAudio](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API), [Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers), [WebAssembly](https://webassembly.org/), [WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket), etc.
+Contrairement aux autres projets open source VTuber basÃ©s sur lâ€™IA, ã‚¢ã‚¤ãƒª a Ã©tÃ© construit dÃ¨s le dÃ©part avec le support de nombreuses technologies Web comme [WebGPU](https://www.w3.org/TR/webgpu/), [WebAudio](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API), [Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers), [WebAssembly](https://webassembly.org/), [WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket), etc.
 
 > [!TIP]
-> Vous vous inquiétez de la baisse de performance due aux technologies Web ?
+> Vous vous inquiÃ©tez de la baisse de performance due aux technologies Web ?
 >
-> Ne vous inquiétez pas, même si la version navigateur est faite pour montrer jusqu’où nous pouvons aller dans un navigateur ou un webview, la version desktop d’AIRI peut utiliser nativement [NVIDIA CUDA](https://developer.nvidia.com/cuda-toolkit) et [Apple Metal](https://developer.apple.com/metal/) par défaut, grâce à HuggingFace et le projet adoré [candle](https://github.com/huggingface/candle), sans gestion complexe de dépendances. Les technologies Web sont surtout utilisées pour les graphismes, les layouts, les animations et le système de plugins en WIP.
+> Ne vous inquiÃ©tez pas, mÃªme si la version navigateur est faite pour montrer jusquâ€™oÃ¹ nous pouvons aller dans un navigateur ou un webview, la version desktop dâ€™AIRI peut utiliser nativement [NVIDIA CUDA](https://developer.nvidia.com/cuda-toolkit) et [Apple Metal](https://developer.apple.com/metal/) par dÃ©faut, grÃ¢ce Ã  HuggingFace et le projet adorÃ© [candle](https://github.com/huggingface/candle), sans gestion complexe de dÃ©pendances. Les technologies Web sont surtout utilisÃ©es pour les graphismes, les layouts, les animations et le systÃ¨me de plugins en WIP.
 
-Cela signifie qu’**アイリ peut fonctionner sur les navigateurs modernes et les appareils mobiles** (déjà testé avec support PWA). Cela ouvre beaucoup de possibilités pour nous (les développeurs) de construire et étendre le potentiel du VTuber アイリ, tout en laissant aux utilisateurs la flexibilité d’activer des fonctionnalités nécessitant des connexions TCP ou d’autres technologies non-Web comme Discord ou jouer à Minecraft et Factorio avec des amis.
+Cela signifie quâ€™**ã‚¢ã‚¤ãƒª peut fonctionner sur les navigateurs modernes et les appareils mobiles** (dÃ©jÃ  testÃ© avec support PWA). Cela ouvre beaucoup de possibilitÃ©s pour nous (les dÃ©veloppeurs) de construire et Ã©tendre le potentiel du VTuber ã‚¢ã‚¤ãƒª, tout en laissant aux utilisateurs la flexibilitÃ© dâ€™activer des fonctionnalitÃ©s nÃ©cessitant des connexions TCP ou dâ€™autres technologies non-Web comme Discord ou jouer Ã  Minecraft et Factorio avec des amis.
 
 > [!NOTE]
 >
-> Nous sommes encore au début du développement et cherchons des développeurs talentueux pour rejoindre le projet et aider à concrétiser アイリ.
+> Nous sommes encore au dÃ©but du dÃ©veloppement et cherchons des dÃ©veloppeurs talentueux pour rejoindre le projet et aider Ã  concrÃ©tiser ã‚¢ã‚¤ãƒª.
 >
-> Pas besoin de maîtriser Vue.js, TypeScript ou les devtools nécessaires pour ce projet, vous pouvez rejoindre comme artiste, designer, ou même pour aider à lancer notre premier live.
+> Pas besoin de maÃ®triser Vue.js, TypeScript ou les devtools nÃ©cessaires pour ce projet, vous pouvez rejoindre comme artiste, designer, ou mÃªme pour aider Ã  lancer notre premier live.
 >
-> Même si vous aimez React, Svelte ou Solid, vous êtes les bienvenus. Vous pouvez ajouter un sous-répertoire pour expérimenter ou ajouter des fonctionnalités que vous souhaitez voir dans アイリ.
+> MÃªme si vous aimez React, Svelte ou Solid, vous Ãªtes les bienvenus. Vous pouvez ajouter un sous-rÃ©pertoire pour expÃ©rimenter ou ajouter des fonctionnalitÃ©s que vous souhaitez voir dans ã‚¢ã‚¤ãƒª.
 >
-> Domaines et projets associés recherchés :
+> Domaines et projets associÃ©s recherchÃ©s :
 >
 > - Modeleur Live2D
 > - Modeleur VRM
-> - Designer d’avatar VRChat
+> - Designer dâ€™avatar VRChat
 > - Vision par ordinateur
 > - Apprentissage par renforcement
 > - Reconnaissance vocale
-> - Synthèse vocale
+> - SynthÃ¨se vocale
 > - ONNX Runtime
 > - Transformers.js
 > - vLLM
@@ -187,48 +187,48 @@ Cela signifie qu’**アイリ peut fonctionner sur les navigateurs modernes et 
 > - Three.js
 > - WebXR ([voir un autre projet](https://github.com/moeru-ai/chat))
 >
-> **Si vous êtes intéressé, pourquoi ne pas vous présenter ici ? [Voulez-vous rejoindre AIRI ?](https://github.com/moeru-ai/airi/discussions/33)**
+> **Si vous Ãªtes intÃ©ressÃ©, pourquoi ne pas vous prÃ©senter ici ? [Voulez-vous rejoindre AIRI ?](https://github.com/moeru-ai/airi/discussions/33)**
 
-## Progrès actuels
+## ProgrÃ¨s actuels
 
-Capacités :
+CapacitÃ©s :
 
 - [x] Cerveau
-  - [x] Jouer à [Minecraft](https://www.minecraft.net)
-  - [x] Jouer à [Factorio](https://www.factorio.com) (WIP, mais [PoC et démo disponibles](https://github.com/moeru-ai/airi-factorio))
+  - [x] Jouer Ã  [Minecraft](https://www.minecraft.net)
+  - [x] Jouer Ã  [Factorio](https://www.factorio.com) (WIP, mais [PoC et dÃ©mo disponibles](https://github.com/moeru-ai/airi-factorio))
   - [x] Chat sur [Telegram](https://telegram.org)
   - [x] Chat sur [Discord](https://discord.com)
-  - [ ] Mémoire
-    - [x] Support base de données purement navigateur (DuckDB WASM | `pglite`)
-    - [ ] Mémoire Alaya (WIP)
-  - [ ] Inférence locale pure en navigateur (WebGPU)
+  - [ ] MÃ©moire
+    - [x] Support base de donnÃ©es purement navigateur (DuckDB WASM | `pglite`)
+    - [ ] MÃ©moire Alaya (WIP)
+  - [ ] InfÃ©rence locale pure en navigateur (WebGPU)
 - [x] Oreilles
-  - [x] Entrée audio depuis le navigateur
-  - [x] Entrée audio depuis [Discord](https://discord.com)
-  - [x] Reconnaissance vocale côté client
-  - [x] Détection de parole côté client
+  - [x] EntrÃ©e audio depuis le navigateur
+  - [x] EntrÃ©e audio depuis [Discord](https://discord.com)
+  - [x] Reconnaissance vocale cÃ´tÃ© client
+  - [x] DÃ©tection de parole cÃ´tÃ© client
 - [x] Bouche
-  - [x] Synthèse vocale [ElevenLabs](https://elevenlabs.io/)
+  - [x] SynthÃ¨se vocale [ElevenLabs](https://elevenlabs.io/)
 - [x] Corps
   - [x] Support VRM
-    - [x] Contrôle du modèle VRM
-  - [x] Animations modèle VRM
+    - [x] ContrÃ´le du modÃ¨le VRM
+  - [x] Animations modÃ¨le VRM
     - [x] Clignement automatique
     - [x] Suivi automatique du regard
     - [x] Mouvement oculaire au repos
   - [x] Support Live2D
-    - [x] Contrôle modèle Live2D
-  - [x] Animations modèle Live2D
+    - [x] ContrÃ´le modÃ¨le Live2D
+  - [x] Animations modÃ¨le Live2D
     - [x] Clignement automatique
     - [x] Suivi automatique du regard
     - [x] Mouvement oculaire au repos
 
-## Développement
+## DÃ©veloppement
 
-> Pour des instructions détaillées sur le développement, suivez [CONTRIBUTING.md](./.github/CONTRIBUTING.md)
+> Pour des instructions dÃ©taillÃ©es sur le dÃ©veloppement, suivez [CONTRIBUTING.md](./.github/CONTRIBUTING.md)
 
 > [!NOTE]
-> Par défaut, `pnpm dev` démarre le serveur de développement pour Stage Web (version navigateur). Pour développer la version desktop, lisez [CONTRIBUTING.md](./.github/CONTRIBUTING.md) pour configurer correctement l’environnement.
+> Par dÃ©faut, `pnpm dev` dÃ©marre le serveur de dÃ©veloppement pour Stage Web (version navigateur). Pour dÃ©velopper la version desktop, lisez [CONTRIBUTING.md](./.github/CONTRIBUTING.md) pour configurer correctement lâ€™environnement.
 
 ```shell
 pnpm i
@@ -247,7 +247,7 @@ pnpm dev
 pnpm dev:tamagotchi
 ```
 
-Un package Nix pour Tamagotchi est inclus. Pour lancer AIRI avec Nix, assurez-vous d'abord d'activer les flakes, puis exécutez :
+Un package Nix pour Tamagotchi est inclus. Pour lancer AIRI avec Nix, assurez-vous d'abord d'activer les flakes, puis exÃ©cutez :
 
 ```shell
 nix run github:moeru-ai/airi
@@ -261,13 +261,13 @@ pnpm dev:docs
 
 ### Publier
 
-Merci de mettre à jour la version dans `Cargo.toml` après avoir exécuté `bumpp` :
+Merci de mettre Ã  jour la version dans `Cargo.toml` aprÃ¨s avoir exÃ©cutÃ© `bumpp` :
 
 ```shell
 npx bumpp --no-commit --no-tag
 ```
 
-## Support des fournisseurs d'API LLM suivants (propulsé par [xsai](https://github.com/moeru-ai/xsai))
+## Support des fournisseurs d'API LLM suivants (propulsÃ© par [xsai](https://github.com/moeru-ai/xsai))
 
 - [x] [AIHubMix (recommended)](https://aihubmix.com/?aff=OOiX)
 - [x] [OpenRouter](https://openrouter.ai/)
@@ -302,23 +302,23 @@ npx bumpp --no-commit --no-tag
 
 ## Sous-projets issus de ce projet
 
-- [Awesome AI VTuber](https://github.com/proj-airi/awesome-ai-vtuber) : Liste sélectionnée d’AI VTubers et projets associés
-- [`unspeech`](https://github.com/moeru-ai/unspeech) : Proxy universel pour `/audio/transcriptions` et `/audio/speech`, similaire à LiteLLM mais pour n’importe quel ASR et TTS
-- [`hfup`](https://github.com/moeru-ai/hfup) : Outils pour déployer et packager sur HuggingFace Spaces
-- [`xsai-transformers`](https://github.com/moeru-ai/xsai-transformers) : Fournisseur expérimental [🤗 Transformers.js](https://github.com/huggingface/transformers.js) pour [xsAI](https://github.com/moeru-ai/xsai)
-- [WebAI : Chat vocal en temps réel](https://github.com/proj-airi/webai-realtime-voice-chat) : Exemple complet d’implémentation de la voix temps réel de ChatGPT avec VAD + STT + LLM + TTS
+- [Awesome AI VTuber](https://github.com/proj-airi/awesome-ai-vtuber) : Liste sÃ©lectionnÃ©e dâ€™AI VTubers et projets associÃ©s
+- [`unspeech`](https://github.com/moeru-ai/unspeech) : Proxy universel pour `/audio/transcriptions` et `/audio/speech`, similaire Ã  LiteLLM mais pour nâ€™importe quel ASR et TTS
+- [`hfup`](https://github.com/moeru-ai/hfup) : Outils pour dÃ©ployer et packager sur HuggingFace Spaces
+- [`xsai-transformers`](https://github.com/moeru-ai/xsai-transformers) : Fournisseur expÃ©rimental [ðŸ¤— Transformers.js](https://github.com/huggingface/transformers.js) pour [xsAI](https://github.com/moeru-ai/xsai)
+- [WebAI : Chat vocal en temps rÃ©el](https://github.com/proj-airi/webai-realtime-voice-chat) : Exemple complet dâ€™implÃ©mentation de la voix temps rÃ©el de ChatGPT avec VAD + STT + LLM + TTS
 - [`@proj-airi/drizzle-duckdb-wasm`](https://github.com/moeru-ai/airi/tree/main/packages/drizzle-duckdb-wasm/README.md) : Driver Drizzle ORM pour DuckDB WASM
-- [`@proj-airi/duckdb-wasm`](https://github.com/moeru-ai/airi/tree/main/packages/duckdb-wasm/README.md) : Wrapper facile à utiliser pour `@duckdb/duckdb-wasm`
+- [`@proj-airi/duckdb-wasm`](https://github.com/moeru-ai/airi/tree/main/packages/duckdb-wasm/README.md) : Wrapper facile Ã  utiliser pour `@duckdb/duckdb-wasm`
 - [`tauri-plugin-mcp`](https://github.com/moeru-ai/airi/blob/main/crates/tauri-plugin-mcp/README.md) : Plugin Tauri pour interagir avec les serveurs MCP
-- [AIRI Factorio](https://github.com/moeru-ai/airi-factorio) : Permet à AIRI de jouer à Factorio
+- [AIRI Factorio](https://github.com/moeru-ai/airi-factorio) : Permet Ã  AIRI de jouer Ã  Factorio
 - [Factorio RCON API](https://github.com/nekomeowww/factorio-rcon-api) : Wrapper RESTful pour la console headless de Factorio
-- [`autorio`](https://github.com/moeru-ai/airi-factorio/tree/main/packages/autorio) : Bibliothèque d’automatisation pour Factorio
-- [`tstl-plugin-reload-factorio-mod`](https://github.com/moeru-ai/airi-factorio/tree/main/packages/tstl-plugin-reload-factorio-mod) : Recharge le mod Factorio pendant le développement
-- [Velin](https://github.com/luoling8192/velin) : Utilise Vue SFC et Markdown pour créer facilement des prompts stateful pour LLM
-- [`demodel`](https://github.com/moeru-ai/demodel) : Accélère le téléchargement de vos modèles et datasets depuis différents runtimes
-- [`inventory`](https://github.com/moeru-ai/inventory) : Service backend centralisé pour catalogues de modèles et configurations par défaut
-- [MCP Launcher](https://github.com/moeru-ai/mcp-launcher) : Constructeur & lanceur MCP facile à utiliser pour tous les serveurs MCP, comme Ollama pour les modèles
-- [🥺 SAD](https://github.com/moeru-ai/sad) : Documentation et notes pour LLMs auto-hébergés et en navigateur
+- [`autorio`](https://github.com/moeru-ai/airi-factorio/tree/main/packages/autorio) : BibliothÃ¨que dâ€™automatisation pour Factorio
+- [`tstl-plugin-reload-factorio-mod`](https://github.com/moeru-ai/airi-factorio/tree/main/packages/tstl-plugin-reload-factorio-mod) : Recharge le mod Factorio pendant le dÃ©veloppement
+- [Velin](https://github.com/luoling8192/velin) : Utilise Vue SFC et Markdown pour crÃ©er facilement des prompts stateful pour LLM
+- [`demodel`](https://github.com/moeru-ai/demodel) : AccÃ©lÃ¨re le tÃ©lÃ©chargement de vos modÃ¨les et datasets depuis diffÃ©rents runtimes
+- [`inventory`](https://github.com/moeru-ai/inventory) : Service backend centralisÃ© pour catalogues de modÃ¨les et configurations par dÃ©faut
+- [MCP Launcher](https://github.com/moeru-ai/mcp-launcher) : Constructeur & lanceur MCP facile Ã  utiliser pour tous les serveurs MCP, comme Ollama pour les modÃ¨les
+- [ðŸ¥º SAD](https://github.com/moeru-ai/sad) : Documentation et notes pour LLMs auto-hÃ©bergÃ©s et en navigateur
 
 ```mermaid
 %%{ init: { 'flowchart': { 'curve': 'catmullRom' } } }%%
@@ -414,12 +414,12 @@ flowchart TD
 
 ### Open source
 
-- [kimjammer/Neuro : Recréation de Neuro-Sama créée à l'origine en 7 jours](https://github.com/kimjammer/Neuro) : implémentation très complète
-- [SugarcaneDefender/z-waif](https://github.com/SugarcaneDefender/z-waif) : Très bon pour le gaming, autonome, et prompt engineering
+- [kimjammer/Neuro : RecrÃ©ation de Neuro-Sama crÃ©Ã©e Ã  l'origine en 7 jours](https://github.com/kimjammer/Neuro) : implÃ©mentation trÃ¨s complÃ¨te
+- [SugarcaneDefender/z-waif](https://github.com/SugarcaneDefender/z-waif) : TrÃ¨s bon pour le gaming, autonome, et prompt engineering
 - [semperai/amica](https://github.com/semperai/amica) : Excellent pour VRM et WebXR
-- [elizaOS/eliza](https://github.com/elizaOS/eliza) : Bons exemples et ingénierie logicielle pour intégrer un agent dans différents systèmes et APIs
-- [ardha27/AI-Waifu-Vtuber](https://github.com/ardha27/AI-Waifu-Vtuber) : Intégrations Twitch API efficaces
-- [InsanityLabs/AIVTuber](https://github.com/InsanityLabs/AIVTuber) : UI et UX agréables
+- [elizaOS/eliza](https://github.com/elizaOS/eliza) : Bons exemples et ingÃ©nierie logicielle pour intÃ©grer un agent dans diffÃ©rents systÃ¨mes et APIs
+- [ardha27/AI-Waifu-Vtuber](https://github.com/ardha27/AI-Waifu-Vtuber) : IntÃ©grations Twitch API efficaces
+- [InsanityLabs/AIVTuber](https://github.com/InsanityLabs/AIVTuber) : UI et UX agrÃ©ables
 - [IRedDragonICY/vixevia](https://github.com/IRedDragonICY/vixevia)
 - [t41372/Open-LLM-VTuber](https://github.com/t41372/Open-LLM-VTuber)
 - [PeterH0323/Streamer-Sales](https://github.com/PeterH0323/Streamer-Sales)
@@ -431,19 +431,19 @@ flowchart TD
 - https://clips.twitch.tv/TriangularAthleticBunnySoonerLater-SXpBk1dFso21VcWD
 - https://www.youtube.com/@NOWA_Mirai
 
-## État du projet
+## Ã‰tat du projet
 
 ![Image analytics Repobeats](https://repobeats.axiom.co/api/embed/a1d6fe2c13ea2bb53a5154435a71e2431f70c2ee.svg 'Image analytics Repobeats')
 
 ## Remerciements
 
-- [Reka UI](https://github.com/unovue/reka-ui) : pour la conception du site de documentation, la nouvelle page d'accueil est basée sur celui-ci, ainsi que l’implémentation de nombreux composants UI (shadcn-vue utilise Reka UI comme headless)
+- [Reka UI](https://github.com/unovue/reka-ui) : pour la conception du site de documentation, la nouvelle page d'accueil est basÃ©e sur celui-ci, ainsi que lâ€™implÃ©mentation de nombreux composants UI (shadcn-vue utilise Reka UI comme headless)
 - [pixiv/ChatVRM](https://github.com/pixiv/ChatVRM)
 - [josephrocca/ChatVRM-js : conversion/adaptation JS de parties du code ChatVRM (TypeScript) pour utilisation autonome dans OpenCharacters et ailleurs](https://github.com/josephrocca/ChatVRM-js)
-- Le design de l’UI et du style s’inspire de [Cookard](https://store.steampowered.com/app/2919650/Cookard/), [UNBEATABLE](https://store.steampowered.com/app/2240620/UNBEATABLE/), [Sensei! I like you so much!](https://store.steampowered.com/app/2957700/_/) et des œuvres de [Ayame par Mercedes Bazan](https://dribbble.com/shots/22157656-Ayame) avec [Wish par Mercedes Bazan](https://dribbble.com/shots/24501019-Wish)
+- Le design de lâ€™UI et du style sâ€™inspire de [Cookard](https://store.steampowered.com/app/2919650/Cookard/), [UNBEATABLE](https://store.steampowered.com/app/2240620/UNBEATABLE/), [Sensei! I like you so much!](https://store.steampowered.com/app/2957700/_/) et des Å“uvres de [Ayame par Mercedes Bazan](https://dribbble.com/shots/22157656-Ayame) avec [Wish par Mercedes Bazan](https://dribbble.com/shots/24501019-Wish)
 - [mallorbc/whisper_mic](https://github.com/mallorbc/whisper_mic)
-- [`xsai`](https://github.com/moeru-ai/xsai) : Implémente un bon nombre de packages pour interagir avec des LLM et modèles, similaire à [Vercel AI SDK](https://sdk.vercel.ai/) mais plus léger.
+- [`xsai`](https://github.com/moeru-ai/xsai) : ImplÃ©mente un bon nombre de packages pour interagir avec des LLM et modÃ¨les, similaire Ã  [Vercel AI SDK](https://sdk.vercel.ai/) mais plus lÃ©ger.
 
-## Historique des étoiles
+## Historique des Ã©toiles
 
-[![Graphique historique des étoiles](https://api.star-history.com/svg?repos=moeru-ai/airi&type=Date)](https://www.star-history.com/#moeru-ai/airi&Date)
+[![Graphique historique des Ã©toiles](https://api.star-history.com/svg?repos=moeru-ai/airi&type=Date)](https://www.star-history.com/#moeru-ai/airi&Date)

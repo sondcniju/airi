@@ -1,4 +1,4 @@
-<picture>
+﻿<picture>
   <source
     width="100%"
     srcset="./content/public/banner-dark-1280x640.avif"
@@ -14,10 +14,10 @@
 
 <h1 align="center">Project AIRI</h1>
 
-<p align="center">复刻 Neuro-sama，让 AI waifu / 虚拟角色也能来到我们的世界。</p>
+<p align="center">å¤åˆ» Neuro-samaï¼Œè®© AI waifu / è™šæ‹Ÿè§’è‰²ä¹Ÿèƒ½æ¥åˆ°æˆ‘ä»¬çš„ä¸–ç•Œã€‚</p>
 
 <p align="center">
-  [<a href="https://discord.gg/TgQ3Cu2F7A">加入 Discord</a>] [<a href="https://airi.moeru.ai">试试看</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/README.md">English</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ja-JP.md">日本語</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ru-RU.md">Русский</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.vi.md">Tiếng Việt</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.fr.md">Français</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ko-KR.md">한국어</a>]
+  [<a href="https://discord.gg/TgQ3Cu2F7A">åŠ å…¥ Discord</a>] [<a href="https://airi.moeru.ai">è¯•è¯•çœ‹</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/README.md">English</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ja-JP.md">æ—¥æœ¬èªž</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ru-RU.md">Ð ÑƒÑÑÐºÐ¸Ð¹</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.vi.md">Tiáº¿ng Viá»‡t</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.fr.md">FranÃ§ais</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ko-KR.md">í•œêµ­ì–´</a>]
 </p>
 
 <p align="center">
@@ -32,7 +32,7 @@
 
 <p float="left" align="center">
   <!-- readme-section:release-binary-windows -->
-  <a href="https://static-cn-proj-airi.oss-cn-shanghai.aliyuncs.com/artifacts/apps/desktop/versions/v0.9.0-stable.20260403/AIRI-0.9.0-stable.20260403-windows-x64-setup.exe">
+  <a href="https://static-cn-proj-airi.oss-cn-shanghai.aliyuncs.com/artifacts/apps/desktop/versions/v0.9.0-stable.20260404/AIRI-0.9.0-stable.20260403-windows-x64-setup.exe">
     <picture>
       <source
         width="33%"
@@ -48,7 +48,7 @@
     </picture>
   </a>
   <!-- readme-section:release-binary-macos -->
-  <a href="https://static-cn-proj-airi.oss-cn-shanghai.aliyuncs.com/artifacts/apps/desktop/versions/v0.9.0-stable.20260403/AIRI-0.9.0-stable.20260403-darwin-arm64.dmg">
+  <a href="https://static-cn-proj-airi.oss-cn-shanghai.aliyuncs.com/artifacts/apps/desktop/versions/v0.9.0-stable.20260404/AIRI-0.9.0-stable.20260403-darwin-arm64.dmg">
     <picture>
       <source
         width="33%"
@@ -117,157 +117,157 @@
   <a href="https://trendshift.io/repositories/14636" target="_blank"><img src="https://trendshift.io/api/badge/repositories/14636" alt="moeru-ai%2Fairi | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 </p>
 
-> 深受 [Neuro-sama](https://www.youtube.com/@Neurosama) 启发
+> æ·±å— [Neuro-sama](https://www.youtube.com/@Neurosama) å¯å‘
 
 > [!WARNING]
-> **注意：**
-> 我们**没有发行任何**与本项目关联的加密货币或代币，请注意判断资讯并谨慎行事。
+> **æ³¨æ„ï¼š**
+> æˆ‘ä»¬**æ²¡æœ‰å‘è¡Œä»»ä½•**ä¸Žæœ¬é¡¹ç›®å…³è”çš„åŠ å¯†è´§å¸æˆ–ä»£å¸ï¼Œè¯·æ³¨æ„åˆ¤æ–­èµ„è®¯å¹¶è°¨æ…Žè¡Œäº‹ã€‚
 
 > [!NOTE]
 >
-> 我们有一个专门的组织 [@proj-airi](https://github.com/proj-airi) 用于所有从 Project AIRI 诞生的子项目，快来看看吧！
+> æˆ‘ä»¬æœ‰ä¸€ä¸ªä¸“é—¨çš„ç»„ç»‡ [@proj-airi](https://github.com/proj-airi) ç”¨äºŽæ‰€æœ‰ä»Ž Project AIRI è¯žç”Ÿçš„å­é¡¹ç›®ï¼Œå¿«æ¥çœ‹çœ‹å§ï¼
 >
-> RAG（检索增强生成）、记忆系统、嵌入式数据库、图标、Live2D 实用工具等等！
+> RAGï¼ˆæ£€ç´¢å¢žå¼ºç”Ÿæˆï¼‰ã€è®°å¿†ç³»ç»Ÿã€åµŒå…¥å¼æ•°æ®åº“ã€å›¾æ ‡ã€Live2D å®žç”¨å·¥å…·ç­‰ç­‰ï¼
 
 > [!TIP]
-> 我们在 [Crowdin](https://crowdin.com/project/proj-airi) 上有翻译项目。如果你发现翻译不准确，欢迎在上面参与翻译并贡献修正。
+> æˆ‘ä»¬åœ¨ [Crowdin](https://crowdin.com/project/proj-airi) ä¸Šæœ‰ç¿»è¯‘é¡¹ç›®ã€‚å¦‚æžœä½ å‘çŽ°ç¿»è¯‘ä¸å‡†ç¡®ï¼Œæ¬¢è¿Žåœ¨ä¸Šé¢å‚ä¸Žç¿»è¯‘å¹¶è´¡çŒ®ä¿®æ­£ã€‚
 > <a href="https://crowdin.com/project/proj-airi" target="_blank" rel="nofollow"><img style="width: 140px; height: 40px;" src="https://badges.crowdin.net/badge/light/crowdin-on-dark.png" srcset="https://badges.crowdin.net/badge/light/crowdin-on-dark.png 1x, https://badges.crowdin.net/badge/light/crowdin-on-dark@2x.png 2x" alt="Crowdin | Agile localization for tech companies" width="140" height="40" /></a>
 
-你是否梦想过拥有一个赛博生命（赛博 waifu、数字桌宠），或者能与你玩耍和交谈的数字伴侣？
+ä½ æ˜¯å¦æ¢¦æƒ³è¿‡æ‹¥æœ‰ä¸€ä¸ªèµ›åšç”Ÿå‘½ï¼ˆèµ›åš waifuã€æ•°å­—æ¡Œå® ï¼‰ï¼Œæˆ–è€…èƒ½ä¸Žä½ çŽ©è€å’Œäº¤è°ˆçš„æ•°å­—ä¼´ä¾£ï¼Ÿ
 
-借助现代大型语言模型的力量，像是 [ChatGPT](https://chatgpt.com) 和著名的 [Claude](https://claude.ai) 所能带来的，想要 LLM（大语言模型）和我们角色扮演、聊天已经超简单了，每个人都能上手。而像 [Character.ai（又称 c.ai）](https://character.ai) 和 [JanitorAI](https://janitorai.com/) 这样的平台，以及本地应用如 [SillyTavern（又称酒馆）](https://github.com/SillyTavern/SillyTavern)，已经是基于聊天或文字冒险游戏体验的相当不错的解决方案。
+å€ŸåŠ©çŽ°ä»£å¤§åž‹è¯­è¨€æ¨¡åž‹çš„åŠ›é‡ï¼Œåƒæ˜¯ [ChatGPT](https://chatgpt.com) å’Œè‘—åçš„ [Claude](https://claude.ai) æ‰€èƒ½å¸¦æ¥çš„ï¼Œæƒ³è¦ LLMï¼ˆå¤§è¯­è¨€æ¨¡åž‹ï¼‰å’Œæˆ‘ä»¬è§’è‰²æ‰®æ¼”ã€èŠå¤©å·²ç»è¶…ç®€å•äº†ï¼Œæ¯ä¸ªäººéƒ½èƒ½ä¸Šæ‰‹ã€‚è€Œåƒ [Character.aiï¼ˆåˆç§° c.aiï¼‰](https://character.ai) å’Œ [JanitorAI](https://janitorai.com/) è¿™æ ·çš„å¹³å°ï¼Œä»¥åŠæœ¬åœ°åº”ç”¨å¦‚ [SillyTavernï¼ˆåˆç§°é…’é¦†ï¼‰](https://github.com/SillyTavern/SillyTavern)ï¼Œå·²ç»æ˜¯åŸºäºŽèŠå¤©æˆ–æ–‡å­—å†’é™©æ¸¸æˆä½“éªŒçš„ç›¸å½“ä¸é”™çš„è§£å†³æ–¹æ¡ˆã€‚
 
-> 但是，如何赋予它们玩游戏的能力呢？让它们能看到你正在编写的代码？不仅能一边聊天一边玩游戏，也可以看视频，还能做很多其他事情？
+> ä½†æ˜¯ï¼Œå¦‚ä½•èµ‹äºˆå®ƒä»¬çŽ©æ¸¸æˆçš„èƒ½åŠ›å‘¢ï¼Ÿè®©å®ƒä»¬èƒ½çœ‹åˆ°ä½ æ­£åœ¨ç¼–å†™çš„ä»£ç ï¼Ÿä¸ä»…èƒ½ä¸€è¾¹èŠå¤©ä¸€è¾¹çŽ©æ¸¸æˆï¼Œä¹Ÿå¯ä»¥çœ‹è§†é¢‘ï¼Œè¿˜èƒ½åšå¾ˆå¤šå…¶ä»–äº‹æƒ…ï¼Ÿ
 
-你可能已经知道 [Neuro-sama](https://www.youtube.com/@Neurosama)，她目前是最好的能够玩游戏、聊天并与你和参与者（在VTuber社区中）互动的 AI VTuber / 伴侣，有些人也称这种存在为"数字人"。**可惜的是，她并不开源，当她从直播中下线后，你就无法与她互动了**。
+ä½ å¯èƒ½å·²ç»çŸ¥é“ [Neuro-sama](https://www.youtube.com/@Neurosama)ï¼Œå¥¹ç›®å‰æ˜¯æœ€å¥½çš„èƒ½å¤ŸçŽ©æ¸¸æˆã€èŠå¤©å¹¶ä¸Žä½ å’Œå‚ä¸Žè€…ï¼ˆåœ¨VTuberç¤¾åŒºä¸­ï¼‰äº’åŠ¨çš„ AI VTuber / ä¼´ä¾£ï¼Œæœ‰äº›äººä¹Ÿç§°è¿™ç§å­˜åœ¨ä¸º"æ•°å­—äºº"ã€‚**å¯æƒœçš„æ˜¯ï¼Œå¥¹å¹¶ä¸å¼€æºï¼Œå½“å¥¹ä»Žç›´æ’­ä¸­ä¸‹çº¿åŽï¼Œä½ å°±æ— æ³•ä¸Žå¥¹äº’åŠ¨äº†**ã€‚
 
-因此，这个项目 AIRI，在这里提供了另一种可能性：**让你轻松拥有自己的数字生命、赛博生命，随时随地**。
+å› æ­¤ï¼Œè¿™ä¸ªé¡¹ç›® AIRIï¼Œåœ¨è¿™é‡Œæä¾›äº†å¦ä¸€ç§å¯èƒ½æ€§ï¼š**è®©ä½ è½»æ¾æ‹¥æœ‰è‡ªå·±çš„æ•°å­—ç”Ÿå‘½ã€èµ›åšç”Ÿå‘½ï¼Œéšæ—¶éšåœ°**ã€‚
 
-## 我们发布的 DevLog & 近期更新
+## æˆ‘ä»¬å‘å¸ƒçš„ DevLog & è¿‘æœŸæ›´æ–°
 
-- [DevLog @ 2026.01.01](https://airi.moeru.ai/docs/zh-Hans/blog/DevLog-2026.01.01/) — 2026 年 1 月 1 日
-- [DevLog @ 2025.10.20](https://airi.moeru.ai/docs/zh-Hans/blog/DevLog-2025.10.20/) — 2025 年 10 月 20 日
-- [DevLog @ 2025.08.05](https://airi.moeru.ai/docs/zh-Hans/blog/DevLog-2025.08.05/) — 2025 年 8 月 5 日
-- [DevLog @ 2025.08.01](https://airi.moeru.ai/docs/zh-Hans/blog/DevLog-2025.08.01/) — 2025 年 8 月 1 日
-- [DevLog @ 2025.07.18](https://airi.moeru.ai/docs/zh-Hans/blog/DevLog-2025.07.18/) — 2025 年 7 月 18 日
-- [DreamLog 0x1](https://airi.moeru.ai/docs/zh-Hans/blog/dreamlog-0x1/) — 2025 年 6 月 16 日
-- ...更多请见[文档站](https://airi.moeru.ai/docs/zh-Hans/)
+- [DevLog @ 2026.01.01](https://airi.moeru.ai/docs/zh-Hans/blog/DevLog-2026.01.01/) â€” 2026 å¹´ 1 æœˆ 1 æ—¥
+- [DevLog @ 2025.10.20](https://airi.moeru.ai/docs/zh-Hans/blog/DevLog-2025.10.20/) â€” 2025 å¹´ 10 æœˆ 20 æ—¥
+- [DevLog @ 2025.08.05](https://airi.moeru.ai/docs/zh-Hans/blog/DevLog-2025.08.05/) â€” 2025 å¹´ 8 æœˆ 5 æ—¥
+- [DevLog @ 2025.08.01](https://airi.moeru.ai/docs/zh-Hans/blog/DevLog-2025.08.01/) â€” 2025 å¹´ 8 æœˆ 1 æ—¥
+- [DevLog @ 2025.07.18](https://airi.moeru.ai/docs/zh-Hans/blog/DevLog-2025.07.18/) â€” 2025 å¹´ 7 æœˆ 18 æ—¥
+- [DreamLog 0x1](https://airi.moeru.ai/docs/zh-Hans/blog/dreamlog-0x1/) â€” 2025 å¹´ 6 æœˆ 16 æ—¥
+- ...æ›´å¤šè¯·è§[æ–‡æ¡£ç«™](https://airi.moeru.ai/docs/zh-Hans/)
 
-## 这个项目有什么特别？
+## è¿™ä¸ªé¡¹ç›®æœ‰ä»€ä¹ˆç‰¹åˆ«ï¼Ÿ
 
-与其他 AI 和 LLM 驱动的 VTuber 开源项目不同，アイリ VTuber 从开始开发的第一天开始就支持多种 Web 技术，涵盖诸如 [WebGPU](https://www.w3.org/TR/webgpu/)、[WebAudio](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)、[Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers)、[WebAssembly](https://webassembly.org/)、[WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket) 等已经广泛应用或仍在大量实验的 API。
+ä¸Žå…¶ä»– AI å’Œ LLM é©±åŠ¨çš„ VTuber å¼€æºé¡¹ç›®ä¸åŒï¼Œã‚¢ã‚¤ãƒª VTuber ä»Žå¼€å§‹å¼€å‘çš„ç¬¬ä¸€å¤©å¼€å§‹å°±æ”¯æŒå¤šç§ Web æŠ€æœ¯ï¼Œæ¶µç›–è¯¸å¦‚ [WebGPU](https://www.w3.org/TR/webgpu/)ã€[WebAudio](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)ã€[Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers)ã€[WebAssembly](https://webassembly.org/)ã€[WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket) ç­‰å·²ç»å¹¿æ³›åº”ç”¨æˆ–ä»åœ¨å¤§é‡å®žéªŒçš„ APIã€‚
 
 > [!TIP]
-> 担心使用 Web 技术会导致性能下降吗？
+> æ‹…å¿ƒä½¿ç”¨ Web æŠ€æœ¯ä¼šå¯¼è‡´æ€§èƒ½ä¸‹é™å—ï¼Ÿ
 >
-> 不用担心，浏览器版本旨在展示我们在浏览器和 webview 里能做到什么，但不会完全依赖它。AIRI 的桌面版默认可用 [NVIDIA CUDA](https://developer.nvidia.com/cuda-toolkit) 和 [Apple Metal](https://developer.apple.com/metal/)（多亏了 HuggingFace 与可爱的 [candle](https://github.com/huggingface/candle) 项目），且无需复杂的依赖管理。考虑到取舍，我们在图形、布局、动画和 WIP 插件系统上部分使用了 Web 技术，方便大家集成。
+> ä¸ç”¨æ‹…å¿ƒï¼Œæµè§ˆå™¨ç‰ˆæœ¬æ—¨åœ¨å±•ç¤ºæˆ‘ä»¬åœ¨æµè§ˆå™¨å’Œ webview é‡Œèƒ½åšåˆ°ä»€ä¹ˆï¼Œä½†ä¸ä¼šå®Œå…¨ä¾èµ–å®ƒã€‚AIRI çš„æ¡Œé¢ç‰ˆé»˜è®¤å¯ç”¨ [NVIDIA CUDA](https://developer.nvidia.com/cuda-toolkit) å’Œ [Apple Metal](https://developer.apple.com/metal/)ï¼ˆå¤šäºäº† HuggingFace ä¸Žå¯çˆ±çš„ [candle](https://github.com/huggingface/candle) é¡¹ç›®ï¼‰ï¼Œä¸”æ— éœ€å¤æ‚çš„ä¾èµ–ç®¡ç†ã€‚è€ƒè™‘åˆ°å–èˆï¼Œæˆ‘ä»¬åœ¨å›¾å½¢ã€å¸ƒå±€ã€åŠ¨ç”»å’Œ WIP æ’ä»¶ç³»ç»Ÿä¸Šéƒ¨åˆ†ä½¿ç”¨äº† Web æŠ€æœ¯ï¼Œæ–¹ä¾¿å¤§å®¶é›†æˆã€‚
 
-这意味着 **アイリ VTuber 能够在现代浏览器和设备上运行**，甚至能够在移动设备上运行（已经完成了 PWA 支持），这为我们（贡献者们）带来了更多的可能性，让我们得以更进一步构建和扩展 アイリ VTuber 的外部功能，而与此同时也不失配置的灵活性——可以有选择地在不同设备上启用会需要 TCP 连接或其他非 Web 技术的功能，例如连接到 Discord 的语音频道一起开黑，或是和朋友们一起玩 Minecraft（我的世界）、Factorio（异星工厂）。
+è¿™æ„å‘³ç€ **ã‚¢ã‚¤ãƒª VTuber èƒ½å¤Ÿåœ¨çŽ°ä»£æµè§ˆå™¨å’Œè®¾å¤‡ä¸Šè¿è¡Œ**ï¼Œç”šè‡³èƒ½å¤Ÿåœ¨ç§»åŠ¨è®¾å¤‡ä¸Šè¿è¡Œï¼ˆå·²ç»å®Œæˆäº† PWA æ”¯æŒï¼‰ï¼Œè¿™ä¸ºæˆ‘ä»¬ï¼ˆè´¡çŒ®è€…ä»¬ï¼‰å¸¦æ¥äº†æ›´å¤šçš„å¯èƒ½æ€§ï¼Œè®©æˆ‘ä»¬å¾—ä»¥æ›´è¿›ä¸€æ­¥æž„å»ºå’Œæ‰©å±• ã‚¢ã‚¤ãƒª VTuber çš„å¤–éƒ¨åŠŸèƒ½ï¼Œè€Œä¸Žæ­¤åŒæ—¶ä¹Ÿä¸å¤±é…ç½®çš„çµæ´»æ€§â€”â€”å¯ä»¥æœ‰é€‰æ‹©åœ°åœ¨ä¸åŒè®¾å¤‡ä¸Šå¯ç”¨ä¼šéœ€è¦ TCP è¿žæŽ¥æˆ–å…¶ä»–éž Web æŠ€æœ¯çš„åŠŸèƒ½ï¼Œä¾‹å¦‚è¿žæŽ¥åˆ° Discord çš„è¯­éŸ³é¢‘é“ä¸€èµ·å¼€é»‘ï¼Œæˆ–æ˜¯å’Œæœ‹å‹ä»¬ä¸€èµ·çŽ© Minecraftï¼ˆæˆ‘çš„ä¸–ç•Œï¼‰ã€Factorioï¼ˆå¼‚æ˜Ÿå·¥åŽ‚ï¼‰ã€‚
 
 > [!NOTE]
 >
-> アイリ VTuber 仍处于早期开发阶段，我们欢迎优秀的开发者加入我们，一起将它变为现实。
+> ã‚¢ã‚¤ãƒª VTuber ä»å¤„äºŽæ—©æœŸå¼€å‘é˜¶æ®µï¼Œæˆ‘ä»¬æ¬¢è¿Žä¼˜ç§€çš„å¼€å‘è€…åŠ å…¥æˆ‘ä»¬ï¼Œä¸€èµ·å°†å®ƒå˜ä¸ºçŽ°å®žã€‚
 >
-> 即使不熟悉 Vue.js、TypeScript 和所需的其他开发工具也没关系，我们也欢迎艺术家、设计师、运营策划的加入，你甚至可以成为第一个用 アイリ VTuber 直播的博主。
+> å³ä½¿ä¸ç†Ÿæ‚‰ Vue.jsã€TypeScript å’Œæ‰€éœ€çš„å…¶ä»–å¼€å‘å·¥å…·ä¹Ÿæ²¡å…³ç³»ï¼Œæˆ‘ä»¬ä¹Ÿæ¬¢è¿Žè‰ºæœ¯å®¶ã€è®¾è®¡å¸ˆã€è¿è¥ç­–åˆ’çš„åŠ å…¥ï¼Œä½ ç”šè‡³å¯ä»¥æˆä¸ºç¬¬ä¸€ä¸ªç”¨ ã‚¢ã‚¤ãƒª VTuber ç›´æ’­çš„åšä¸»ã€‚
 >
-> 如果你使用的是 React、 Svelte，甚至 Solid 也没关系，您可以自己创建一个子目录，添加您希望在 アイリ VTuber 中看到的功能，或者想实验的功能。
+> å¦‚æžœä½ ä½¿ç”¨çš„æ˜¯ Reactã€ Svelteï¼Œç”šè‡³ Solid ä¹Ÿæ²¡å…³ç³»ï¼Œæ‚¨å¯ä»¥è‡ªå·±åˆ›å»ºä¸€ä¸ªå­ç›®å½•ï¼Œæ·»åŠ æ‚¨å¸Œæœ›åœ¨ ã‚¢ã‚¤ãƒª VTuber ä¸­çœ‹åˆ°çš„åŠŸèƒ½ï¼Œæˆ–è€…æƒ³å®žéªŒçš„åŠŸèƒ½ã€‚
 >
-> 我们非常期待以下领域的朋友加入：
+> æˆ‘ä»¬éžå¸¸æœŸå¾…ä»¥ä¸‹é¢†åŸŸçš„æœ‹å‹åŠ å…¥ï¼š
 >
-> - Live2D 模型师
-> - VRM 模型师
-> - VRChat 模型设计师
-> - 计算机视觉（CV）
-> - 强化学习（RL）
-> - 语音识别
-> - 语音合成
-> - ONNX 推理运行时
+> - Live2D æ¨¡åž‹å¸ˆ
+> - VRM æ¨¡åž‹å¸ˆ
+> - VRChat æ¨¡åž‹è®¾è®¡å¸ˆ
+> - è®¡ç®—æœºè§†è§‰ï¼ˆCVï¼‰
+> - å¼ºåŒ–å­¦ä¹ ï¼ˆRLï¼‰
+> - è¯­éŸ³è¯†åˆ«
+> - è¯­éŸ³åˆæˆ
+> - ONNX æŽ¨ç†è¿è¡Œæ—¶
 > - Transformers.js
 > - vLLM
 > - WebGPU
 > - Three.js
-> - WebXR (也可以看看我们在 @moeru-ai 组织下另外的[这个项目](https://github.com/moeru-ai/chat))
+> - WebXR (ä¹Ÿå¯ä»¥çœ‹çœ‹æˆ‘ä»¬åœ¨ @moeru-ai ç»„ç»‡ä¸‹å¦å¤–çš„[è¿™ä¸ªé¡¹ç›®](https://github.com/moeru-ai/chat))
 >
-> **如果你已经感兴趣了，为什么不来这里和大家打个招呼呢？[Would like to join part of us to build AIRI?](https://github.com/moeru-ai/airi/discussions/33)**
+> **å¦‚æžœä½ å·²ç»æ„Ÿå…´è¶£äº†ï¼Œä¸ºä»€ä¹ˆä¸æ¥è¿™é‡Œå’Œå¤§å®¶æ‰“ä¸ªæ‹›å‘¼å‘¢ï¼Ÿ[Would like to join part of us to build AIRI?](https://github.com/moeru-ai/airi/discussions/33)**
 
-## 当前进度
+## å½“å‰è¿›åº¦
 
-目前已经能做到：
-- [x] 大脑
-  - [x] 玩 [Minecraft](https://www.minecraft.net)
-  - [x] 玩 [Factorio](https://www.factorio.com)（进行中，但已提供 [PoC 和 demo](https://github.com/moeru-ai/airi-factorio)）
-  - [x] 在 [Telegram](https://telegram.org) 聊天
-  - [x] 在 [Discord](https://discord.com) 聊天
-  - [ ] 记忆
-    - [x] 纯浏览器内数据库支持（DuckDB WASM | `pglite`）
-    - [ ] Alaya 记忆层（施工中）
-  - [ ] 纯浏览器的本地推理（基于 WebGPU）
-- [x] 耳朵
-  - [x] 浏览器音频输入
-  - [x] [Discord](https://discord.com) 音频输入
-  - [x] 客户端语音识别
-  - [x] 客户端说话检测
-- [x] 嘴巴
-  - [x] [ElevenLabs](https://elevenlabs.io/) 语音合成
-- [x] 身体
-  - [x] VRM 支持
-    - [x] 控制 VRM 模型
-  - [x] VRM 模型动画
-    - [x] 自动眨眼
-    - [x] 自动看
-    - [x] 空闲眼睛移动
-  - [x] Live2D 支持
-    - [x] 控制 Live2D 模型
-  - [x] Live2D 模型动画
-    - [x] 自动眨眼
-    - [x] 自动看
-    - [x] 空闲眼睛移动
+ç›®å‰å·²ç»èƒ½åšåˆ°ï¼š
+- [x] å¤§è„‘
+  - [x] çŽ© [Minecraft](https://www.minecraft.net)
+  - [x] çŽ© [Factorio](https://www.factorio.com)ï¼ˆè¿›è¡Œä¸­ï¼Œä½†å·²æä¾› [PoC å’Œ demo](https://github.com/moeru-ai/airi-factorio)ï¼‰
+  - [x] åœ¨ [Telegram](https://telegram.org) èŠå¤©
+  - [x] åœ¨ [Discord](https://discord.com) èŠå¤©
+  - [ ] è®°å¿†
+    - [x] çº¯æµè§ˆå™¨å†…æ•°æ®åº“æ”¯æŒï¼ˆDuckDB WASM | `pglite`ï¼‰
+    - [ ] Alaya è®°å¿†å±‚ï¼ˆæ–½å·¥ä¸­ï¼‰
+  - [ ] çº¯æµè§ˆå™¨çš„æœ¬åœ°æŽ¨ç†ï¼ˆåŸºäºŽ WebGPUï¼‰
+- [x] è€³æœµ
+  - [x] æµè§ˆå™¨éŸ³é¢‘è¾“å…¥
+  - [x] [Discord](https://discord.com) éŸ³é¢‘è¾“å…¥
+  - [x] å®¢æˆ·ç«¯è¯­éŸ³è¯†åˆ«
+  - [x] å®¢æˆ·ç«¯è¯´è¯æ£€æµ‹
+- [x] å˜´å·´
+  - [x] [ElevenLabs](https://elevenlabs.io/) è¯­éŸ³åˆæˆ
+- [x] èº«ä½“
+  - [x] VRM æ”¯æŒ
+    - [x] æŽ§åˆ¶ VRM æ¨¡åž‹
+  - [x] VRM æ¨¡åž‹åŠ¨ç”»
+    - [x] è‡ªåŠ¨çœ¨çœ¼
+    - [x] è‡ªåŠ¨çœ‹
+    - [x] ç©ºé—²çœ¼ç›ç§»åŠ¨
+  - [x] Live2D æ”¯æŒ
+    - [x] æŽ§åˆ¶ Live2D æ¨¡åž‹
+  - [x] Live2D æ¨¡åž‹åŠ¨ç”»
+    - [x] è‡ªåŠ¨çœ¨çœ¼
+    - [x] è‡ªåŠ¨çœ‹
+    - [x] ç©ºé—²çœ¼ç›ç§»åŠ¨
 
-## 开发
+## å¼€å‘
 
-> 开发本项目的详细指南请参阅 [CONTRIBUTING.md](../.github/CONTRIBUTING.md)
+> å¼€å‘æœ¬é¡¹ç›®çš„è¯¦ç»†æŒ‡å—è¯·å‚é˜… [CONTRIBUTING.md](../.github/CONTRIBUTING.md)
 
 > [!NOTE]
-> 默认情况下 `pnpm dev` 会启动 Stage Web（浏览器版）的开发服务器；如果你想尝试桌面版，请先阅读 [CONTRIBUTING.md](../.github/CONTRIBUTING.md) 正确完成环境配置。
+> é»˜è®¤æƒ…å†µä¸‹ `pnpm dev` ä¼šå¯åŠ¨ Stage Webï¼ˆæµè§ˆå™¨ç‰ˆï¼‰çš„å¼€å‘æœåŠ¡å™¨ï¼›å¦‚æžœä½ æƒ³å°è¯•æ¡Œé¢ç‰ˆï¼Œè¯·å…ˆé˜…è¯» [CONTRIBUTING.md](../.github/CONTRIBUTING.md) æ­£ç¡®å®ŒæˆçŽ¯å¢ƒé…ç½®ã€‚
 
 ```shell
 pnpm i
 pnpm dev
 ```
 
-### 网页版 (也就是 [airi.moeru.ai](https://airi.moeru.ai) 的版本)
+### ç½‘é¡µç‰ˆ (ä¹Ÿå°±æ˜¯ [airi.moeru.ai](https://airi.moeru.ai) çš„ç‰ˆæœ¬)
 
 ```shell
 pnpm dev
 ```
 
-### 桌面版（也叫拓麻歌子，aka 电子宠物）
+### æ¡Œé¢ç‰ˆï¼ˆä¹Ÿå«æ‹“éº»æ­Œå­ï¼Œaka ç”µå­å® ç‰©ï¼‰
 
 ```shell
 pnpm dev:tamagotchi
 ```
 
-我们提供了拓麻歌子的 Nix 包。先启用 flakes，然后可以直接运行：
+æˆ‘ä»¬æä¾›äº†æ‹“éº»æ­Œå­çš„ Nix åŒ…ã€‚å…ˆå¯ç”¨ flakesï¼Œç„¶åŽå¯ä»¥ç›´æŽ¥è¿è¡Œï¼š
 
 ```shell
 nix run github:moeru-ai/airi
 ```
 
-### 文档站
+### æ–‡æ¡£ç«™
 
 ```shell
 pnpm dev:docs
 ```
 
-### 发布
+### å‘å¸ƒ
 
-运行 `bumpp` 后，请记得在 `Cargo.toml` 中更新版本号：
+è¿è¡Œ `bumpp` åŽï¼Œè¯·è®°å¾—åœ¨ `Cargo.toml` ä¸­æ›´æ–°ç‰ˆæœ¬å·ï¼š
 
 ```shell
 npx bumpp --no-commit --no-tag
 ```
 
-## 原生支持的 LLM API 服务来源列表（由 [xsai](https://github.com/moeru-ai/xsai) 驱动）
+## åŽŸç”Ÿæ”¯æŒçš„ LLM API æœåŠ¡æ¥æºåˆ—è¡¨ï¼ˆç”± [xsai](https://github.com/moeru-ai/xsai) é©±åŠ¨ï¼‰
 
 - [x] [AIHubMix (recommended)](https://aihubmix.com/?aff=OOiX)
 - [x] [OpenRouter](https://openrouter.ai/)
@@ -276,11 +276,11 @@ npx bumpp --no-commit --no-tag
 - [x] [Ollama](https://github.com/ollama/ollama)
 - [x] [302.AI (sponsored)](https://share.302.ai/514k2v)
 - [x] [OpenAI](https://platform.openai.com/docs/guides/gpt/chat-completions-api)
-  - [ ] [Azure OpenAI API](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference)（欢迎 PR）
+  - [ ] [Azure OpenAI API](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference)ï¼ˆæ¬¢è¿Ž PRï¼‰
 - [x] [Anthropic Claude](https://anthropic.com)
-  - [ ] [AWS Claude](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference)（欢迎 PR）
-- [x] [深度求索 DeepSeek](https://www.deepseek.com/)
-- [x] [通义千问 Qwen](https://help.aliyun.com/document_detail/2400395.html)
+  - [ ] [AWS Claude](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference)ï¼ˆæ¬¢è¿Ž PRï¼‰
+- [x] [æ·±åº¦æ±‚ç´¢ DeepSeek](https://www.deepseek.com/)
+- [x] [é€šä¹‰åƒé—® Qwen](https://help.aliyun.com/document_detail/2400395.html)
 - [x] [Google Gemini](https://developers.generativeai.google)
 - [x] [xAI](https://x.ai/)
 - [x] [Groq](https://wow.groq.com/)
@@ -289,37 +289,37 @@ npx bumpp --no-commit --no-tag
 - [x] [Together.ai](https://www.together.ai/)
 - [x] [Fireworks.ai](https://www.together.ai/)
 - [x] [Novita](https://www.novita.ai/)
-- [x] [智谱](https://bigmodel.cn)
-- [x] [硅基流动](https://cloud.siliconflow.cn/i/rKXmRobW)
-- [x] [阶跃星辰](https://platform.stepfun.com/)
-- [x] [百川](https://platform.baichuan-ai.com)
+- [x] [æ™ºè°±](https://bigmodel.cn)
+- [x] [ç¡…åŸºæµåŠ¨](https://cloud.siliconflow.cn/i/rKXmRobW)
+- [x] [é˜¶è·ƒæ˜Ÿè¾°](https://platform.stepfun.com/)
+- [x] [ç™¾å·](https://platform.baichuan-ai.com)
 - [x] [Minimax](https://api.minimax.chat/)
-- [x] [月之暗面](https://platform.moonshot.cn/)
-- [x] [魔搭社区](https://modelscope.cn/docs/model-service/API-Inference/intro)
+- [x] [æœˆä¹‹æš—é¢](https://platform.moonshot.cn/)
+- [x] [é­”æ­ç¤¾åŒº](https://modelscope.cn/docs/model-service/API-Inference/intro)
 - [x] [Player2](https://player2.game/)
-- [x] [腾讯混元](https://cloud.tencent.com/document/product/1729)
-- [ ] [讯飞星火](https://www.xfyun.cn/doc/spark/Web.html)
-- [ ] [火山引擎（豆包）](https://www.volcengine.com/experience/ark?utm_term=202502dsinvite&ac=DSASUQY5&rc=2QXCA1VI)
+- [x] [è…¾è®¯æ··å…ƒ](https://cloud.tencent.com/document/product/1729)
+- [ ] [è®¯é£žæ˜Ÿç«](https://www.xfyun.cn/doc/spark/Web.html)
+- [ ] [ç«å±±å¼•æ“Žï¼ˆè±†åŒ…ï¼‰](https://www.volcengine.com/experience/ark?utm_term=202502dsinvite&ac=DSASUQY5&rc=2QXCA1VI)
 
-## 从这个项目诞生的子项目
+## ä»Žè¿™ä¸ªé¡¹ç›®è¯žç”Ÿçš„å­é¡¹ç›®
 
-- [Awesome AI VTuber](https://github.com/proj-airi/awesome-ai-vtuber)：AI VTuber 及相关项目的精选列表
-- [`unspeech`](https://github.com/moeru-ai/unspeech)：通用的 `/audio/transcriptions` 与 `/audio/speech` 代理，类似 LiteLLM，但适用于任意 ASR 和 TTS
-- [`hfup`](https://github.com/moeru-ai/hfup)：帮助部署与打包到 HuggingFace Spaces 的工具
-- [`xsai-transformers`](https://github.com/moeru-ai/xsai-transformers)：面向 [xsAI](https://github.com/moeru-ai/xsai) 的实验性 [🤗 Transformers.js](https://github.com/huggingface/transformers.js) provider
-- [WebAI: Realtime Voice Chat](https://github.com/proj-airi/webai-realtime-voice-chat)：从零实现 ChatGPT 实时语音（VAD + STT + LLM + TTS）的完整示例
-- [`@proj-airi/drizzle-duckdb-wasm`](https://github.com/moeru-ai/airi/tree/main/packages/drizzle-duckdb-wasm/README.md)：DuckDB WASM 的 Drizzle ORM 驱动
-- [`@proj-airi/duckdb-wasm`](https://github.com/moeru-ai/airi/tree/main/packages/duckdb-wasm/README.md)：好用的 `@duckdb/duckdb-wasm` 封装
-- [`tauri-plugin-mcp`](https://github.com/moeru-ai/airi/blob/main/crates/tauri-plugin-mcp/README.md)：与 MCP servers 交互的 Tauri 插件
-- [AIRI Factorio](https://github.com/moeru-ai/airi-factorio): 让 AIRI 玩 Factorio
-- [Factorio RCON API](https://github.com/nekomeowww/factorio-rcon-api): Factorio 无头服务器控制台的 RESTful API 封装
-- [`autorio`](https://github.com/moeru-ai/airi-factorio/tree/main/packages/autorio): Factorio 自动化库
-- [`tstl-plugin-reload-factorio-mod`](https://github.com/moeru-ai/airi-factorio/tree/main/packages/tstl-plugin-reload-factorio-mod): 开发时支持热重载 Factorio 模组
-- [Velin](https://github.com/luoling8192/velin)：用 Vue SFC 和 Markdown 写可管理的多轮提示词
-- [`demodel`](https://github.com/moeru-ai/demodel)：轻松加速不同推理引擎/下载器拉取模型与数据集
-- [`inventory`](https://github.com/moeru-ai/inventory)：集中式模型目录与默认 provider 配置的后端服务
-- [MCP Launcher](https://github.com/moeru-ai/mcp-launcher)：易用的 MCP 构建器与启动器，就像模型界的 Ollama！
-- [🥺 SAD](https://github.com/moeru-ai/sad)：自托管与浏览器运行 LLM 的文档与笔记
+- [Awesome AI VTuber](https://github.com/proj-airi/awesome-ai-vtuber)ï¼šAI VTuber åŠç›¸å…³é¡¹ç›®çš„ç²¾é€‰åˆ—è¡¨
+- [`unspeech`](https://github.com/moeru-ai/unspeech)ï¼šé€šç”¨çš„ `/audio/transcriptions` ä¸Ž `/audio/speech` ä»£ç†ï¼Œç±»ä¼¼ LiteLLMï¼Œä½†é€‚ç”¨äºŽä»»æ„ ASR å’Œ TTS
+- [`hfup`](https://github.com/moeru-ai/hfup)ï¼šå¸®åŠ©éƒ¨ç½²ä¸Žæ‰“åŒ…åˆ° HuggingFace Spaces çš„å·¥å…·
+- [`xsai-transformers`](https://github.com/moeru-ai/xsai-transformers)ï¼šé¢å‘ [xsAI](https://github.com/moeru-ai/xsai) çš„å®žéªŒæ€§ [ðŸ¤— Transformers.js](https://github.com/huggingface/transformers.js) provider
+- [WebAI: Realtime Voice Chat](https://github.com/proj-airi/webai-realtime-voice-chat)ï¼šä»Žé›¶å®žçŽ° ChatGPT å®žæ—¶è¯­éŸ³ï¼ˆVAD + STT + LLM + TTSï¼‰çš„å®Œæ•´ç¤ºä¾‹
+- [`@proj-airi/drizzle-duckdb-wasm`](https://github.com/moeru-ai/airi/tree/main/packages/drizzle-duckdb-wasm/README.md)ï¼šDuckDB WASM çš„ Drizzle ORM é©±åŠ¨
+- [`@proj-airi/duckdb-wasm`](https://github.com/moeru-ai/airi/tree/main/packages/duckdb-wasm/README.md)ï¼šå¥½ç”¨çš„ `@duckdb/duckdb-wasm` å°è£…
+- [`tauri-plugin-mcp`](https://github.com/moeru-ai/airi/blob/main/crates/tauri-plugin-mcp/README.md)ï¼šä¸Ž MCP servers äº¤äº’çš„ Tauri æ’ä»¶
+- [AIRI Factorio](https://github.com/moeru-ai/airi-factorio): è®© AIRI çŽ© Factorio
+- [Factorio RCON API](https://github.com/nekomeowww/factorio-rcon-api): Factorio æ— å¤´æœåŠ¡å™¨æŽ§åˆ¶å°çš„ RESTful API å°è£…
+- [`autorio`](https://github.com/moeru-ai/airi-factorio/tree/main/packages/autorio): Factorio è‡ªåŠ¨åŒ–åº“
+- [`tstl-plugin-reload-factorio-mod`](https://github.com/moeru-ai/airi-factorio/tree/main/packages/tstl-plugin-reload-factorio-mod): å¼€å‘æ—¶æ”¯æŒçƒ­é‡è½½ Factorio æ¨¡ç»„
+- [Velin](https://github.com/luoling8192/velin)ï¼šç”¨ Vue SFC å’Œ Markdown å†™å¯ç®¡ç†çš„å¤šè½®æç¤ºè¯
+- [`demodel`](https://github.com/moeru-ai/demodel)ï¼šè½»æ¾åŠ é€Ÿä¸åŒæŽ¨ç†å¼•æ“Ž/ä¸‹è½½å™¨æ‹‰å–æ¨¡åž‹ä¸Žæ•°æ®é›†
+- [`inventory`](https://github.com/moeru-ai/inventory)ï¼šé›†ä¸­å¼æ¨¡åž‹ç›®å½•ä¸Žé»˜è®¤ provider é…ç½®çš„åŽç«¯æœåŠ¡
+- [MCP Launcher](https://github.com/moeru-ai/mcp-launcher)ï¼šæ˜“ç”¨çš„ MCP æž„å»ºå™¨ä¸Žå¯åŠ¨å™¨ï¼Œå°±åƒæ¨¡åž‹ç•Œçš„ Ollamaï¼
+- [ðŸ¥º SAD](https://github.com/moeru-ai/sad)ï¼šè‡ªæ‰˜ç®¡ä¸Žæµè§ˆå™¨è¿è¡Œ LLM çš„æ–‡æ¡£ä¸Žç¬”è®°
 
 ```mermaid
 %%{ init: { 'flowchart': { 'curve': 'catmullRom' } } }%%
@@ -411,38 +411,38 @@ flowchart TD
   style Memory_PGVector fill:#f9f9d4,stroke:#333,stroke-width:1px
 ```
 
-## 同类项目
+## åŒç±»é¡¹ç›®
 
-### 开源项目
+### å¼€æºé¡¹ç›®
 
-- [kimjammer/Neuro: A recreation of Neuro-Sama originally created in 7 days.](https://github.com/kimjammer/Neuro)：非常完善的 Neuro-Sama 实现
-- [SugarcaneDefender/z-waif](https://github.com/SugarcaneDefender/z-waif)：以游戏、自主代理和提示词工程见长
-- [semperai/amica](https://github.com/semperai/amica/)：适配 VRM, WebXR
-- [elizaOS/eliza](https://github.com/elizaOS/eliza)：将 AI 智能体集成至各类系统和 API 中的一个软件工程实践
-- [ardha27/AI-Waifu-Vtuber](https://github.com/ardha27/AI-Waifu-Vtuber)：Twitch API 集成
-- [InsanityLabs/AIVTuber](https://github.com/InsanityLabs/AIVTuber)：优秀的 UI/UX 设计
+- [kimjammer/Neuro: A recreation of Neuro-Sama originally created in 7 days.](https://github.com/kimjammer/Neuro)ï¼šéžå¸¸å®Œå–„çš„ Neuro-Sama å®žçŽ°
+- [SugarcaneDefender/z-waif](https://github.com/SugarcaneDefender/z-waif)ï¼šä»¥æ¸¸æˆã€è‡ªä¸»ä»£ç†å’Œæç¤ºè¯å·¥ç¨‹è§é•¿
+- [semperai/amica](https://github.com/semperai/amica/)ï¼šé€‚é… VRM, WebXR
+- [elizaOS/eliza](https://github.com/elizaOS/eliza)ï¼šå°† AI æ™ºèƒ½ä½“é›†æˆè‡³å„ç±»ç³»ç»Ÿå’Œ API ä¸­çš„ä¸€ä¸ªè½¯ä»¶å·¥ç¨‹å®žè·µ
+- [ardha27/AI-Waifu-Vtuber](https://github.com/ardha27/AI-Waifu-Vtuber)ï¼šTwitch API é›†æˆ
+- [InsanityLabs/AIVTuber](https://github.com/InsanityLabs/AIVTuber)ï¼šä¼˜ç§€çš„ UI/UX è®¾è®¡
 - [IRedDragonICY/vixevia](https://github.com/IRedDragonICY/vixevia)
 - [t41372/Open-LLM-VTuber](https://github.com/t41372/Open-LLM-VTuber)
 - [PeterH0323/Streamer-Sales](https://github.com/PeterH0323/Streamer-Sales)
 
-### 非开源项目
+### éžå¼€æºé¡¹ç›®
 
 - https://clips.twitch.tv/WanderingCaringDeerDxCat-Qt55xtiGDSoNmDDr https://www.youtube.com/watch?v=8Giv5mupJNE
 - https://clips.twitch.tv/TriangularAthleticBunnySoonerLater-SXpBk1dFso21VcWD
 - https://www.youtube.com/@NOWA_Mirai
 
-## 项目状态
+## é¡¹ç›®çŠ¶æ€
 
 ![Repobeats analytics image](https://repobeats.axiom.co/api/embed/a1d6fe2c13ea2bb53a5154435a71e2431f70c2ee.svg 'Repobeats analytics image')
 
-## 鸣谢
+## é¸£è°¢
 
-- [Reka UI](https://github.com/unovue/reka-ui): 文档站的设计，新的 landing page 也基于此，并感谢他们实现了大量 UI 组件。（shadcn-vue 使用 Reka UI 作为 headless 组件，去看看！）
+- [Reka UI](https://github.com/unovue/reka-ui): æ–‡æ¡£ç«™çš„è®¾è®¡ï¼Œæ–°çš„ landing page ä¹ŸåŸºäºŽæ­¤ï¼Œå¹¶æ„Ÿè°¢ä»–ä»¬å®žçŽ°äº†å¤§é‡ UI ç»„ä»¶ã€‚ï¼ˆshadcn-vue ä½¿ç”¨ Reka UI ä½œä¸º headless ç»„ä»¶ï¼ŒåŽ»çœ‹çœ‹ï¼ï¼‰
 - [pixiv/ChatVRM](https://github.com/pixiv/ChatVRM)
 - [josephrocca/ChatVRM-js: A JS conversion/adaptation of parts of the ChatVRM (TypeScript) code for standalone use in OpenCharacters and elsewhere](https://github.com/josephrocca/ChatVRM-js)
-- UI 和样式的灵感来源于 [Cookard](https://store.steampowered.com/app/2919650/Cookard/)、[UNBEATABLE](https://store.steampowered.com/app/2240620/UNBEATABLE/)、[Sensei! I like you so much!](https://store.steampowered.com/app/2957700/_/)，以及 [Ayame by Mercedes Bazan](https://dribbble.com/shots/22157656-Ayame) 和 [Wish by Mercedes Bazan](https://dribbble.com/shots/24501019-Wish) 的作品
+- UI å’Œæ ·å¼çš„çµæ„Ÿæ¥æºäºŽ [Cookard](https://store.steampowered.com/app/2919650/Cookard/)ã€[UNBEATABLE](https://store.steampowered.com/app/2240620/UNBEATABLE/)ã€[Sensei! I like you so much!](https://store.steampowered.com/app/2957700/_/)ï¼Œä»¥åŠ [Ayame by Mercedes Bazan](https://dribbble.com/shots/22157656-Ayame) å’Œ [Wish by Mercedes Bazan](https://dribbble.com/shots/24501019-Wish) çš„ä½œå“
 - [mallorbc/whisper_mic](https://github.com/mallorbc/whisper_mic)
-- [`xsai`](https://github.com/moeru-ai/xsai)：实现了相当数量的包来与 LLM 和模型交互，像 [Vercel AI SDK](https://sdk.vercel.ai/) 但是更小
+- [`xsai`](https://github.com/moeru-ai/xsai)ï¼šå®žçŽ°äº†ç›¸å½“æ•°é‡çš„åŒ…æ¥ä¸Ž LLM å’Œæ¨¡åž‹äº¤äº’ï¼Œåƒ [Vercel AI SDK](https://sdk.vercel.ai/) ä½†æ˜¯æ›´å°
 
 ## Star History
 

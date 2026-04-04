@@ -93,6 +93,8 @@ export const useProactivityStore = defineStore('proactivity', () => {
   }
 
   async function updateSensors() {
+    return // TEMPORARILY DISABLED FOR PERF TESTING
+
     // Fallback for non-electron or missing invoker
     const now = new Date()
     locTime.value = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
@@ -224,6 +226,8 @@ export const useProactivityStore = defineStore('proactivity', () => {
   })
 
   async function evaluateHeartbeat(options?: { force?: boolean }) {
+    return // TEMPORARILY DISABLED FOR PERF TESTING
+
     if (isHeartbeatEvaluating.value && !options?.force) {
       // eslint-disable-next-line no-console
       console.log('[Proactivity] Evaluation already in progress, skipping.')

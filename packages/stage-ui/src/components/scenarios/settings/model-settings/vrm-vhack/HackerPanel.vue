@@ -86,6 +86,16 @@ function getGltfImageIndex(texture: any) {
   return null
 }
 
+function getGltfNodeIndex(node: any) {
+  if (!activeVrmParser.value || !node)
+    return null
+  const assoc = activeVrmParser.value.associations.get(node)
+  if (assoc && assoc.nodes !== undefined) {
+    return assoc.nodes
+  }
+  return null
+}
+
 function getTextureUrl(tex: any) {
   if (!tex || !tex.image)
     return null
@@ -703,6 +713,22 @@ async function exportVrm() {
     const jsonLen = dataView.getUint32(12, true)
     const jsonContent = new TextDecoder().decode(new Uint8Array(originalBuffer, 20, jsonLen))
     const gltf = JSON.parse(jsonContent)
+
+    // EXPORT VISIBILITY SURGERY: Permanently disable nodes that are hidden in the UI
+    activeVrm.value.scene.traverse((node: any) => {
+      // Check if this node is hidden in the UI (Mesh or Bone)
+      if (node.visible === false) {
+        const nodeIdx = getGltfNodeIndex(node)
+        if (nodeIdx !== null && gltf.nodes[nodeIdx]) {
+          // By deleting the 'mesh' reference, the node still exists (important for bone hierarchy/transforms)
+          // but there is nothing to render, so the accessory/body part is effectively removed.
+          if (gltf.nodes[nodeIdx].mesh !== undefined) {
+            console.log(`[VHACK] Selective Export: Unlinking Mesh from Node [${nodeIdx}] (${node.name})`)
+            delete gltf.nodes[nodeIdx].mesh
+          }
+        }
+      }
+    })
 
     // BIN Chunk Info
     const binOffset = 20 + jsonLen + 8

@@ -1,4 +1,4 @@
-<picture>
+﻿<picture>
   <source
     width="100%"
     srcset="./docs/content/public/banner-dark-1280x640.avif"
@@ -106,11 +106,11 @@ Streaming support for **DeepSeek** and **GLM-4** models is also hardened in this
 
 The `stage_widgets` tool gives AIRI the ability to spawn, update, and remove floating desktop widgets during conversation. Pre-built widget components exist for weather and map views, and a generic JSON fallback renders any unknown component name as a styled info-card, so the model can "compose" a view for stocks, notes, or anything else without requiring a bespoke UI component.
 
-Widgets are managed through a Tool → IPC → Main Process → Renderer pipeline, with each widget identified by a human-readable id so AIRI can update or remove it later. The system is documented in [`docs/widget-system-report.md`](./docs/widget-system-report.md).
+Widgets are managed through a Tool â†’ IPC â†’ Main Process â†’ Renderer pipeline, with each widget identified by a human-readable id so AIRI can update or remove it later. The system is documented in [`docs/widget-system-report.md`](./docs/widget-system-report.md).
 
 ### Per-Character LLM Generation Settings
 
-A planned **Generation** tab in the AIRI card editor will let each character carry its own chat-generation tuning — provider, model, max tokens, temperature, and top-p — instead of relying solely on global defaults. The schema is designed to grow toward SillyTavern preset import and advanced provider-specific JSON later. Design details are in [`docs/Character Configurable LLM.md`](./docs/Character%20Configurable%20LLM.md).
+A planned **Generation** tab in the AIRI card editor will let each character carry its own chat-generation tuning â€” provider, model, max tokens, temperature, and top-p â€” instead of relying solely on global defaults. The schema is designed to grow toward SillyTavern preset import and advanced provider-specific JSON later. Design details are in [`docs/Character Configurable LLM.md`](./docs/Character%20Configurable%20LLM.md).
 
 ### All Interaction Pipelines Share One Toolchain
 
@@ -125,7 +125,7 @@ Overall, the fork is trying to turn AIRI from an interesting base project into s
 If you want the running journal for what is actively being built, refined, and thought through in this fork, start with [`docs/AIRI_PROGRESS.md`](./docs/AIRI_PROGRESS.md). For the selective upstream strategy used here, see [`docs/PR/Selective Upstream Sync.md`](./docs/PR/Selective%20Upstream%20Sync.md).
 
 <p align="center">
-  [<a href="https://discord.gg/TgQ3Cu2F7A">Join Discord Server</a>] [<a href="https://airi.moeru.ai">Try it</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.zh-CN.md">简体中文</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ja-JP.md">日本語</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ru-RU.md">Русский</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.vi.md">Tiếng Việt</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.fr.md">Français</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ko-KR.md">한국어</a>]
+  [<a href="https://discord.gg/TgQ3Cu2F7A">Join Discord Server</a>] [<a href="https://airi.moeru.ai">Try it</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.zh-CN.md">ç®€ä½“ä¸­æ–‡</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ja-JP.md">æ—¥æœ¬èªž</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ru-RU.md">Ð ÑƒÑÑÐºÐ¸Ð¹</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.vi.md">Tiáº¿ng Viá»‡t</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.fr.md">FranÃ§ais</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ko-KR.md">í•œêµ­ì–´</a>]
 </p>
 
 <p align="center">
@@ -140,7 +140,7 @@ If you want the running journal for what is actively being built, refined, and t
 
 <p float="left" align="center">
   <!-- readme-section:release-binary-windows -->
-  <a href="https://github.com/moeru-ai/airi/releases/download/v0.9.0-stable.20260403/AIRI-0.9.0-stable.20260403-windows-x64-setup.exe">
+  <a href="https://github.com/moeru-ai/airi/releases/download/v0.9.0-stable.20260404/AIRI-0.9.0-stable.20260403-windows-x64-setup.exe">
     <picture>
       <source
         width="33%"
@@ -156,7 +156,7 @@ If you want the running journal for what is actively being built, refined, and t
     </picture>
   </a>
   <!-- readme-section:release-binary-macos -->
-  <a href="https://github.com/moeru-ai/airi/releases/download/v0.9.0-stable.20260403/AIRI-0.9.0-stable.20260403-darwin-arm64.dmg">
+  <a href="https://github.com/moeru-ai/airi/releases/download/v0.9.0-stable.20260404/AIRI-0.9.0-stable.20260403-darwin-arm64.dmg">
     <picture>
       <source
         width="33%"
@@ -262,22 +262,22 @@ Therefore, this project, AIRI, offers another possibility here: **let you own yo
 
 ## What's So Special About This Project?
 
-Unlike the other AI driven VTuber open source projects, アイリ was built with support of many Web technologies such as [WebGPU](https://www.w3.org/TR/webgpu/), [WebAudio](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API), [Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers), [WebAssembly](https://webassembly.org/), [WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket), etc. from the first day.
+Unlike the other AI driven VTuber open source projects, ã‚¢ã‚¤ãƒª was built with support of many Web technologies such as [WebGPU](https://www.w3.org/TR/webgpu/), [WebAudio](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API), [Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers), [WebAssembly](https://webassembly.org/), [WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket), etc. from the first day.
 
 > [!TIP]
 > Worrying about the performance drop since we are using Web related technologies?
 >
 > Don't worry, while Web browser version is meant to give an insight about how much we can push and do inside browsers, and webviews, we will never fully rely on this, the desktop version of AIRI is capable of using native [NVIDIA CUDA](https://developer.nvidia.com/cuda-toolkit) and [Apple Metal](https://developer.apple.com/metal/) by default (thanks to HuggingFace & beloved [candle](https://github.com/huggingface/candle) project), without any complex dependency managements, considering the tradeoff, it was partially powered by Web technologies for graphics, layouts, animations, and the WIP plugin systems for everyone to integrate things.
 
-This means that **アイリ is capable of running on modern browsers and devices** and even on mobile devices (already done with PWA support). This brings a lot of possibilities for us (the developers) to build and extend the power of アイリ VTuber to the next level, while still leaving the flexibilities for users to enable features that requires TCP connections or other non-Web technologies such as connecting to a Discord voice channel or playing Minecraft and Factorio with friends.
+This means that **ã‚¢ã‚¤ãƒª is capable of running on modern browsers and devices** and even on mobile devices (already done with PWA support). This brings a lot of possibilities for us (the developers) to build and extend the power of ã‚¢ã‚¤ãƒª VTuber to the next level, while still leaving the flexibilities for users to enable features that requires TCP connections or other non-Web technologies such as connecting to a Discord voice channel or playing Minecraft and Factorio with friends.
 
 > [!NOTE]
 >
-> We are still in the early stage of development where we are seeking out talented developers to join us and help us to make アイリ a reality.
+> We are still in the early stage of development where we are seeking out talented developers to join us and help us to make ã‚¢ã‚¤ãƒª a reality.
 >
 > It's ok if you are not familiar with Vue.js, TypeScript, and devtools required for this project, you can join us as an artist, designer, or even help us to launch our first live stream.
 >
-> Even if you are a big fan of React, Svelte or even Solid, we welcome you. You can open a sub-directory to add features that you want to see in アイリ, or would like to experiment with.
+> Even if you are a big fan of React, Svelte or even Solid, we welcome you. You can open a sub-directory to add features that you want to see in ã‚¢ã‚¤ãƒª, or would like to experiment with.
 >
 > Fields (and related projects) that we are looking for:
 >
@@ -312,7 +312,7 @@ Capable of
     - [x] Short-term continuity injection into new/reset sessions
     - [x] Long-term `text_journal` create/search tools
     - [x] Long-term per-character journal archive UI
-    - [x] Unified memory lookup fallback (long-term → short-term)
+    - [x] Unified memory lookup fallback (long-term â†’ short-term)
     - [ ] Memory Alaya (WIP)
   - [ ] Pure in-browser local (WebGPU) inference
 - [x] Ears
@@ -457,7 +457,7 @@ npx bumpp --no-commit --no-tag
 - [Awesome AI VTuber](https://github.com/proj-airi/awesome-ai-vtuber): A curated list of AI VTubers and related projects
 - [`unspeech`](https://github.com/moeru-ai/unspeech): Universal endpoint proxy server for `/audio/transcriptions` and `/audio/speech`, like LiteLLM but for any ASR and TTS
 - [`hfup`](https://github.com/moeru-ai/hfup): tools to help on deploying, bundling to HuggingFace Spaces
-- [`xsai-transformers`](https://github.com/moeru-ai/xsai-transformers): Experimental [🤗 Transformers.js](https://github.com/huggingface/transformers.js) provider for [xsAI](https://github.com/moeru-ai/xsai).
+- [`xsai-transformers`](https://github.com/moeru-ai/xsai-transformers): Experimental [ðŸ¤— Transformers.js](https://github.com/huggingface/transformers.js) provider for [xsAI](https://github.com/moeru-ai/xsai).
 - [WebAI: Realtime Voice Chat](https://github.com/proj-airi/webai-realtime-voice-chat): Full example of implementing ChatGPT's realtime voice from scratch with VAD + STT + LLM + TTS.
 - [`@proj-airi/drizzle-duckdb-wasm`](https://github.com/moeru-ai/airi/tree/main/packages/drizzle-duckdb-wasm/README.md): Drizzle ORM driver for DuckDB WASM
 - [`@proj-airi/duckdb-wasm`](https://github.com/moeru-ai/airi/tree/main/packages/duckdb-wasm/README.md): Easy to use wrapper for `@duckdb/duckdb-wasm`
@@ -471,7 +471,7 @@ npx bumpp --no-commit --no-tag
 - [`demodel`](https://github.com/moeru-ai/demodel): Easily boost the speed of pulling your models and datasets from various of inference runtimes.
 - [`inventory`](https://github.com/moeru-ai/inventory): Centralized model catalog and default provider configurations backend service
 - [MCP Launcher](https://github.com/moeru-ai/mcp-launcher): Easy to use MCP builder & launcher for all possible MCP servers, just like Ollama for models!
-- [🥺 SAD](https://github.com/moeru-ai/sad): Documentation and notes for self-host and browser running LLMs.
+- [ðŸ¥º SAD](https://github.com/moeru-ai/sad): Documentation and notes for self-host and browser running LLMs.
 
 ```mermaid
 %%{ init: { 'flowchart': { 'curve': 'catmullRom' } } }%%

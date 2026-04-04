@@ -1,4 +1,4 @@
-<picture>
+﻿<picture>
   <source
     width="100%"
     srcset="./content/public/banner-dark-1280x640.avif"
@@ -12,18 +12,18 @@
   <img width="250" src="./content/public/banner-light-1280x640.avif" />
 </picture>
 
-<h1 align="center">Dự án AIRI</h1>
+<h1 align="center">Dá»± Ã¡n AIRI</h1>
 
-<p align="center">Lấy ý tưởng từ Neuro-sama và chúng tôi đã tạo ra một AI waifu / nhân vật ảo để mang họ đến với thế giới của chúng ta.</p>
+<p align="center">Láº¥y Ã½ tÆ°á»Ÿng tá»« Neuro-sama vÃ  chÃºng tÃ´i Ä‘Ã£ táº¡o ra má»™t AI waifu / nhÃ¢n váº­t áº£o Ä‘á»ƒ mang há» Ä‘áº¿n vá»›i tháº¿ giá»›i cá»§a chÃºng ta.</p>
 
 <p align="center">
-  [<a href="https://discord.gg/TgQ3Cu2F7A">Tham gia máy chủ Discord</a>] [<a href="https://airi.moeru.ai">Dùng thử</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/README.md">English</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.zh-CN.md">简体中文</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ja-JP.md">日本語</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ru-RU.md">Русский</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.fr.md">Français</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ko-KR.md">한국어</a>]
+  [<a href="https://discord.gg/TgQ3Cu2F7A">Tham gia mÃ¡y chá»§ Discord</a>] [<a href="https://airi.moeru.ai">DÃ¹ng thá»­</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/README.md">English</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.zh-CN.md">ç®€ä½“ä¸­æ–‡</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ja-JP.md">æ—¥æœ¬èªž</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ru-RU.md">Ð ÑƒÑÑÐºÐ¸Ð¹</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.fr.md">FranÃ§ais</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ko-KR.md">í•œêµ­ì–´</a>]
 </p>
 
 <p align="center">
   <a href="https://deepwiki.com/moeru-ai/airi"><img src="https://deepwiki.com/badge.svg"></a>
   <a href="https://github.com/moeru-ai/airi/blob/main/LICENSE"><img src="https://img.shields.io/github/license/moeru-ai/airi.svg?style=flat&colorA=080f12&colorB=1fa669"></a>
-  <a href="https://discord.gg/TgQ3Cu2F7A"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscord.com%2Fapi%2Finvites%2FTgQ3Cu2F7A%3Fwith_counts%3Dtrue&query=%24.approximate_member_count&suffix=%20thành viên&logo=discord&logoColor=white&label=%20&color=7389D8&labelColor=6A7EC2"></a>
+  <a href="https://discord.gg/TgQ3Cu2F7A"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscord.com%2Fapi%2Finvites%2FTgQ3Cu2F7A%3Fwith_counts%3Dtrue&query=%24.approximate_member_count&suffix=%20thÃ nh viÃªn&logo=discord&logoColor=white&label=%20&color=7389D8&labelColor=6A7EC2"></a>
   <a href="https://x.com/proj_airi"><img src="https://img.shields.io/badge/%40proj__airi-black?style=flat&logo=x&labelColor=%23101419&color=%232d2e30"></a>
   <a href="https://t.me/+7M_ZKO3zUHFlOThh"><img src="https://img.shields.io/badge/Telegram-%235AA9E6?logo=telegram&labelColor=FFFFFF"></a>
   <a href="./wechat.md"><img src="https://img.shields.io/badge/WeChat-%2307C160?logo=wechat&logoColor=%2307C160&labelColor=FFFFFF"></a>
@@ -32,7 +32,7 @@
 
 <p float="left" align="center">
   <!-- readme-section:release-binary-windows -->
-  <a href="https://github.com/moeru-ai/airi/releases/download/v0.9.0-stable.20260403/AIRI-0.9.0-stable.20260403-windows-x64-setup.exe">
+  <a href="https://github.com/moeru-ai/airi/releases/download/v0.9.0-stable.20260404/AIRI-0.9.0-stable.20260403-windows-x64-setup.exe">
     <picture>
       <source
         width="33%"
@@ -48,7 +48,7 @@
     </picture>
   </a>
   <!-- readme-section:release-binary-macos -->
-  <a href="https://github.com/moeru-ai/airi/releases/download/v0.9.0-stable.20260403/AIRI-0.9.0-stable.20260403-darwin-arm64.dmg">
+  <a href="https://github.com/moeru-ai/airi/releases/download/v0.9.0-stable.20260404/AIRI-0.9.0-stable.20260403-darwin-arm64.dmg">
     <picture>
       <source
         width="33%"
@@ -113,160 +113,160 @@
 </p>
 
 <p align="center">
-  <a href="https://www.producthunt.com/products/airi?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-airi" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=993524&theme=neutral&t=1752696535380" alt="AIRI - Một bình chứa linh hồn số, tái tạo Neuro-sama | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
+  <a href="https://www.producthunt.com/products/airi?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-airi" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=993524&theme=neutral&t=1752696535380" alt="AIRI - Má»™t bÃ¬nh chá»©a linh há»“n sá»‘, tÃ¡i táº¡o Neuro-sama | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
   <a href="https://trendshift.io/repositories/14636" target="_blank"><img src="https://trendshift.io/api/badge/repositories/14636" alt="moeru-ai%2Fairi | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 </p>
 
-> Lấy cảm hứng mạnh mẽ từ [Neuro-sama](https://www.youtube.com/@Neurosama)
+> Láº¥y cáº£m há»©ng máº¡nh máº½ tá»« [Neuro-sama](https://www.youtube.com/@Neurosama)
 
 > [!WARNING]
-> **Chú ý:** Chúng tôi **không** phát hành bất kỳ loại tiền điện tử hay token chính thức nào liên quan đến dự án này. Hãy kiểm tra kỹ thông tin trước khi tham gia.
+> **ChÃº Ã½:** ChÃºng tÃ´i **khÃ´ng** phÃ¡t hÃ nh báº¥t ká»³ loáº¡i tiá»n Ä‘iá»‡n tá»­ hay token chÃ­nh thá»©c nÃ o liÃªn quan Ä‘áº¿n dá»± Ã¡n nÃ y. HÃ£y kiá»ƒm tra ká»¹ thÃ´ng tin trÆ°á»›c khi tham gia.
 
 > [!NOTE]
-> Chúng tôi có cả một tổ chức riêng [@proj-airi](https://github.com/proj-airi) cho các dự án con xuất phát từ AIRI. Hãy xem qua nhé!
-> Bao gồm: RAG, hệ thống bộ nhớ, cơ sở dữ liệu nhúng, icon, tiện ích Live2D, và nhiều hơn nữa.
+> ChÃºng tÃ´i cÃ³ cáº£ má»™t tá»• chá»©c riÃªng [@proj-airi](https://github.com/proj-airi) cho cÃ¡c dá»± Ã¡n con xuáº¥t phÃ¡t tá»« AIRI. HÃ£y xem qua nhÃ©!
+> Bao gá»“m: RAG, há»‡ thá»‘ng bá»™ nhá»›, cÆ¡ sá»Ÿ dá»¯ liá»‡u nhÃºng, icon, tiá»‡n Ã­ch Live2D, vÃ  nhiá»u hÆ¡n ná»¯a.
 
 > [!TIP]
-> Chúng tôi có dự án dịch trên [Crowdin](https://crowdin.com/project/proj-airi). Nếu bạn thấy bản dịch chưa chính xác, hãy giúp dịch hoặc chỉnh sửa trên Crowdin.
+> ChÃºng tÃ´i cÃ³ dá»± Ã¡n dá»‹ch trÃªn [Crowdin](https://crowdin.com/project/proj-airi). Náº¿u báº¡n tháº¥y báº£n dá»‹ch chÆ°a chÃ­nh xÃ¡c, hÃ£y giÃºp dá»‹ch hoáº·c chá»‰nh sá»­a trÃªn Crowdin.
 > <a href="https://crowdin.com/project/proj-airi" target="_blank" rel="nofollow"><img style="width: 140px; height: 40px;" src="https://badges.crowdin.net/badge/light/crowdin-on-dark.png" srcset="https://badges.crowdin.net/badge/light/crowdin-on-dark.png 1x, https://badges.crowdin.net/badge/light/crowdin-on-dark@2x.png 2x" alt="Crowdin | Agile localization for tech companies" width="140" height="40" /></a>
 
-Bạn đã từng mơ về một thực thể số sống động (cyber-waifu, thú cưng ảo) hay một bạn đồng hành kỹ thuật số có thể chơi cùng và trò chuyện với bạn chưa?
+Báº¡n Ä‘Ã£ tá»«ng mÆ¡ vá» má»™t thá»±c thá»ƒ sá»‘ sá»‘ng Ä‘á»™ng (cyber-waifu, thÃº cÆ°ng áº£o) hay má»™t báº¡n Ä‘á»“ng hÃ nh ká»¹ thuáº­t sá»‘ cÃ³ thá»ƒ chÆ¡i cÃ¹ng vÃ  trÃ² chuyá»‡n vá»›i báº¡n chÆ°a?
 
-Với sức mạnh của các mô hình LLM (ngôn ngữ lớn) hiện nay như [ChatGPT](https://chatgpt.com) hay [Claude](https://claude.ai), việc yêu cầu nhân vật ảo nhập vai và trò chuyện với chúng ta đã trở nên rất dễ dàng. Các nền tảng như [Character.ai](https://character.ai), [JanitorAI](https://janitorai.com/) hay bản cài tự host như [SillyTavern](https://github.com/SillyTavern/SillyTavern) đã đủ tốt cho trải nghiệm trò chuyện và nhập vai.
+Vá»›i sá»©c máº¡nh cá»§a cÃ¡c mÃ´ hÃ¬nh LLM (ngÃ´n ngá»¯ lá»›n) hiá»‡n nay nhÆ° [ChatGPT](https://chatgpt.com) hay [Claude](https://claude.ai), viá»‡c yÃªu cáº§u nhÃ¢n váº­t áº£o nháº­p vai vÃ  trÃ² chuyá»‡n vá»›i chÃºng ta Ä‘Ã£ trá»Ÿ nÃªn ráº¥t dá»… dÃ ng. CÃ¡c ná»n táº£ng nhÆ° [Character.ai](https://character.ai), [JanitorAI](https://janitorai.com/) hay báº£n cÃ i tá»± host nhÆ° [SillyTavern](https://github.com/SillyTavern/SillyTavern) Ä‘Ã£ Ä‘á»§ tá»‘t cho tráº£i nghiá»‡m trÃ² chuyá»‡n vÃ  nháº­p vai.
 
-> Nhưng còn việc **chơi game cùng bạn, xem bạn code, trò chuyện khi chơi game hoặc xem video, và làm được nhiều việc khác** thì sao?
+> NhÆ°ng cÃ²n viá»‡c **chÆ¡i game cÃ¹ng báº¡n, xem báº¡n code, trÃ² chuyá»‡n khi chÆ¡i game hoáº·c xem video, vÃ  lÃ m Ä‘Æ°á»£c nhiá»u viá»‡c khÃ¡c** thÃ¬ sao?
 
-Có lẽ bạn đã biết [Neuro-sama](https://www.youtube.com/@Neurosama). Cô ấy là VTuber ảo xuất sắc nhất hiện nay, có thể vừa chơi game, vừa trò chuyện và tương tác với bạn cũng như khán giả. Một số người còn gọi đây là “con người số” (digital human). **Đáng tiếc, vì không mã nguồn mở, bạn không thể tương tác với cô ấy khi buổi livestream kết thúc.**
+CÃ³ láº½ báº¡n Ä‘Ã£ biáº¿t [Neuro-sama](https://www.youtube.com/@Neurosama). CÃ´ áº¥y lÃ  VTuber áº£o xuáº¥t sáº¯c nháº¥t hiá»‡n nay, cÃ³ thá»ƒ vá»«a chÆ¡i game, vá»«a trÃ² chuyá»‡n vÃ  tÆ°Æ¡ng tÃ¡c vá»›i báº¡n cÅ©ng nhÆ° khÃ¡n giáº£. Má»™t sá»‘ ngÆ°á»i cÃ²n gá»i Ä‘Ã¢y lÃ  â€œcon ngÆ°á»i sá»‘â€ (digital human). **ÄÃ¡ng tiáº¿c, vÃ¬ khÃ´ng mÃ£ nguá»“n má»Ÿ, báº¡n khÃ´ng thá»ƒ tÆ°Æ¡ng tÃ¡c vá»›i cÃ´ áº¥y khi buá»•i livestream káº¿t thÃºc.**
 
-Do đó, dự án AIRI mang đến một lựa chọn khác: **cho phép bạn sở hữu thực thể số của riêng mình, dễ dàng, mọi lúc, mọi nơi.**
+Do Ä‘Ã³, dá»± Ã¡n AIRI mang Ä‘áº¿n má»™t lá»±a chá»n khÃ¡c: **cho phÃ©p báº¡n sá»Ÿ há»¯u thá»±c thá»ƒ sá»‘ cá»§a riÃªng mÃ¬nh, dá»… dÃ ng, má»i lÃºc, má»i nÆ¡i.**
 
 ---
 
-## DevLogs Đã Đăng & Cập Nhật Gần Đây
+## DevLogs ÄÃ£ ÄÄƒng & Cáº­p Nháº­t Gáº§n ÄÃ¢y
 
-- [DevLog @ 2026.01.01](https://airi.moeru.ai/docs/en/blog/DevLog-2026.01.01/) ngày 1 tháng 1, 2026
-- [DevLog @ 2025.10.20](https://airi.moeru.ai/docs/en/blog/DevLog-2025.10.20/) ngày 20 tháng 10, 2025
-- [DevLog @ 2025.08.05](https://airi.moeru.ai/docs/en/blog/DevLog-2025.08.05/) ngày 5 tháng 8, 2025
-- [DevLog @ 2025.08.01](https://airi.moeru.ai/docs/en/blog/DevLog-2025.08.01/) ngày 1 tháng 8, 2025
-- [DevLog @ 2025.07.18](https://airi.moeru.ai/docs/en/blog/DevLog-2025.07.18/) ngày 18 tháng 7, 2025
-- [DreamLog 0x1](https://airi.moeru.ai/docs/en/blog/dreamlog-0x1/) ngày 16 tháng 6, 2025
-- ...xem thêm tại [docs page](https://airi.moeru.ai/docs)
+- [DevLog @ 2026.01.01](https://airi.moeru.ai/docs/en/blog/DevLog-2026.01.01/) ngÃ y 1 thÃ¡ng 1, 2026
+- [DevLog @ 2025.10.20](https://airi.moeru.ai/docs/en/blog/DevLog-2025.10.20/) ngÃ y 20 thÃ¡ng 10, 2025
+- [DevLog @ 2025.08.05](https://airi.moeru.ai/docs/en/blog/DevLog-2025.08.05/) ngÃ y 5 thÃ¡ng 8, 2025
+- [DevLog @ 2025.08.01](https://airi.moeru.ai/docs/en/blog/DevLog-2025.08.01/) ngÃ y 1 thÃ¡ng 8, 2025
+- [DevLog @ 2025.07.18](https://airi.moeru.ai/docs/en/blog/DevLog-2025.07.18/) ngÃ y 18 thÃ¡ng 7, 2025
+- [DreamLog 0x1](https://airi.moeru.ai/docs/en/blog/dreamlog-0x1/) ngÃ y 16 thÃ¡ng 6, 2025
+- ...xem thÃªm táº¡i [docs page](https://airi.moeru.ai/docs)
 
-## Dự Án Này Có Gì Đặc Biệt?
+## Dá»± Ãn NÃ y CÃ³ GÃ¬ Äáº·c Biá»‡t?
 
-Khác với các dự án VTuber AI mã nguồn mở khác, **アイリ** được xây dựng ngay từ đầu với sự hỗ trợ của nhiều công nghệ Web như [WebGPU](https://www.w3.org/TR/webgpu/), [WebAudio](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API), [Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers), [WebAssembly](https://webassembly.org/), [WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket), v.v.
+KhÃ¡c vá»›i cÃ¡c dá»± Ã¡n VTuber AI mÃ£ nguá»“n má»Ÿ khÃ¡c, **ã‚¢ã‚¤ãƒª** Ä‘Æ°á»£c xÃ¢y dá»±ng ngay tá»« Ä‘áº§u vá»›i sá»± há»— trá»£ cá»§a nhiá»u cÃ´ng nghá»‡ Web nhÆ° [WebGPU](https://www.w3.org/TR/webgpu/), [WebAudio](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API), [Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers), [WebAssembly](https://webassembly.org/), [WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket), v.v.
 
 > [!TIP]
-> Bạn lo lắng về hiệu năng khi chúng tôi dùng công nghệ Web?
+> Báº¡n lo láº¯ng vá» hiá»‡u nÄƒng khi chÃºng tÃ´i dÃ¹ng cÃ´ng nghá»‡ Web?
 >
-> Đừng lo, phiên bản chạy trên trình duyệt chỉ nhằm minh hoạ khả năng có thể đạt được trong browser và webview. Phiên bản desktop của AIRI mặc định có thể dùng [NVIDIA CUDA](https://developer.nvidia.com/cuda-toolkit) và [Apple Metal](https://developer.apple.com/metal/) (nhờ HuggingFace & dự án [candle](https://github.com/huggingface/candle)), mà không cần quản lý phụ thuộc phức tạp. Đồ hoạ, bố cục, animation, và hệ thống plugin (WIP) vẫn tận dụng công nghệ Web để mở rộng dễ dàng.
+> Äá»«ng lo, phiÃªn báº£n cháº¡y trÃªn trÃ¬nh duyá»‡t chá»‰ nháº±m minh hoáº¡ kháº£ nÄƒng cÃ³ thá»ƒ Ä‘áº¡t Ä‘Æ°á»£c trong browser vÃ  webview. PhiÃªn báº£n desktop cá»§a AIRI máº·c Ä‘á»‹nh cÃ³ thá»ƒ dÃ¹ng [NVIDIA CUDA](https://developer.nvidia.com/cuda-toolkit) vÃ  [Apple Metal](https://developer.apple.com/metal/) (nhá» HuggingFace & dá»± Ã¡n [candle](https://github.com/huggingface/candle)), mÃ  khÃ´ng cáº§n quáº£n lÃ½ phá»¥ thuá»™c phá»©c táº¡p. Äá»“ hoáº¡, bá»‘ cá»¥c, animation, vÃ  há»‡ thá»‘ng plugin (WIP) váº«n táº­n dá»¥ng cÃ´ng nghá»‡ Web Ä‘á»ƒ má»Ÿ rá»™ng dá»… dÃ ng.
 
-Điều này có nghĩa là **アイリ có thể chạy trên các trình duyệt và thiết bị hiện đại**, kể cả thiết bị di động (đã hỗ trợ PWA). Điều này mở ra nhiều khả năng để chúng tôi (nhà phát triển) nâng VTuber アイリ lên tầm cao mới, đồng thời vẫn để người dùng linh hoạt bật các tính năng cần TCP hoặc công nghệ ngoài Web như kết nối kênh thoại Discord hay chơi Minecraft, Factorio với bạn bè.
+Äiá»u nÃ y cÃ³ nghÄ©a lÃ  **ã‚¢ã‚¤ãƒª cÃ³ thá»ƒ cháº¡y trÃªn cÃ¡c trÃ¬nh duyá»‡t vÃ  thiáº¿t bá»‹ hiá»‡n Ä‘áº¡i**, ká»ƒ cáº£ thiáº¿t bá»‹ di Ä‘á»™ng (Ä‘Ã£ há»— trá»£ PWA). Äiá»u nÃ y má»Ÿ ra nhiá»u kháº£ nÄƒng Ä‘á»ƒ chÃºng tÃ´i (nhÃ  phÃ¡t triá»ƒn) nÃ¢ng VTuber ã‚¢ã‚¤ãƒª lÃªn táº§m cao má»›i, Ä‘á»“ng thá»i váº«n Ä‘á»ƒ ngÆ°á»i dÃ¹ng linh hoáº¡t báº­t cÃ¡c tÃ­nh nÄƒng cáº§n TCP hoáº·c cÃ´ng nghá»‡ ngoÃ i Web nhÆ° káº¿t ná»‘i kÃªnh thoáº¡i Discord hay chÆ¡i Minecraft, Factorio vá»›i báº¡n bÃ¨.
 
 > [!NOTE]
-> Chúng tôi vẫn đang ở giai đoạn đầu phát triển và tìm kiếm nhà phát triển tài năng để cùng hiện thực hoá アイリ.
+> ChÃºng tÃ´i váº«n Ä‘ang á»Ÿ giai Ä‘oáº¡n Ä‘áº§u phÃ¡t triá»ƒn vÃ  tÃ¬m kiáº¿m nhÃ  phÃ¡t triá»ƒn tÃ i nÄƒng Ä‘á»ƒ cÃ¹ng hiá»‡n thá»±c hoÃ¡ ã‚¢ã‚¤ãƒª.
 >
-> Không sao nếu bạn chưa quen Vue.js, TypeScript, hay devtools của dự án này, bạn vẫn có thể tham gia với vai trò hoạ sĩ, nhà thiết kế, hoặc giúp chúng tôi tổ chức buổi livestream đầu tiên.
+> KhÃ´ng sao náº¿u báº¡n chÆ°a quen Vue.js, TypeScript, hay devtools cá»§a dá»± Ã¡n nÃ y, báº¡n váº«n cÃ³ thá»ƒ tham gia vá»›i vai trÃ² hoáº¡ sÄ©, nhÃ  thiáº¿t káº¿, hoáº·c giÃºp chÃºng tÃ´i tá»• chá»©c buá»•i livestream Ä‘áº§u tiÃªn.
 >
-> Kể cả bạn là fan của React, Svelte hay Solid, chúng tôi vẫn chào đón. Bạn có thể mở thư mục phụ để thêm tính năng mà bạn muốn thử nghiệm cho アイリ.
+> Ká»ƒ cáº£ báº¡n lÃ  fan cá»§a React, Svelte hay Solid, chÃºng tÃ´i váº«n chÃ o Ä‘Ã³n. Báº¡n cÃ³ thá»ƒ má»Ÿ thÆ° má»¥c phá»¥ Ä‘á»ƒ thÃªm tÃ­nh nÄƒng mÃ  báº¡n muá»‘n thá»­ nghiá»‡m cho ã‚¢ã‚¤ãƒª.
 >
-> Các mảng (và dự án liên quan) chúng tôi cần:
+> CÃ¡c máº£ng (vÃ  dá»± Ã¡n liÃªn quan) chÃºng tÃ´i cáº§n:
 > - Live2D modeller
 > - VRM modeller
-> - Nhà thiết kế avatar VRChat
-> - Thị giác máy tính
-> - Học tăng cường (Reinforcement Learning)
-> - Nhận diện giọng nói
-> - Tổng hợp giọng nói
+> - NhÃ  thiáº¿t káº¿ avatar VRChat
+> - Thá»‹ giÃ¡c mÃ¡y tÃ­nh
+> - Há»c tÄƒng cÆ°á»ng (Reinforcement Learning)
+> - Nháº­n diá»‡n giá»ng nÃ³i
+> - Tá»•ng há»£p giá»ng nÃ³i
 > - ONNX Runtime
 > - Transformers.js
 > - vLLM
 > - WebGPU
 > - Three.js
-> - WebXR ([xem thêm dự án khác](https://github.com/moeru-ai/chat) của tổ chức @moeru-ai)
+> - WebXR ([xem thÃªm dá»± Ã¡n khÃ¡c](https://github.com/moeru-ai/chat) cá»§a tá»• chá»©c @moeru-ai)
 >
-> **Nếu bạn hứng thú, hãy giới thiệu bản thân ở đây: [Muốn tham gia cùng chúng tôi xây dựng AIRI?](https://github.com/moeru-ai/airi/discussions/33)**
+> **Náº¿u báº¡n há»©ng thÃº, hÃ£y giá»›i thiá»‡u báº£n thÃ¢n á»Ÿ Ä‘Ã¢y: [Muá»‘n tham gia cÃ¹ng chÃºng tÃ´i xÃ¢y dá»±ng AIRI?](https://github.com/moeru-ai/airi/discussions/33)**
 
-## Tiến Độ Hiện Tại
+## Tiáº¿n Äá»™ Hiá»‡n Táº¡i
 
-Khả năng:
+Kháº£ nÄƒng:
 
-- [x] Bộ não
-  - [x] Chơi game: [Minecraft](https://www.minecraft.net)
-  - [x] Chơi game: [Factorio](https://www.factorio.com) (WIP, [PoC và demo có sẵn](https://github.com/moeru-ai/airi-factorio))
-  - [x] Trò chuyện trên [Telegram](https://telegram.org)
-  - [x] Trò chuyện trên [Discord](https://discord.com)
-  - [ ] Bộ nhớ
-    - [x] Hỗ trợ CSDL trong trình duyệt (DuckDB WASM | `pglite`)
+- [x] Bá»™ nÃ£o
+  - [x] ChÆ¡i game: [Minecraft](https://www.minecraft.net)
+  - [x] ChÆ¡i game: [Factorio](https://www.factorio.com) (WIP, [PoC vÃ  demo cÃ³ sáºµn](https://github.com/moeru-ai/airi-factorio))
+  - [x] TrÃ² chuyá»‡n trÃªn [Telegram](https://telegram.org)
+  - [x] TrÃ² chuyá»‡n trÃªn [Discord](https://discord.com)
+  - [ ] Bá»™ nhá»›
+    - [x] Há»— trá»£ CSDL trong trÃ¬nh duyá»‡t (DuckDB WASM | `pglite`)
     - [ ] Memory Alaya (WIP)
-  - [ ] Suy luận cục bộ trong trình duyệt (WebGPU)
-- [x] Khả năng nghe hiểu
-  - [x] Nhận âm thanh từ trình duyệt
-  - [x] Nhận âm thanh từ [Discord](https://discord.com)
-  - [x] Nhận diện giọng nói phía client
-  - [x] Phát hiện giọng nói chuyện phía client
-- [x] Giọng nói
-  - [x] Tổng hợp giọng nói bằng [ElevenLabs](https://elevenlabs.io/)
-- [x] Cơ thể
-  - [x] Hỗ trợ VRM
-    - [x] Điều khiển model VRM
+  - [ ] Suy luáº­n cá»¥c bá»™ trong trÃ¬nh duyá»‡t (WebGPU)
+- [x] Kháº£ nÄƒng nghe hiá»ƒu
+  - [x] Nháº­n Ã¢m thanh tá»« trÃ¬nh duyá»‡t
+  - [x] Nháº­n Ã¢m thanh tá»« [Discord](https://discord.com)
+  - [x] Nháº­n diá»‡n giá»ng nÃ³i phÃ­a client
+  - [x] PhÃ¡t hiá»‡n giá»ng nÃ³i chuyá»‡n phÃ­a client
+- [x] Giá»ng nÃ³i
+  - [x] Tá»•ng há»£p giá»ng nÃ³i báº±ng [ElevenLabs](https://elevenlabs.io/)
+- [x] CÆ¡ thá»ƒ
+  - [x] Há»— trá»£ VRM
+    - [x] Äiá»u khiá»ƒn model VRM
   - [x] Animation cho VRM
-    - [x] Chớp mắt
-    - [x] Tự động nhìn theo
-    - [x] Chuyển động mắt khi idle
-  - [x] Hỗ trợ Live2D
-    - [x] Điều khiển model Live2D
+    - [x] Chá»›p máº¯t
+    - [x] Tá»± Ä‘á»™ng nhÃ¬n theo
+    - [x] Chuyá»ƒn Ä‘á»™ng máº¯t khi idle
+  - [x] Há»— trá»£ Live2D
+    - [x] Äiá»u khiá»ƒn model Live2D
   - [x] Animation cho Live2D
-    - [x] Chớp mắt
-    - [x] Tự động nhìn theo
-    - [x] Chuyển động mắt khi idle
+    - [x] Chá»›p máº¯t
+    - [x] Tá»± Ä‘á»™ng nhÃ¬n theo
+    - [x] Chuyá»ƒn Ä‘á»™ng máº¯t khi idle
 
-## Phát Triển
+## PhÃ¡t Triá»ƒn
 
-> Để xem hướng dẫn chi tiết phát triển, tham khảo [CONTRIBUTING.md](../.github/CONTRIBUTING.md)
+> Äá»ƒ xem hÆ°á»›ng dáº«n chi tiáº¿t phÃ¡t triá»ƒn, tham kháº£o [CONTRIBUTING.md](../.github/CONTRIBUTING.md)
 
 > [!NOTE]
-> Mặc định, `pnpm dev` sẽ khởi chạy server cho Stage Web (phiên bản trình duyệt).
-> Nếu muốn phát triển bản desktop, hãy đọc [CONTRIBUTING.md](../.github/CONTRIBUTING.md) để cấu hình đúng môi trường.
+> Máº·c Ä‘á»‹nh, `pnpm dev` sáº½ khá»Ÿi cháº¡y server cho Stage Web (phiÃªn báº£n trÃ¬nh duyá»‡t).
+> Náº¿u muá»‘n phÃ¡t triá»ƒn báº£n desktop, hÃ£y Ä‘á»c [CONTRIBUTING.md](../.github/CONTRIBUTING.md) Ä‘á»ƒ cáº¥u hÃ¬nh Ä‘Ãºng mÃ´i trÆ°á»ng.
 
 ```shell
 pnpm i
 pnpm dev
 ```
 
-### Stage Web (Bản web tại [airi.moeru.ai](https://airi.moeru.ai))
+### Stage Web (Báº£n web táº¡i [airi.moeru.ai](https://airi.moeru.ai))
 
 ```shell
 pnpm dev
 ```
 
-### Stage Tamagotchi (phiên bản máy tính)
+### Stage Tamagotchi (phiÃªn báº£n mÃ¡y tÃ­nh)
 
 ```shell
 pnpm dev:tamagotchi
 ```
 
-Gói Nix dành cho Tamagotchi được bao gồm. Để chạy airi với Nix, trước tiên hãy đảm bảo bạn đã bật flakes, sau đó chạy:
+GÃ³i Nix dÃ nh cho Tamagotchi Ä‘Æ°á»£c bao gá»“m. Äá»ƒ cháº¡y airi vá»›i Nix, trÆ°á»›c tiÃªn hÃ£y Ä‘áº£m báº£o báº¡n Ä‘Ã£ báº­t flakes, sau Ä‘Ã³ cháº¡y:
 
 ```shell
 nix run github:moeru-ai/airi
 ```
 
-### Trang tài liệu
+### Trang tÃ i liá»‡u
 
 ```shell
 pnpm dev:docs
 ```
 
-### Xuất bản
+### Xuáº¥t báº£n
 
-Vui lòng cập nhật phiên bản trong `Cargo.toml` sau khi chạy `bumpp`:
+Vui lÃ²ng cáº­p nháº­t phiÃªn báº£n trong `Cargo.toml` sau khi cháº¡y `bumpp`:
 
 ```shell
 npx bumpp --no-commit --no-tag
 ```
 
-## Các LLM API hỗ trợ (cung cấp bởi [xsai](https://github.com/moeru-ai/xsai))
+## CÃ¡c LLM API há»— trá»£ (cung cáº¥p bá»Ÿi [xsai](https://github.com/moeru-ai/xsai))
 
 - [x] [AIHubMix (recommended)](https://aihubmix.com/?aff=OOiX)
 - [x] [OpenRouter](https://openrouter.ai/)
@@ -299,25 +299,25 @@ npx bumpp --no-commit --no-tag
 - [ ] [Sparks](https://www.xfyun.cn/doc/spark/Web.html) (PR welcome)
 - [ ] [Volcano Engine](https://www.volcengine.com/experience/ark?utm_term=202502dsinvite&ac=DSASUQY5&rc=2QXCA1VI) (PR welcome)
 
-## Các dự án phụ khác
+## CÃ¡c dá»± Ã¡n phá»¥ khÃ¡c
 
-- [Awesome AI VTuber](https://github.com/proj-airi/awesome-ai-vtuber): Danh sách tuyển chọn các AI VTuber và những dự án liên quan
-- [`unspeech`](https://github.com/moeru-ai/unspeech): Máy chủ proxy endpoint chung cho `/audio/transcriptions` và `/audio/speech`, giống LiteLLM nhưng dành cho bất kỳ ASR và TTS nào
-- [`hfup`](https://github.com/moeru-ai/hfup): Các công cụ hỗ trợ triển khai, đóng gói lên HuggingFace Spaces
-- [`xsai-transformers`](https://github.com/moeru-ai/xsai-transformers): Nhà cung cấp thử nghiệm [🤗 Transformers.js](https://github.com/huggingface/transformers.js) cho [xsAI](https://github.com/moeru-ai/xsai).
-- [WebAI: Realtime Voice Chat](https://github.com/proj-airi/webai-realtime-voice-chat): Ví dụ đầy đủ về việc triển khai voice realtime của ChatGPT từ đầu với VAD + STT + LLM + TTS.
-- [`@proj-airi/drizzle-duckdb-wasm`](https://github.com/moeru-ai/airi/tree/main/packages/drizzle-duckdb-wasm/README.md): Trình điều khiển Drizzle ORM cho DuckDB WASM
-- [`@proj-airi/duckdb-wasm`](https://github.com/moeru-ai/airi/tree/main/packages/duckdb-wasm/README.md): Wrapper dễ sử dụng cho `@duckdb/duckdb-wasm`
-- [`tauri-plugin-mcp`](https://github.com/moeru-ai/airi/blob/main/crates/tauri-plugin-mcp/README.md): Plugin Tauri để tương tác với máy chủ MCP.
-- [AIRI Factorio](https://github.com/moeru-ai/airi-factorio): Cho phép AIRI chơi Factorio
-- [Factorio RCON API](https://github.com/nekomeowww/factorio-rcon-api): RESTful API wrapper cho console máy chủ headless Factorio
-- [`autorio`](https://github.com/moeru-ai/airi-factorio/tree/main/packages/autorio): Thư viện tự động hóa Factorio
-- [`tstl-plugin-reload-factorio-mod`](https://github.com/moeru-ai/airi-factorio/tree/main/packages/tstl-plugin-reload-factorio-mod): Tự động tải tạo lại mod Factorio khi đang phát triển
-- [Velin](https://github.com/luoling8192/velin): Sử dụng Vue SFC và Markdown để viết prompt trạng thái dễ quản lý cho LLM
-- [`demodel`](https://github.com/moeru-ai/demodel): Dễ dàng tăng tốc độ tải model và dataset từ nhiều runtime suy luận khác nhau
-- [`inventory`](https://github.com/moeru-ai/inventory): Dịch vụ backend lưu trữ tập trung catalog model và cấu hình nhà cung cấp mặc định
-- [MCP Launcher](https://github.com/moeru-ai/mcp-launcher): Công cụ tạo & khởi chạy MCP dễ dùng cho mọi máy chủ MCP, giống như Ollama nhưng cho MCP!
-- [🥺 SAD](https://github.com/moeru-ai/sad): Tài liệu và ghi chú về tự host và chạy LLM trong trình duyệt.
+- [Awesome AI VTuber](https://github.com/proj-airi/awesome-ai-vtuber): Danh sÃ¡ch tuyá»ƒn chá»n cÃ¡c AI VTuber vÃ  nhá»¯ng dá»± Ã¡n liÃªn quan
+- [`unspeech`](https://github.com/moeru-ai/unspeech): MÃ¡y chá»§ proxy endpoint chung cho `/audio/transcriptions` vÃ  `/audio/speech`, giá»‘ng LiteLLM nhÆ°ng dÃ nh cho báº¥t ká»³ ASR vÃ  TTS nÃ o
+- [`hfup`](https://github.com/moeru-ai/hfup): CÃ¡c cÃ´ng cá»¥ há»— trá»£ triá»ƒn khai, Ä‘Ã³ng gÃ³i lÃªn HuggingFace Spaces
+- [`xsai-transformers`](https://github.com/moeru-ai/xsai-transformers): NhÃ  cung cáº¥p thá»­ nghiá»‡m [ðŸ¤— Transformers.js](https://github.com/huggingface/transformers.js) cho [xsAI](https://github.com/moeru-ai/xsai).
+- [WebAI: Realtime Voice Chat](https://github.com/proj-airi/webai-realtime-voice-chat): VÃ­ dá»¥ Ä‘áº§y Ä‘á»§ vá» viá»‡c triá»ƒn khai voice realtime cá»§a ChatGPT tá»« Ä‘áº§u vá»›i VAD + STT + LLM + TTS.
+- [`@proj-airi/drizzle-duckdb-wasm`](https://github.com/moeru-ai/airi/tree/main/packages/drizzle-duckdb-wasm/README.md): TrÃ¬nh Ä‘iá»u khiá»ƒn Drizzle ORM cho DuckDB WASM
+- [`@proj-airi/duckdb-wasm`](https://github.com/moeru-ai/airi/tree/main/packages/duckdb-wasm/README.md): Wrapper dá»… sá»­ dá»¥ng cho `@duckdb/duckdb-wasm`
+- [`tauri-plugin-mcp`](https://github.com/moeru-ai/airi/blob/main/crates/tauri-plugin-mcp/README.md): Plugin Tauri Ä‘á»ƒ tÆ°Æ¡ng tÃ¡c vá»›i mÃ¡y chá»§ MCP.
+- [AIRI Factorio](https://github.com/moeru-ai/airi-factorio): Cho phÃ©p AIRI chÆ¡i Factorio
+- [Factorio RCON API](https://github.com/nekomeowww/factorio-rcon-api): RESTful API wrapper cho console mÃ¡y chá»§ headless Factorio
+- [`autorio`](https://github.com/moeru-ai/airi-factorio/tree/main/packages/autorio): ThÆ° viá»‡n tá»± Ä‘á»™ng hÃ³a Factorio
+- [`tstl-plugin-reload-factorio-mod`](https://github.com/moeru-ai/airi-factorio/tree/main/packages/tstl-plugin-reload-factorio-mod): Tá»± Ä‘á»™ng táº£i táº¡o láº¡i mod Factorio khi Ä‘ang phÃ¡t triá»ƒn
+- [Velin](https://github.com/luoling8192/velin): Sá»­ dá»¥ng Vue SFC vÃ  Markdown Ä‘á»ƒ viáº¿t prompt tráº¡ng thÃ¡i dá»… quáº£n lÃ½ cho LLM
+- [`demodel`](https://github.com/moeru-ai/demodel): Dá»… dÃ ng tÄƒng tá»‘c Ä‘á»™ táº£i model vÃ  dataset tá»« nhiá»u runtime suy luáº­n khÃ¡c nhau
+- [`inventory`](https://github.com/moeru-ai/inventory): Dá»‹ch vá»¥ backend lÆ°u trá»¯ táº­p trung catalog model vÃ  cáº¥u hÃ¬nh nhÃ  cung cáº¥p máº·c Ä‘á»‹nh
+- [MCP Launcher](https://github.com/moeru-ai/mcp-launcher): CÃ´ng cá»¥ táº¡o & khá»Ÿi cháº¡y MCP dá»… dÃ¹ng cho má»i mÃ¡y chá»§ MCP, giá»‘ng nhÆ° Ollama nhÆ°ng cho MCP!
+- [ðŸ¥º SAD](https://github.com/moeru-ai/sad): TÃ i liá»‡u vÃ  ghi chÃº vá» tá»± host vÃ  cháº¡y LLM trong trÃ¬nh duyá»‡t.
 
 ```mermaid
 %%{ init: { 'flowchart': { 'curve': 'catmullRom' } } }%%
@@ -409,9 +409,9 @@ flowchart TD
   style Memory_PGVector fill:#f9f9d4,stroke:#333,stroke-width:1px
 ```
 
-## Các dự án tương tự
+## CÃ¡c dá»± Ã¡n tÆ°Æ¡ng tá»±
 
-### Mã nguồn mở
+### MÃ£ nguá»“n má»Ÿ
 
 - [kimjammer/Neuro: A recreation of Neuro-Sama originally created in 7 days.](https://github.com/kimjammer/Neuro): very well completed implementation.
 - [SugarcaneDefender/z-waif](https://github.com/SugarcaneDefender/z-waif): Great at gaming, autonomous, and prompt engineering
@@ -423,25 +423,25 @@ flowchart TD
 - [t41372/Open-LLM-VTuber](https://github.com/t41372/Open-LLM-VTuber)
 - [PeterH0323/Streamer-Sales](https://github.com/PeterH0323/Streamer-Sales)
 
-### Mã nguồn đóng
+### MÃ£ nguá»“n Ä‘Ã³ng
 
 - https://clips.twitch.tv/WanderingCaringDeerDxCat-Qt55xtiGDSoNmDDr https://www.youtube.com/watch?v=8Giv5mupJNE
 - https://clips.twitch.tv/TriangularAthleticBunnySoonerLater-SXpBk1dFso21VcWD
 - https://www.youtube.com/@NOWA_Mirai
 
-## Trạng thái dự án
+## Tráº¡ng thÃ¡i dá»± Ã¡n
 
 ![Repobeats analytics image](https://repobeats.axiom.co/api/embed/a1d6fe2c13ea2bb53a5154435a71e2431f70c2ee.svg 'Repobeats analytics image')
 
-## Lời cảm ơn
+## Lá»i cáº£m Æ¡n
 
-- [Reka UI](https://github.com/unovue/reka-ui): Đã thiết kế trang tài liệu, trang chủ mới cũng dựa trên dự án này, đồng thời triển khai rất nhiều thành phần trong giao diện. (shadcn-vue sử dụng Reka UI làm headless, bạn nên xem qua!)
+- [Reka UI](https://github.com/unovue/reka-ui): ÄÃ£ thiáº¿t káº¿ trang tÃ i liá»‡u, trang chá»§ má»›i cÅ©ng dá»±a trÃªn dá»± Ã¡n nÃ y, Ä‘á»“ng thá»i triá»ƒn khai ráº¥t nhiá»u thÃ nh pháº§n trong giao diá»‡n. (shadcn-vue sá»­ dá»¥ng Reka UI lÃ m headless, báº¡n nÃªn xem qua!)
 - [pixiv/ChatVRM](https://github.com/pixiv/ChatVRM)
 - [josephrocca/ChatVRM-js: A JS conversion/adaptation of parts of the ChatVRM (TypeScript) code for standalone use in OpenCharacters and elsewhere](https://github.com/josephrocca/ChatVRM-js)
-- Thiết kế và phong cách được lấy cảm hứng từ [Cookard](https://store.steampowered.com/app/2919650/Cookard/), [UNBEATABLE](https://store.steampowered.com/app/2240620/UNBEATABLE/), and [Sensei! I like you so much!](https://store.steampowered.com/app/2957700/_/), và các artworks của [Ayame by Mercedes Bazan](https://dribbble.com/shots/22157656-Ayame) cùng với [Wish by Mercedes Bazan](https://dribbble.com/shots/24501019-Wish)
+- Thiáº¿t káº¿ vÃ  phong cÃ¡ch Ä‘Æ°á»£c láº¥y cáº£m há»©ng tá»« [Cookard](https://store.steampowered.com/app/2919650/Cookard/), [UNBEATABLE](https://store.steampowered.com/app/2240620/UNBEATABLE/), and [Sensei! I like you so much!](https://store.steampowered.com/app/2957700/_/), vÃ  cÃ¡c artworks cá»§a [Ayame by Mercedes Bazan](https://dribbble.com/shots/22157656-Ayame) cÃ¹ng vá»›i [Wish by Mercedes Bazan](https://dribbble.com/shots/24501019-Wish)
 - [mallorbc/whisper_mic](https://github.com/mallorbc/whisper_mic)
-- [`xsai`](https://github.com/moeru-ai/xsai): Đã triển khai một số lượng lớn các gói để tương tác với LLM và mô hình, như [Vercel AI SDK](https://sdk.vercel.ai/) nhưng khá nhỏ.
+- [`xsai`](https://github.com/moeru-ai/xsai): ÄÃ£ triá»ƒn khai má»™t sá»‘ lÆ°á»£ng lá»›n cÃ¡c gÃ³i Ä‘á»ƒ tÆ°Æ¡ng tÃ¡c vá»›i LLM vÃ  mÃ´ hÃ¬nh, nhÆ° [Vercel AI SDK](https://sdk.vercel.ai/) nhÆ°ng khÃ¡ nhá».
 
-## Lịch sử sao nhận được
+## Lá»‹ch sá»­ sao nháº­n Ä‘Æ°á»£c
 
 [![Star History Chart](https://api.star-history.com/svg?repos=moeru-ai/airi&type=Date)](https://www.star-history.com/#moeru-ai/airi&Date)

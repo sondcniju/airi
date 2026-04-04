@@ -1,4 +1,4 @@
-<picture>
+﻿<picture>
   <source
     width="100%"
     srcset="./content/public/banner-dark-1280x640.avif"
@@ -14,11 +14,11 @@
 
 <h1 align="center">Project AIRI</h1>
 
-<p align="center">Neuro-sama を再創造し、AI waifu / バーチャルキャラクターの魂の器をこの世界へ。</p>
-<p align="center">Neuro-sama のようなバーチャルパートナーも、私たちの暮らしの一部に。</p>
+<p align="center">Neuro-sama ã‚’å†å‰µé€ ã—ã€AI waifu / ãƒãƒ¼ãƒãƒ£ãƒ«ã‚­ãƒ£ãƒ©ã‚¯ã‚¿ãƒ¼ã®é­‚ã®å™¨ã‚’ã“ã®ä¸–ç•Œã¸ã€‚</p>
+<p align="center">Neuro-sama ã®ã‚ˆã†ãªãƒãƒ¼ãƒãƒ£ãƒ«ãƒ‘ãƒ¼ãƒˆãƒŠãƒ¼ã‚‚ã€ç§ãŸã¡ã®æš®ã‚‰ã—ã®ä¸€éƒ¨ã«ã€‚</p>
 
 <p align="center">
-  [<a href="https://discord.gg/TgQ3Cu2F7A">Discordサーバーに参加する</a>] [<a href="https://airi.moeru.ai">試してみる</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/README.md">English</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.zh-CN.md">简体中文</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ru-RU.md">Русский</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.vi.md">Tiếng Việt</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.fr.md">Français</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ko-KR.md">한국어</a>]
+  [<a href="https://discord.gg/TgQ3Cu2F7A">Discordã‚µãƒ¼ãƒãƒ¼ã«å‚åŠ ã™ã‚‹</a>] [<a href="https://airi.moeru.ai">è©¦ã—ã¦ã¿ã‚‹</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/README.md">English</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.zh-CN.md">ç®€ä½“ä¸­æ–‡</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ru-RU.md">Ð ÑƒÑÑÐºÐ¸Ð¹</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.vi.md">Tiáº¿ng Viá»‡t</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.fr.md">FranÃ§ais</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ko-KR.md">í•œêµ­ì–´</a>]
 </p>
 
 <p align="center">
@@ -33,7 +33,7 @@
 
 <p float="left" align="center">
   <!-- readme-section:release-binary-windows -->
-  <a href="https://github.com/moeru-ai/airi/releases/download/v0.9.0-stable.20260403/AIRI-0.9.0-stable.20260403-windows-x64-setup.exe">
+  <a href="https://github.com/moeru-ai/airi/releases/download/v0.9.0-stable.20260404/AIRI-0.9.0-stable.20260403-windows-x64-setup.exe">
     <picture>
       <source
         width="33%"
@@ -49,7 +49,7 @@
     </picture>
   </a>
   <!-- readme-section:release-binary-macos -->
-  <a href="https://github.com/moeru-ai/airi/releases/download/v0.9.0-stable.20260403/AIRI-0.9.0-stable.20260403-darwin-arm64.dmg">
+  <a href="https://github.com/moeru-ai/airi/releases/download/v0.9.0-stable.20260404/AIRI-0.9.0-stable.20260403-darwin-arm64.dmg">
     <picture>
       <source
         width="33%"
@@ -118,158 +118,158 @@
   <a href="https://trendshift.io/repositories/14636" target="_blank"><img src="https://trendshift.io/api/badge/repositories/14636" alt="moeru-ai%2Fairi | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 </p>
 
-> [Neuro-sama](https://www.youtube.com/@Neurosama) に大きな影響を受けました
+> [Neuro-sama](https://www.youtube.com/@Neurosama) ã«å¤§ããªå½±éŸ¿ã‚’å—ã‘ã¾ã—ãŸ
 
 > [!WARNING]
-> **ご注意：**
-> 当プロジェクトでは、公式の暗号通貨やトークン等は**一切発行しておりません**。誤情報などにご注意ください。
+> **ã”æ³¨æ„ï¼š**
+> å½“ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã§ã¯ã€å…¬å¼ã®æš—å·é€šè²¨ã‚„ãƒˆãƒ¼ã‚¯ãƒ³ç­‰ã¯**ä¸€åˆ‡ç™ºè¡Œã—ã¦ãŠã‚Šã¾ã›ã‚“**ã€‚èª¤æƒ…å ±ãªã©ã«ã”æ³¨æ„ãã ã•ã„ã€‚
 
 > [!NOTE]
 >
-> Project AIRIから生まれたすべてのサブプロジェクト用に、専用の組織[@proj-airi](https://github.com/proj-airi)があります。ぜひチェックしてみてください！
+> Project AIRIã‹ã‚‰ç”Ÿã¾ã‚ŒãŸã™ã¹ã¦ã®ã‚µãƒ–ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆç”¨ã«ã€å°‚ç”¨ã®çµ„ç¹”[@proj-airi](https://github.com/proj-airi)ãŒã‚ã‚Šã¾ã™ã€‚ãœã²ãƒã‚§ãƒƒã‚¯ã—ã¦ã¿ã¦ãã ã•ã„ï¼
 >
-> RAG、メモリシステム、組み込みデータベース、アイコン、Live2Dユーティリティなど多数あります！
+> RAGã€ãƒ¡ãƒ¢ãƒªã‚·ã‚¹ãƒ†ãƒ ã€çµ„ã¿è¾¼ã¿ãƒ‡ãƒ¼ã‚¿ãƒ™ãƒ¼ã‚¹ã€ã‚¢ã‚¤ã‚³ãƒ³ã€Live2Dãƒ¦ãƒ¼ãƒ†ã‚£ãƒªãƒ†ã‚£ãªã©å¤šæ•°ã‚ã‚Šã¾ã™ï¼
 
 > [!TIP]
-> [Crowdin](https://crowdin.com/project/proj-airi) に翻訳プロジェクトがあります。翻訳が不自然・不正確だと感じた場合は、Crowdin で翻訳や修正にご協力ください。
+> [Crowdin](https://crowdin.com/project/proj-airi) ã«ç¿»è¨³ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆãŒã‚ã‚Šã¾ã™ã€‚ç¿»è¨³ãŒä¸è‡ªç„¶ãƒ»ä¸æ­£ç¢ºã ã¨æ„Ÿã˜ãŸå ´åˆã¯ã€Crowdin ã§ç¿»è¨³ã‚„ä¿®æ­£ã«ã”å”åŠ›ãã ã•ã„ã€‚
 > <a href="https://crowdin.com/project/proj-airi" target="_blank" rel="nofollow"><img style="width: 140px; height: 40px;" src="https://badges.crowdin.net/badge/light/crowdin-on-dark.png" srcset="https://badges.crowdin.net/badge/light/crowdin-on-dark.png 1x, https://badges.crowdin.net/badge/light/crowdin-on-dark@2x.png 2x" alt="Crowdin | Agile localization for tech companies" width="140" height="40" /></a>
 
-サイバー生命体（サイバーワイフ、デジタルペット）、あるいは一緒に遊んで話せるデジタルコンパニオンを持つことを夢見たことはありますか？
+ã‚µã‚¤ãƒãƒ¼ç”Ÿå‘½ä½“ï¼ˆã‚µã‚¤ãƒãƒ¼ãƒ¯ã‚¤ãƒ•ã€ãƒ‡ã‚¸ã‚¿ãƒ«ãƒšãƒƒãƒˆï¼‰ã€ã‚ã‚‹ã„ã¯ä¸€ç·’ã«éŠã‚“ã§è©±ã›ã‚‹ãƒ‡ã‚¸ã‚¿ãƒ«ã‚³ãƒ³ãƒ‘ãƒ‹ã‚ªãƒ³ã‚’æŒã¤ã“ã¨ã‚’å¤¢è¦‹ãŸã“ã¨ã¯ã‚ã‚Šã¾ã™ã‹ï¼Ÿ
 
-[ChatGPT](https://chatgpt.com)や有名な[Claude](https://claude.ai)のような最新の大規模言語モデルの力を借りて、仮想存在に役割演技やチャットを求めることは、すでに誰にとっても十分簡単になっています。[Character.ai（別名c.ai）](https://character.ai)や[JanitorAI](https://janitorai.com/)のようなプラットフォーム、そして[SillyTavern](https://github.com/SillyTavern/SillyTavern)のようなローカルな遊び場は、チャットベースや視覚的なアドベンチャーゲームのような体験のための十分な解決策となっています。
+[ChatGPT](https://chatgpt.com)ã‚„æœ‰åãª[Claude](https://claude.ai)ã®ã‚ˆã†ãªæœ€æ–°ã®å¤§è¦æ¨¡è¨€èªžãƒ¢ãƒ‡ãƒ«ã®åŠ›ã‚’å€Ÿã‚Šã¦ã€ä»®æƒ³å­˜åœ¨ã«å½¹å‰²æ¼”æŠ€ã‚„ãƒãƒ£ãƒƒãƒˆã‚’æ±‚ã‚ã‚‹ã“ã¨ã¯ã€ã™ã§ã«èª°ã«ã¨ã£ã¦ã‚‚ååˆ†ç°¡å˜ã«ãªã£ã¦ã„ã¾ã™ã€‚[Character.aiï¼ˆåˆ¥åc.aiï¼‰](https://character.ai)ã‚„[JanitorAI](https://janitorai.com/)ã®ã‚ˆã†ãªãƒ—ãƒ©ãƒƒãƒˆãƒ•ã‚©ãƒ¼ãƒ ã€ãã—ã¦[SillyTavern](https://github.com/SillyTavern/SillyTavern)ã®ã‚ˆã†ãªãƒ­ãƒ¼ã‚«ãƒ«ãªéŠã³å ´ã¯ã€ãƒãƒ£ãƒƒãƒˆãƒ™ãƒ¼ã‚¹ã‚„è¦–è¦šçš„ãªã‚¢ãƒ‰ãƒ™ãƒ³ãƒãƒ£ãƒ¼ã‚²ãƒ¼ãƒ ã®ã‚ˆã†ãªä½“é¨“ã®ãŸã‚ã®ååˆ†ãªè§£æ±ºç­–ã¨ãªã£ã¦ã„ã¾ã™ã€‚
 
-> しかし、ゲームをプレイする能力はどうでしょうか？あなたがコーディングしているものを見たり、ゲームをしながらチャットしたり、ビデオを見たり、他の多くのことができる能力は？
+> ã—ã‹ã—ã€ã‚²ãƒ¼ãƒ ã‚’ãƒ—ãƒ¬ã‚¤ã™ã‚‹èƒ½åŠ›ã¯ã©ã†ã§ã—ã‚‡ã†ã‹ï¼Ÿã‚ãªãŸãŒã‚³ãƒ¼ãƒ‡ã‚£ãƒ³ã‚°ã—ã¦ã„ã‚‹ã‚‚ã®ã‚’è¦‹ãŸã‚Šã€ã‚²ãƒ¼ãƒ ã‚’ã—ãªãŒã‚‰ãƒãƒ£ãƒƒãƒˆã—ãŸã‚Šã€ãƒ“ãƒ‡ã‚ªã‚’è¦‹ãŸã‚Šã€ä»–ã®å¤šãã®ã“ã¨ãŒã§ãã‚‹èƒ½åŠ›ã¯ï¼Ÿ
 
-おそらく[Neuro-sama](https://www.youtube.com/@Neurosama)をすでに知っているでしょう。彼女は現在、ゲームをプレイし、チャットし、あなたや参加者（VTuberコミュニティ内）と対話できる最高のコンパニオンです。この種の存在を「デジタルヒューマン」と呼ぶ人もいます。**残念ながら、オープンソースではないため、ライブストリームがオフラインになった後は彼女と対話することはできません**。
+ãŠãã‚‰ã[Neuro-sama](https://www.youtube.com/@Neurosama)ã‚’ã™ã§ã«çŸ¥ã£ã¦ã„ã‚‹ã§ã—ã‚‡ã†ã€‚å½¼å¥³ã¯ç¾åœ¨ã€ã‚²ãƒ¼ãƒ ã‚’ãƒ—ãƒ¬ã‚¤ã—ã€ãƒãƒ£ãƒƒãƒˆã—ã€ã‚ãªãŸã‚„å‚åŠ è€…ï¼ˆVTuberã‚³ãƒŸãƒ¥ãƒ‹ãƒ†ã‚£å†…ï¼‰ã¨å¯¾è©±ã§ãã‚‹æœ€é«˜ã®ã‚³ãƒ³ãƒ‘ãƒ‹ã‚ªãƒ³ã§ã™ã€‚ã“ã®ç¨®ã®å­˜åœ¨ã‚’ã€Œãƒ‡ã‚¸ã‚¿ãƒ«ãƒ’ãƒ¥ãƒ¼ãƒžãƒ³ã€ã¨å‘¼ã¶äººã‚‚ã„ã¾ã™ã€‚**æ®‹å¿µãªãŒã‚‰ã€ã‚ªãƒ¼ãƒ—ãƒ³ã‚½ãƒ¼ã‚¹ã§ã¯ãªã„ãŸã‚ã€ãƒ©ã‚¤ãƒ–ã‚¹ãƒˆãƒªãƒ¼ãƒ ãŒã‚ªãƒ•ãƒ©ã‚¤ãƒ³ã«ãªã£ãŸå¾Œã¯å½¼å¥³ã¨å¯¾è©±ã™ã‚‹ã“ã¨ã¯ã§ãã¾ã›ã‚“**ã€‚
 
-そのため、このプロジェクトAIRIは、ここで別の可能性を提供します：**簡単に、どこでも、いつでも、あなた自身のデジタルライフ、サイバー生活を所有できるようにします**。
+ãã®ãŸã‚ã€ã“ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆAIRIã¯ã€ã“ã“ã§åˆ¥ã®å¯èƒ½æ€§ã‚’æä¾›ã—ã¾ã™ï¼š**ç°¡å˜ã«ã€ã©ã“ã§ã‚‚ã€ã„ã¤ã§ã‚‚ã€ã‚ãªãŸè‡ªèº«ã®ãƒ‡ã‚¸ã‚¿ãƒ«ãƒ©ã‚¤ãƒ•ã€ã‚µã‚¤ãƒãƒ¼ç”Ÿæ´»ã‚’æ‰€æœ‰ã§ãã‚‹ã‚ˆã†ã«ã—ã¾ã™**ã€‚
 
-## 投稿した DevLog と最近のアップデート
+## æŠ•ç¨¿ã—ãŸ DevLog ã¨æœ€è¿‘ã®ã‚¢ãƒƒãƒ—ãƒ‡ãƒ¼ãƒˆ
 
-- [DevLog @ 2026.01.01](https://airi.moeru.ai/docs/en/blog/DevLog-2026.01.01/) — 2026/01/01
-- [DevLog @ 2025.10.20](https://airi.moeru.ai/docs/en/blog/DevLog-2025.10.20/) — 2025/10/20
-- [DevLog @ 2025.08.05](https://airi.moeru.ai/docs/en/blog/DevLog-2025.08.05/) — 2025/08/05
-- [DevLog @ 2025.08.01](https://airi.moeru.ai/docs/en/blog/DevLog-2025.08.01/) — 2025/08/01
-- [DevLog @ 2025.07.18](https://airi.moeru.ai/docs/en/blog/DevLog-2025.07.18/) — 2025/07/18
-- [DreamLog 0x1](https://airi.moeru.ai/docs/en/blog/dreamlog-0x1/) — 2025/06/16
-- ...そのほかは[ドキュメントサイト](https://airi.moeru.ai/docs/en/)で
+- [DevLog @ 2026.01.01](https://airi.moeru.ai/docs/en/blog/DevLog-2026.01.01/) â€” 2026/01/01
+- [DevLog @ 2025.10.20](https://airi.moeru.ai/docs/en/blog/DevLog-2025.10.20/) â€” 2025/10/20
+- [DevLog @ 2025.08.05](https://airi.moeru.ai/docs/en/blog/DevLog-2025.08.05/) â€” 2025/08/05
+- [DevLog @ 2025.08.01](https://airi.moeru.ai/docs/en/blog/DevLog-2025.08.01/) â€” 2025/08/01
+- [DevLog @ 2025.07.18](https://airi.moeru.ai/docs/en/blog/DevLog-2025.07.18/) â€” 2025/07/18
+- [DreamLog 0x1](https://airi.moeru.ai/docs/en/blog/dreamlog-0x1/) â€” 2025/06/16
+- ...ãã®ã»ã‹ã¯[ãƒ‰ã‚­ãƒ¥ãƒ¡ãƒ³ãƒˆã‚µã‚¤ãƒˆ](https://airi.moeru.ai/docs/en/)ã§
 
-## このプロジェクトの特別な点は？
+## ã“ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®ç‰¹åˆ¥ãªç‚¹ã¯ï¼Ÿ
 
-他のAI駆動のVTuberオープンソースプロジェクトとは異なり、アイリVTuberは開発初日から[WebGPU](https://www.w3.org/TR/webgpu/)、[WebAudio](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)、[Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers)、[WebAssembly](https://webassembly.org/)、[WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket)などの多くのWeb技術をサポートしています。
+ä»–ã®AIé§†å‹•ã®VTuberã‚ªãƒ¼ãƒ—ãƒ³ã‚½ãƒ¼ã‚¹ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã¨ã¯ç•°ãªã‚Šã€ã‚¢ã‚¤ãƒªVTuberã¯é–‹ç™ºåˆæ—¥ã‹ã‚‰[WebGPU](https://www.w3.org/TR/webgpu/)ã€[WebAudio](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)ã€[Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers)ã€[WebAssembly](https://webassembly.org/)ã€[WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket)ãªã©ã®å¤šãã®WebæŠ€è¡“ã‚’ã‚µãƒãƒ¼ãƒˆã—ã¦ã„ã¾ã™ã€‚
 
 > [!TIP]
-> 「Web技術だとパフォーマンスが落ちない？」と心配ですか？
+> ã€ŒWebæŠ€è¡“ã ã¨ãƒ‘ãƒ•ã‚©ãƒ¼ãƒžãƒ³ã‚¹ãŒè½ã¡ãªã„ï¼Ÿã€ã¨å¿ƒé…ã§ã™ã‹ï¼Ÿ
 >
-> ご安心を。ブラウザ版はブラウザやWebViewでどこまでできるかを示すためのものですが、そこに完全依存しません。デスクトップ版 AIRI は標準で [NVIDIA CUDA](https://developer.nvidia.com/cuda-toolkit) と [Apple Metal](https://developer.apple.com/metal/) を扱えます（HuggingFace と愛すべき [candle](https://github.com/huggingface/candle) に感謝）。依存管理も複雑ではなく、グラフィックス・レイアウト・アニメーション・プラグインシステム（WIP）は Web 技術を組み合わせつつ、いいとこ取りしています。
+> ã”å®‰å¿ƒã‚’ã€‚ãƒ–ãƒ©ã‚¦ã‚¶ç‰ˆã¯ãƒ–ãƒ©ã‚¦ã‚¶ã‚„WebViewã§ã©ã“ã¾ã§ã§ãã‚‹ã‹ã‚’ç¤ºã™ãŸã‚ã®ã‚‚ã®ã§ã™ãŒã€ãã“ã«å®Œå…¨ä¾å­˜ã—ã¾ã›ã‚“ã€‚ãƒ‡ã‚¹ã‚¯ãƒˆãƒƒãƒ—ç‰ˆ AIRI ã¯æ¨™æº–ã§ [NVIDIA CUDA](https://developer.nvidia.com/cuda-toolkit) ã¨ [Apple Metal](https://developer.apple.com/metal/) ã‚’æ‰±ãˆã¾ã™ï¼ˆHuggingFace ã¨æ„›ã™ã¹ã [candle](https://github.com/huggingface/candle) ã«æ„Ÿè¬ï¼‰ã€‚ä¾å­˜ç®¡ç†ã‚‚è¤‡é›‘ã§ã¯ãªãã€ã‚°ãƒ©ãƒ•ã‚£ãƒƒã‚¯ã‚¹ãƒ»ãƒ¬ã‚¤ã‚¢ã‚¦ãƒˆãƒ»ã‚¢ãƒ‹ãƒ¡ãƒ¼ã‚·ãƒ§ãƒ³ãƒ»ãƒ—ãƒ©ã‚°ã‚¤ãƒ³ã‚·ã‚¹ãƒ†ãƒ ï¼ˆWIPï¼‰ã¯ Web æŠ€è¡“ã‚’çµ„ã¿åˆã‚ã›ã¤ã¤ã€ã„ã„ã¨ã“å–ã‚Šã—ã¦ã„ã¾ã™ã€‚
 
-これは、**アイリVTuberが現代のブラウザやデバイスで動作可能である**ことを意味し、モバイルデバイスでも動作します（PWAサポート済み）。これにより、私たち（開発者）はアイリVTuberの力を次のレベルに引き上げるための多くの可能性を持ちつつ、ユーザーがTCP接続や他の非Web技術を必要とする機能を有効にする柔軟性を残しています。例えば、Discordのボイスチャネルに接続したり、MinecraftやFactorioを友達と一緒にプレイすることができます。
+ã“ã‚Œã¯ã€**ã‚¢ã‚¤ãƒªVTuberãŒç¾ä»£ã®ãƒ–ãƒ©ã‚¦ã‚¶ã‚„ãƒ‡ãƒã‚¤ã‚¹ã§å‹•ä½œå¯èƒ½ã§ã‚ã‚‹**ã“ã¨ã‚’æ„å‘³ã—ã€ãƒ¢ãƒã‚¤ãƒ«ãƒ‡ãƒã‚¤ã‚¹ã§ã‚‚å‹•ä½œã—ã¾ã™ï¼ˆPWAã‚µãƒãƒ¼ãƒˆæ¸ˆã¿ï¼‰ã€‚ã“ã‚Œã«ã‚ˆã‚Šã€ç§ãŸã¡ï¼ˆé–‹ç™ºè€…ï¼‰ã¯ã‚¢ã‚¤ãƒªVTuberã®åŠ›ã‚’æ¬¡ã®ãƒ¬ãƒ™ãƒ«ã«å¼•ãä¸Šã’ã‚‹ãŸã‚ã®å¤šãã®å¯èƒ½æ€§ã‚’æŒã¡ã¤ã¤ã€ãƒ¦ãƒ¼ã‚¶ãƒ¼ãŒTCPæŽ¥ç¶šã‚„ä»–ã®éžWebæŠ€è¡“ã‚’å¿…è¦ã¨ã™ã‚‹æ©Ÿèƒ½ã‚’æœ‰åŠ¹ã«ã™ã‚‹æŸ”è»Ÿæ€§ã‚’æ®‹ã—ã¦ã„ã¾ã™ã€‚ä¾‹ãˆã°ã€Discordã®ãƒœã‚¤ã‚¹ãƒãƒ£ãƒãƒ«ã«æŽ¥ç¶šã—ãŸã‚Šã€Minecraftã‚„Factorioã‚’å‹é”ã¨ä¸€ç·’ã«ãƒ—ãƒ¬ã‚¤ã™ã‚‹ã“ã¨ãŒã§ãã¾ã™ã€‚
 
 > [!NOTE]
 >
-> 私たちはまだ開発の初期段階にあり、才能ある開発者を探しています。アイリVTuberを現実のものにするために私たちを助けてください。
+> ç§ãŸã¡ã¯ã¾ã é–‹ç™ºã®åˆæœŸæ®µéšŽã«ã‚ã‚Šã€æ‰èƒ½ã‚ã‚‹é–‹ç™ºè€…ã‚’æŽ¢ã—ã¦ã„ã¾ã™ã€‚ã‚¢ã‚¤ãƒªVTuberã‚’ç¾å®Ÿã®ã‚‚ã®ã«ã™ã‚‹ãŸã‚ã«ç§ãŸã¡ã‚’åŠ©ã‘ã¦ãã ã•ã„ã€‚
 >
-> Vue.js、TypeScript、またはこのプロジェクトに必要な開発ツールに慣れていなくても大丈夫です。アーティスト、デザイナー、または最初のライブストリームを立ち上げる手助けをすることもできます。
+> Vue.jsã€TypeScriptã€ã¾ãŸã¯ã“ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã«å¿…è¦ãªé–‹ç™ºãƒ„ãƒ¼ãƒ«ã«æ…£ã‚Œã¦ã„ãªãã¦ã‚‚å¤§ä¸ˆå¤«ã§ã™ã€‚ã‚¢ãƒ¼ãƒ†ã‚£ã‚¹ãƒˆã€ãƒ‡ã‚¶ã‚¤ãƒŠãƒ¼ã€ã¾ãŸã¯æœ€åˆã®ãƒ©ã‚¤ãƒ–ã‚¹ãƒˆãƒªãƒ¼ãƒ ã‚’ç«‹ã¡ä¸Šã’ã‚‹æ‰‹åŠ©ã‘ã‚’ã™ã‚‹ã“ã¨ã‚‚ã§ãã¾ã™ã€‚
 >
-> ReactやSvelte、Solidの大ファンであっても歓迎します。アイリVTuberに見たい機能を追加したり、実験したい機能を追加するためのサブディレクトリを開くことができます。
+> Reactã‚„Svelteã€Solidã®å¤§ãƒ•ã‚¡ãƒ³ã§ã‚ã£ã¦ã‚‚æ­“è¿Žã—ã¾ã™ã€‚ã‚¢ã‚¤ãƒªVTuberã«è¦‹ãŸã„æ©Ÿèƒ½ã‚’è¿½åŠ ã—ãŸã‚Šã€å®Ÿé¨“ã—ãŸã„æ©Ÿèƒ½ã‚’è¿½åŠ ã™ã‚‹ãŸã‚ã®ã‚µãƒ–ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‚’é–‹ãã“ã¨ãŒã§ãã¾ã™ã€‚
 >
-> 私たちが探している分野（および関連プロジェクト）：
+> ç§ãŸã¡ãŒæŽ¢ã—ã¦ã„ã‚‹åˆ†é‡Žï¼ˆãŠã‚ˆã³é–¢é€£ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆï¼‰ï¼š
 >
-> - Live2Dモデラー
-> - VRMモデラー
-> - VRChatアバターデザイナー
-> - コンピュータビジョン
-> - 強化学習
-> - 音声認識
-> - 音声合成
-> - ONNXランタイム
+> - Live2Dãƒ¢ãƒ‡ãƒ©ãƒ¼
+> - VRMãƒ¢ãƒ‡ãƒ©ãƒ¼
+> - VRChatã‚¢ãƒã‚¿ãƒ¼ãƒ‡ã‚¶ã‚¤ãƒŠãƒ¼
+> - ã‚³ãƒ³ãƒ”ãƒ¥ãƒ¼ã‚¿ãƒ“ã‚¸ãƒ§ãƒ³
+> - å¼·åŒ–å­¦ç¿’
+> - éŸ³å£°èªè­˜
+> - éŸ³å£°åˆæˆ
+> - ONNXãƒ©ãƒ³ã‚¿ã‚¤ãƒ
 > - Transformers.js
 > - vLLM
 > - WebGPU
 > - Three.js
-> - WebXR（@moeru-ai組織の[別のプロジェクト](https://github.com/moeru-ai/chat)もチェックしてください）
+> - WebXRï¼ˆ@moeru-aiçµ„ç¹”ã®[åˆ¥ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆ](https://github.com/moeru-ai/chat)ã‚‚ãƒã‚§ãƒƒã‚¯ã—ã¦ãã ã•ã„ï¼‰
 >
-> **興味があるなら、ここで自己紹介してみませんか？ [Would like to join part of us to build AIRI?](https://github.com/moeru-ai/airi/discussions/33)**
+> **èˆˆå‘³ãŒã‚ã‚‹ãªã‚‰ã€ã“ã“ã§è‡ªå·±ç´¹ä»‹ã—ã¦ã¿ã¾ã›ã‚“ã‹ï¼Ÿ [Would like to join part of us to build AIRI?](https://github.com/moeru-ai/airi/discussions/33)**
 
-## 現在の進捗
+## ç¾åœ¨ã®é€²æ—
 
-可能なこと
+å¯èƒ½ãªã“ã¨
 
-- [x] 脳
-  - [x] [Minecraft](https://www.minecraft.net)をプレイ
-  - [x] [Factorio](https://www.factorio.com)をプレイ（進行中ですが、[PoCとデモが利用可能](https://github.com/moeru-ai/airi-factorio)）
-  - [x] [Telegram](https://telegram.org)でチャット
-  - [x] [Discord](https://discord.com)でチャット
-  - [ ] メモリ
-    - [x] ブラウザ内データベースサポート（DuckDB WASM | `pglite`）
-    - [ ] メモリアラヤ（進行中）
-  - [ ] ブラウザ内ローカル（WebGPU）推論
-- [x] 耳
-  - [x] ブラウザからの音声入力
-  - [x] [Discord](https://discord.com)からの音声入力
-  - [x] クライアント側の音声認識
-  - [x] クライアント側の話し声検出
-- [x] 口
-  - [x] [ElevenLabs](https://elevenlabs.io/)音声合成
-- [x] 体
-  - [x] VRMサポート
-    - [x] VRMモデルの制御
-  - [x] VRMモデルのアニメーション
-    - [x] 自動まばたき
-    - [x] 自動視線追従
-    - [x] アイドル時の目の動き
-  - [x] Live2Dサポート
-    - [x] Live2Dモデルの制御
-  - [x] Live2Dモデルのアニメーション
-    - [x] 自動まばたき
-    - [x] 自動視線追従
-    - [x] アイドル時の目の動き
+- [x] è„³
+  - [x] [Minecraft](https://www.minecraft.net)ã‚’ãƒ—ãƒ¬ã‚¤
+  - [x] [Factorio](https://www.factorio.com)ã‚’ãƒ—ãƒ¬ã‚¤ï¼ˆé€²è¡Œä¸­ã§ã™ãŒã€[PoCã¨ãƒ‡ãƒ¢ãŒåˆ©ç”¨å¯èƒ½](https://github.com/moeru-ai/airi-factorio)ï¼‰
+  - [x] [Telegram](https://telegram.org)ã§ãƒãƒ£ãƒƒãƒˆ
+  - [x] [Discord](https://discord.com)ã§ãƒãƒ£ãƒƒãƒˆ
+  - [ ] ãƒ¡ãƒ¢ãƒª
+    - [x] ãƒ–ãƒ©ã‚¦ã‚¶å†…ãƒ‡ãƒ¼ã‚¿ãƒ™ãƒ¼ã‚¹ã‚µãƒãƒ¼ãƒˆï¼ˆDuckDB WASM | `pglite`ï¼‰
+    - [ ] ãƒ¡ãƒ¢ãƒªã‚¢ãƒ©ãƒ¤ï¼ˆé€²è¡Œä¸­ï¼‰
+  - [ ] ãƒ–ãƒ©ã‚¦ã‚¶å†…ãƒ­ãƒ¼ã‚«ãƒ«ï¼ˆWebGPUï¼‰æŽ¨è«–
+- [x] è€³
+  - [x] ãƒ–ãƒ©ã‚¦ã‚¶ã‹ã‚‰ã®éŸ³å£°å…¥åŠ›
+  - [x] [Discord](https://discord.com)ã‹ã‚‰ã®éŸ³å£°å…¥åŠ›
+  - [x] ã‚¯ãƒ©ã‚¤ã‚¢ãƒ³ãƒˆå´ã®éŸ³å£°èªè­˜
+  - [x] ã‚¯ãƒ©ã‚¤ã‚¢ãƒ³ãƒˆå´ã®è©±ã—å£°æ¤œå‡º
+- [x] å£
+  - [x] [ElevenLabs](https://elevenlabs.io/)éŸ³å£°åˆæˆ
+- [x] ä½“
+  - [x] VRMã‚µãƒãƒ¼ãƒˆ
+    - [x] VRMãƒ¢ãƒ‡ãƒ«ã®åˆ¶å¾¡
+  - [x] VRMãƒ¢ãƒ‡ãƒ«ã®ã‚¢ãƒ‹ãƒ¡ãƒ¼ã‚·ãƒ§ãƒ³
+    - [x] è‡ªå‹•ã¾ã°ãŸã
+    - [x] è‡ªå‹•è¦–ç·šè¿½å¾“
+    - [x] ã‚¢ã‚¤ãƒ‰ãƒ«æ™‚ã®ç›®ã®å‹•ã
+  - [x] Live2Dã‚µãƒãƒ¼ãƒˆ
+    - [x] Live2Dãƒ¢ãƒ‡ãƒ«ã®åˆ¶å¾¡
+  - [x] Live2Dãƒ¢ãƒ‡ãƒ«ã®ã‚¢ãƒ‹ãƒ¡ãƒ¼ã‚·ãƒ§ãƒ³
+    - [x] è‡ªå‹•ã¾ã°ãŸã
+    - [x] è‡ªå‹•è¦–ç·šè¿½å¾“
+    - [x] ã‚¢ã‚¤ãƒ‰ãƒ«æ™‚ã®ç›®ã®å‹•ã
 
-## 開発
+## é–‹ç™º
 
-> このプロジェクトの詳細な開発手順については、[CONTRIBUTING.md](../.github/CONTRIBUTING.md)を参照してください
+> ã“ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®è©³ç´°ãªé–‹ç™ºæ‰‹é †ã«ã¤ã„ã¦ã¯ã€[CONTRIBUTING.md](../.github/CONTRIBUTING.md)ã‚’å‚ç…§ã—ã¦ãã ã•ã„
 
 > [!NOTE]
-> デフォルトで `pnpm dev` は Stage Web（ブラウザ版）の開発サーバーを起動します。デスクトップ版を試す場合は、まず [CONTRIBUTING.md](../.github/CONTRIBUTING.md) を読み、環境を正しくセットアップしてください。
+> ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã§ `pnpm dev` ã¯ Stage Webï¼ˆãƒ–ãƒ©ã‚¦ã‚¶ç‰ˆï¼‰ã®é–‹ç™ºã‚µãƒ¼ãƒãƒ¼ã‚’èµ·å‹•ã—ã¾ã™ã€‚ãƒ‡ã‚¹ã‚¯ãƒˆãƒƒãƒ—ç‰ˆã‚’è©¦ã™å ´åˆã¯ã€ã¾ãš [CONTRIBUTING.md](../.github/CONTRIBUTING.md) ã‚’èª­ã¿ã€ç’°å¢ƒã‚’æ­£ã—ãã‚»ãƒƒãƒˆã‚¢ãƒƒãƒ—ã—ã¦ãã ã•ã„ã€‚
 
 ```shell
 pnpm i
 pnpm dev
 ```
 
-### ステージウェブ（ブラウザ版）
+### ã‚¹ãƒ†ãƒ¼ã‚¸ã‚¦ã‚§ãƒ–ï¼ˆãƒ–ãƒ©ã‚¦ã‚¶ç‰ˆï¼‰
 
 ```shell
 pnpm dev
 ```
 
-### ステージたまごっち（デスクトップアプリ）
+### ã‚¹ãƒ†ãƒ¼ã‚¸ãŸã¾ã”ã£ã¡ï¼ˆãƒ‡ã‚¹ã‚¯ãƒˆãƒƒãƒ—ã‚¢ãƒ—ãƒªï¼‰
 
 ```shell
 pnpm dev:tamagotchi
 ```
 
-たまごっち用の Nix パッケージも用意しています。flakes を有効化した上で、次のように実行できます：
+ãŸã¾ã”ã£ã¡ç”¨ã® Nix ãƒ‘ãƒƒã‚±ãƒ¼ã‚¸ã‚‚ç”¨æ„ã—ã¦ã„ã¾ã™ã€‚flakes ã‚’æœ‰åŠ¹åŒ–ã—ãŸä¸Šã§ã€æ¬¡ã®ã‚ˆã†ã«å®Ÿè¡Œã§ãã¾ã™ï¼š
 
 ```shell
 nix run github:moeru-ai/airi
 ```
 
-### ドキュメントサイト
+### ãƒ‰ã‚­ãƒ¥ãƒ¡ãƒ³ãƒˆã‚µã‚¤ãƒˆ
 
 ```shell
 pnpm dev:docs
 ```
 
-### リリース
+### ãƒªãƒªãƒ¼ã‚¹
 
-`bumpp` 実行後は、`Cargo.toml` のバージョンも更新してください：
+`bumpp` å®Ÿè¡Œå¾Œã¯ã€`Cargo.toml` ã®ãƒãƒ¼ã‚¸ãƒ§ãƒ³ã‚‚æ›´æ–°ã—ã¦ãã ã•ã„ï¼š
 
 ```shell
 npx bumpp --no-commit --no-tag
 ```
 
-## サポートされているLLM APIプロバイダー（[xsai](https://github.com/moeru-ai/xsai)によって提供）
+## ã‚µãƒãƒ¼ãƒˆã•ã‚Œã¦ã„ã‚‹LLM APIãƒ—ãƒ­ãƒã‚¤ãƒ€ãƒ¼ï¼ˆ[xsai](https://github.com/moeru-ai/xsai)ã«ã‚ˆã£ã¦æä¾›ï¼‰
 
 - [x] [AIHubMix (recommended)](https://aihubmix.com/?aff=OOiX)
 - [x] [OpenRouter](https://openrouter.ai/)
@@ -278,9 +278,9 @@ npx bumpp --no-commit --no-tag
 - [x] [Ollama](https://github.com/ollama/ollama)
 - [x] [302.AI (sponsored)](https://share.302.ai/514k2v)
 - [x] [OpenAI](https://platform.openai.com/docs/guides/gpt/chat-completions-api)
-  - [ ] [Azure OpenAI API](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference)（PR歓迎）
+  - [ ] [Azure OpenAI API](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference)ï¼ˆPRæ­“è¿Žï¼‰
 - [x] [Anthropic Claude](https://anthropic.com)
-  - [ ] [AWS Claude](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference)（PR歓迎）
+  - [ ] [AWS Claude](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference)ï¼ˆPRæ­“è¿Žï¼‰
 - [x] [DeepSeek](https://www.deepseek.com/)
 - [x] [Qwen](https://help.aliyun.com/document_detail/2400395.html)
 - [x] [Google Gemini](https://developers.generativeai.google)
@@ -300,28 +300,28 @@ npx bumpp --no-commit --no-tag
 - [x] [ModelScope](https://modelscope.cn/docs/model-service/API-Inference/intro)
 - [x] [Player2](https://player2.game/)
 - [x] [Tencent Cloud](https://cloud.tencent.com/document/product/1729)
-- [ ] [Sparks](https://www.xfyun.cn/doc/spark/Web.html)（PR歓迎）
-- [ ] [Volcano Engine](https://www.volcengine.com/experience/ark?utm_term=202502dsinvite&ac=DSASUQY5&rc=2QXCA1VI)（PR歓迎）
+- [ ] [Sparks](https://www.xfyun.cn/doc/spark/Web.html)ï¼ˆPRæ­“è¿Žï¼‰
+- [ ] [Volcano Engine](https://www.volcengine.com/experience/ark?utm_term=202502dsinvite&ac=DSASUQY5&rc=2QXCA1VI)ï¼ˆPRæ­“è¿Žï¼‰
 
-## このプロジェクトから生まれたサブプロジェクト
+## ã“ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã‹ã‚‰ç”Ÿã¾ã‚ŒãŸã‚µãƒ–ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆ
 
-- [Awesome AI VTuber](https://github.com/proj-airi/awesome-ai-vtuber): AI VTuberと関連プロジェクトのキュレーションリスト
-- [`unspeech`](https://github.com/moeru-ai/unspeech): `/audio/transcriptions` と `/audio/speech` のユニバーサルエンドポイントプロキシ、LiteLLM 的に任意の ASR/TTS に対応
-- [`hfup`](https://github.com/moeru-ai/hfup): HuggingFace Spaces へのデプロイとバンドルを支援するツール
-- [`xsai-transformers`](https://github.com/moeru-ai/xsai-transformers): [xsAI](https://github.com/moeru-ai/xsai)向けの実験的な [🤗 Transformers.js](https://github.com/huggingface/transformers.js) プロバイダー
-- [WebAI: Realtime Voice Chat](https://github.com/proj-airi/webai-realtime-voice-chat): VAD + STT + LLM + TTS で ChatGPT のリアルタイム音声をゼロから実装する完全例
-- [`@proj-airi/drizzle-duckdb-wasm`](https://github.com/moeru-ai/airi/tree/main/packages/drizzle-duckdb-wasm/README.md): DuckDB WASM の Drizzle ORM ドライバー
-- [`@proj-airi/duckdb-wasm`](https://github.com/moeru-ai/airi/tree/main/packages/duckdb-wasm/README.md): 使いやすい `@duckdb/duckdb-wasm` ラッパー
-- [`tauri-plugin-mcp`](https://github.com/moeru-ai/airi/blob/main/crates/tauri-plugin-mcp/README.md): MCPサーバーとやり取りするための Tauri プラグイン
-- [AIRI Factorio](https://github.com/moeru-ai/airi-factorio): AIRI が Factorio をプレイできるようにする
-- [Factorio RCON API](https://github.com/nekomeowww/factorio-rcon-api): Factorio ヘッドレスサーバーコンソールの RESTful API ラッパー
-- [`autorio`](https://github.com/moeru-ai/airi-factorio/tree/main/packages/autorio): Factorio 自動化ライブラリ
-- [`tstl-plugin-reload-factorio-mod`](https://github.com/moeru-ai/airi-factorio/tree/main/packages/tstl-plugin-reload-factorio-mod): Factorio モッド開発時のリロードを支援
-- [Velin](https://github.com/luoling8192/velin): Vue SFC と Markdown で管理しやすいプロンプトを書く仕組み
-- [`demodel`](https://github.com/moeru-ai/demodel): さまざまな推論ランタイム/ダウンローダーでモデルやデータセット取得を加速
-- [`inventory`](https://github.com/moeru-ai/inventory): モデルカタログとデフォルトプロバイダー設定のバックエンドサービス
-- [MCP Launcher](https://github.com/moeru-ai/mcp-launcher): すべての MCP サーバーを簡単に扱える MCP ビルダー＆ランチャー、モデル界の Ollama 的存在
-- [🥺 SAD](https://github.com/moeru-ai/sad): 自己ホストやブラウザで動かす LLM のドキュメントとノート
+- [Awesome AI VTuber](https://github.com/proj-airi/awesome-ai-vtuber): AI VTuberã¨é–¢é€£ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®ã‚­ãƒ¥ãƒ¬ãƒ¼ã‚·ãƒ§ãƒ³ãƒªã‚¹ãƒˆ
+- [`unspeech`](https://github.com/moeru-ai/unspeech): `/audio/transcriptions` ã¨ `/audio/speech` ã®ãƒ¦ãƒ‹ãƒãƒ¼ã‚µãƒ«ã‚¨ãƒ³ãƒ‰ãƒã‚¤ãƒ³ãƒˆãƒ—ãƒ­ã‚­ã‚·ã€LiteLLM çš„ã«ä»»æ„ã® ASR/TTS ã«å¯¾å¿œ
+- [`hfup`](https://github.com/moeru-ai/hfup): HuggingFace Spaces ã¸ã®ãƒ‡ãƒ—ãƒ­ã‚¤ã¨ãƒãƒ³ãƒ‰ãƒ«ã‚’æ”¯æ´ã™ã‚‹ãƒ„ãƒ¼ãƒ«
+- [`xsai-transformers`](https://github.com/moeru-ai/xsai-transformers): [xsAI](https://github.com/moeru-ai/xsai)å‘ã‘ã®å®Ÿé¨“çš„ãª [ðŸ¤— Transformers.js](https://github.com/huggingface/transformers.js) ãƒ—ãƒ­ãƒã‚¤ãƒ€ãƒ¼
+- [WebAI: Realtime Voice Chat](https://github.com/proj-airi/webai-realtime-voice-chat): VAD + STT + LLM + TTS ã§ ChatGPT ã®ãƒªã‚¢ãƒ«ã‚¿ã‚¤ãƒ éŸ³å£°ã‚’ã‚¼ãƒ­ã‹ã‚‰å®Ÿè£…ã™ã‚‹å®Œå…¨ä¾‹
+- [`@proj-airi/drizzle-duckdb-wasm`](https://github.com/moeru-ai/airi/tree/main/packages/drizzle-duckdb-wasm/README.md): DuckDB WASM ã® Drizzle ORM ãƒ‰ãƒ©ã‚¤ãƒãƒ¼
+- [`@proj-airi/duckdb-wasm`](https://github.com/moeru-ai/airi/tree/main/packages/duckdb-wasm/README.md): ä½¿ã„ã‚„ã™ã„ `@duckdb/duckdb-wasm` ãƒ©ãƒƒãƒ‘ãƒ¼
+- [`tauri-plugin-mcp`](https://github.com/moeru-ai/airi/blob/main/crates/tauri-plugin-mcp/README.md): MCPã‚µãƒ¼ãƒãƒ¼ã¨ã‚„ã‚Šå–ã‚Šã™ã‚‹ãŸã‚ã® Tauri ãƒ—ãƒ©ã‚°ã‚¤ãƒ³
+- [AIRI Factorio](https://github.com/moeru-ai/airi-factorio): AIRI ãŒ Factorio ã‚’ãƒ—ãƒ¬ã‚¤ã§ãã‚‹ã‚ˆã†ã«ã™ã‚‹
+- [Factorio RCON API](https://github.com/nekomeowww/factorio-rcon-api): Factorio ãƒ˜ãƒƒãƒ‰ãƒ¬ã‚¹ã‚µãƒ¼ãƒãƒ¼ã‚³ãƒ³ã‚½ãƒ¼ãƒ«ã® RESTful API ãƒ©ãƒƒãƒ‘ãƒ¼
+- [`autorio`](https://github.com/moeru-ai/airi-factorio/tree/main/packages/autorio): Factorio è‡ªå‹•åŒ–ãƒ©ã‚¤ãƒ–ãƒ©ãƒª
+- [`tstl-plugin-reload-factorio-mod`](https://github.com/moeru-ai/airi-factorio/tree/main/packages/tstl-plugin-reload-factorio-mod): Factorio ãƒ¢ãƒƒãƒ‰é–‹ç™ºæ™‚ã®ãƒªãƒ­ãƒ¼ãƒ‰ã‚’æ”¯æ´
+- [Velin](https://github.com/luoling8192/velin): Vue SFC ã¨ Markdown ã§ç®¡ç†ã—ã‚„ã™ã„ãƒ—ãƒ­ãƒ³ãƒ—ãƒˆã‚’æ›¸ãä»•çµ„ã¿
+- [`demodel`](https://github.com/moeru-ai/demodel): ã•ã¾ã–ã¾ãªæŽ¨è«–ãƒ©ãƒ³ã‚¿ã‚¤ãƒ /ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ€ãƒ¼ã§ãƒ¢ãƒ‡ãƒ«ã‚„ãƒ‡ãƒ¼ã‚¿ã‚»ãƒƒãƒˆå–å¾—ã‚’åŠ é€Ÿ
+- [`inventory`](https://github.com/moeru-ai/inventory): ãƒ¢ãƒ‡ãƒ«ã‚«ã‚¿ãƒ­ã‚°ã¨ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆãƒ—ãƒ­ãƒã‚¤ãƒ€ãƒ¼è¨­å®šã®ãƒãƒƒã‚¯ã‚¨ãƒ³ãƒ‰ã‚µãƒ¼ãƒ“ã‚¹
+- [MCP Launcher](https://github.com/moeru-ai/mcp-launcher): ã™ã¹ã¦ã® MCP ã‚µãƒ¼ãƒãƒ¼ã‚’ç°¡å˜ã«æ‰±ãˆã‚‹ MCP ãƒ“ãƒ«ãƒ€ãƒ¼ï¼†ãƒ©ãƒ³ãƒãƒ£ãƒ¼ã€ãƒ¢ãƒ‡ãƒ«ç•Œã® Ollama çš„å­˜åœ¨
+- [ðŸ¥º SAD](https://github.com/moeru-ai/sad): è‡ªå·±ãƒ›ã‚¹ãƒˆã‚„ãƒ–ãƒ©ã‚¦ã‚¶ã§å‹•ã‹ã™ LLM ã®ãƒ‰ã‚­ãƒ¥ãƒ¡ãƒ³ãƒˆã¨ãƒŽãƒ¼ãƒˆ
 
 ```mermaid
 %%{ init: { 'flowchart': { 'curve': 'catmullRom' } } }%%
@@ -330,12 +330,12 @@ flowchart TD
   Core("Core")
   Unspeech("unspeech")
   DBDriver("@proj-airi/drizzle-duckdb-wasm")
-  MemoryDriver("[WIP] メモリアラヤ")
+  MemoryDriver("[WIP] ãƒ¡ãƒ¢ãƒªã‚¢ãƒ©ãƒ¤")
   DB1("@proj-airi/duckdb-wasm")
   SVRT("@proj-airi/server-runtime")
   Memory("Memory")
   STT("STT")
-  Stage("ステージ")
+  Stage("ã‚¹ãƒ†ãƒ¼ã‚¸")
   StageUI("@proj-airi/stage-ui")
   UI("@proj-airi/ui")
 
@@ -367,12 +367,12 @@ flowchart TD
     ServerShared --> ServerSDK
   end
 
-  STT -->|話す| Unspeech
-  SVRT -->|Factorioをプレイ| F_AGENT
-  SVRT -->|Minecraftをプレイ| MC_AGENT
+  STT -->|è©±ã™| Unspeech
+  SVRT -->|Factorioã‚’ãƒ—ãƒ¬ã‚¤| F_AGENT
+  SVRT -->|Minecraftã‚’ãƒ—ãƒ¬ã‚¤| MC_AGENT
 
-  subgraph Factorioエージェント
-    F_AGENT("Factorioエージェント")
+  subgraph Factorioã‚¨ãƒ¼ã‚¸ã‚§ãƒ³ãƒˆ
+    F_AGENT("Factorioã‚¨ãƒ¼ã‚¸ã‚§ãƒ³ãƒˆ")
     F_API("Factorio RCON API")
     factorio-server("factorio-server")
     F_MOD1("autorio")
@@ -381,8 +381,8 @@ flowchart TD
     F_MOD1 -.-> factorio-server
   end
 
-  subgraph Minecraftエージェント
-    MC_AGENT("Minecraftエージェント")
+  subgraph Minecraftã‚¨ãƒ¼ã‚¸ã‚§ãƒ³ãƒˆ
+    MC_AGENT("Minecraftã‚¨ãƒ¼ã‚¸ã‚§ãƒ³ãƒˆ")
     Mineflayer("Mineflayer")
     minecraft-server("minecraft-server")
 
@@ -403,8 +403,8 @@ flowchart TD
   style UI_Components fill:#d4f9d4,stroke:#333,stroke-width:1px
   style Server_Components fill:#d4e6f9,stroke:#333,stroke-width:1px
   style Apps fill:#d4d4f9,stroke:#333,stroke-width:1px
-  style Factorioエージェント fill:#f9d4f2,stroke:#333,stroke-width:1px
-  style Minecraftエージェント fill:#f9d4f2,stroke:#333,stroke-width:1px
+  style Factorioã‚¨ãƒ¼ã‚¸ã‚§ãƒ³ãƒˆ fill:#f9d4f2,stroke:#333,stroke-width:1px
+  style Minecraftã‚¨ãƒ¼ã‚¸ã‚§ãƒ³ãƒˆ fill:#f9d4f2,stroke:#333,stroke-width:1px
 
   style DBDriver fill:#f9f9d4,stroke:#333,stroke-width:1px
   style MemoryDriver fill:#f9f9d4,stroke:#333,stroke-width:1px
@@ -413,39 +413,39 @@ flowchart TD
   style Memory_PGVector fill:#f9f9d4,stroke:#333,stroke-width:1px
 ```
 
-## 類似プロジェクト
+## é¡žä¼¼ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆ
 
-### オープンソースのもの
+### ã‚ªãƒ¼ãƒ—ãƒ³ã‚½ãƒ¼ã‚¹ã®ã‚‚ã®
 
-- [kimjammer/Neuro: A recreation of Neuro-Sama originally created in 7 days.](https://github.com/kimjammer/Neuro): 非常に完成度の高い実装
-- [SugarcaneDefender/z-waif](https://github.com/SugarcaneDefender/z-waif): ゲーム、自律エージェント、プロンプトエンジニアリングに優れています
-- [semperai/amica](https://github.com/semperai/amica/): VRM、WebXRに優れています
-- [elizaOS/eliza](https://github.com/elizaOS/eliza): エージェントをさまざまなシステムやAPIに統合するための優れた例
-- [ardha27/AI-Waifu-Vtuber](https://github.com/ardha27/AI-Waifu-Vtuber): Twitch APIの統合に優れています
-- [InsanityLabs/AIVTuber](https://github.com/InsanityLabs/AIVTuber): 素晴らしいUIとUX
+- [kimjammer/Neuro: A recreation of Neuro-Sama originally created in 7 days.](https://github.com/kimjammer/Neuro): éžå¸¸ã«å®Œæˆåº¦ã®é«˜ã„å®Ÿè£…
+- [SugarcaneDefender/z-waif](https://github.com/SugarcaneDefender/z-waif): ã‚²ãƒ¼ãƒ ã€è‡ªå¾‹ã‚¨ãƒ¼ã‚¸ã‚§ãƒ³ãƒˆã€ãƒ—ãƒ­ãƒ³ãƒ—ãƒˆã‚¨ãƒ³ã‚¸ãƒ‹ã‚¢ãƒªãƒ³ã‚°ã«å„ªã‚Œã¦ã„ã¾ã™
+- [semperai/amica](https://github.com/semperai/amica/): VRMã€WebXRã«å„ªã‚Œã¦ã„ã¾ã™
+- [elizaOS/eliza](https://github.com/elizaOS/eliza): ã‚¨ãƒ¼ã‚¸ã‚§ãƒ³ãƒˆã‚’ã•ã¾ã–ã¾ãªã‚·ã‚¹ãƒ†ãƒ ã‚„APIã«çµ±åˆã™ã‚‹ãŸã‚ã®å„ªã‚ŒãŸä¾‹
+- [ardha27/AI-Waifu-Vtuber](https://github.com/ardha27/AI-Waifu-Vtuber): Twitch APIã®çµ±åˆã«å„ªã‚Œã¦ã„ã¾ã™
+- [InsanityLabs/AIVTuber](https://github.com/InsanityLabs/AIVTuber): ç´ æ™´ã‚‰ã—ã„UIã¨UX
 - [IRedDragonICY/vixevia](https://github.com/IRedDragonICY/vixevia)
 - [t41372/Open-LLM-VTuber](https://github.com/t41372/Open-LLM-VTuber)
 - [PeterH0323/Streamer-Sales](https://github.com/PeterH0323/Streamer-Sales)
 
-### 非オープンソースのもの
+### éžã‚ªãƒ¼ãƒ—ãƒ³ã‚½ãƒ¼ã‚¹ã®ã‚‚ã®
 
 - https://clips.twitch.tv/WanderingCaringDeerDxCat-Qt55xtiGDSoNmDDr https://www.youtube.com/watch?v=8Giv5mupJNE
 - https://clips.twitch.tv/TriangularAthleticBunnySoonerLater-SXpBk1dFso21VcWD
 - https://www.youtube.com/@NOWA_Mirai
 
-## プロジェクトのステータス
+## ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹
 
 ![Repobeats analytics image](https://repobeats.axiom.co/api/embed/a1d6fe2c13ea2bb53a5154435a71e2431f70c2ee.svg 'Repobeats analytics image')
 
-## 謝辞
+## è¬è¾ž
 
-- [Reka UI](https://github.com/unovue/reka-ui): ドキュメントサイトのデザイン。新しいランディングページもここをベースに、膨大な UI コンポーネントに感謝。（shadcn-vue は headless として Reka UI を採用、ぜひチェックを）
+- [Reka UI](https://github.com/unovue/reka-ui): ãƒ‰ã‚­ãƒ¥ãƒ¡ãƒ³ãƒˆã‚µã‚¤ãƒˆã®ãƒ‡ã‚¶ã‚¤ãƒ³ã€‚æ–°ã—ã„ãƒ©ãƒ³ãƒ‡ã‚£ãƒ³ã‚°ãƒšãƒ¼ã‚¸ã‚‚ã“ã“ã‚’ãƒ™ãƒ¼ã‚¹ã«ã€è†¨å¤§ãª UI ã‚³ãƒ³ãƒãƒ¼ãƒãƒ³ãƒˆã«æ„Ÿè¬ã€‚ï¼ˆshadcn-vue ã¯ headless ã¨ã—ã¦ Reka UI ã‚’æŽ¡ç”¨ã€ãœã²ãƒã‚§ãƒƒã‚¯ã‚’ï¼‰
 - [pixiv/ChatVRM](https://github.com/pixiv/ChatVRM)
 - [josephrocca/ChatVRM-js: A JS conversion/adaptation of parts of the ChatVRM (TypeScript) code for standalone use in OpenCharacters and elsewhere](https://github.com/josephrocca/ChatVRM-js)
-- UI とスタイルは [Cookard](https://store.steampowered.com/app/2919650/Cookard/)、[UNBEATABLE](https://store.steampowered.com/app/2240620/UNBEATABLE/)、[Sensei! I like you so much!](https://store.steampowered.com/app/2957700/_/)、[Ayame by Mercedes Bazan](https://dribbble.com/shots/22157656-Ayame)、[Wish by Mercedes Bazan](https://dribbble.com/shots/24501019-Wish) などにインスパイアされています
+- UI ã¨ã‚¹ã‚¿ã‚¤ãƒ«ã¯ [Cookard](https://store.steampowered.com/app/2919650/Cookard/)ã€[UNBEATABLE](https://store.steampowered.com/app/2240620/UNBEATABLE/)ã€[Sensei! I like you so much!](https://store.steampowered.com/app/2957700/_/)ã€[Ayame by Mercedes Bazan](https://dribbble.com/shots/22157656-Ayame)ã€[Wish by Mercedes Bazan](https://dribbble.com/shots/24501019-Wish) ãªã©ã«ã‚¤ãƒ³ã‚¹ãƒ‘ã‚¤ã‚¢ã•ã‚Œã¦ã„ã¾ã™
 - [mallorbc/whisper_mic](https://github.com/mallorbc/whisper_mic)
-- [`xsai`](https://github.com/moeru-ai/xsai): LLMやモデルと対話するための多くのパッケージを実装しました。 [Vercel AI SDK](https://sdk.vercel.ai/)のように小さなものです。
+- [`xsai`](https://github.com/moeru-ai/xsai): LLMã‚„ãƒ¢ãƒ‡ãƒ«ã¨å¯¾è©±ã™ã‚‹ãŸã‚ã®å¤šãã®ãƒ‘ãƒƒã‚±ãƒ¼ã‚¸ã‚’å®Ÿè£…ã—ã¾ã—ãŸã€‚ [Vercel AI SDK](https://sdk.vercel.ai/)ã®ã‚ˆã†ã«å°ã•ãªã‚‚ã®ã§ã™ã€‚
 
-## スター履歴
+## ã‚¹ã‚¿ãƒ¼å±¥æ­´
 
 [![Star History Chart](https://api.star-history.com/svg?repos=moeru-ai/airi&type=Date)](https://www.star-history.com/#moeru-ai/airi&Date)
