@@ -310,11 +310,32 @@ const sessionTokenCount = computed(() => {
 
 const formattedTokenCount = computed(() => formatTokenCount(sessionTokenCount.value))
 
-const contextWidth = computed(() => activeCard.value?.extensions?.airi?.generation?.known?.contextWidth)
+const globalContextWidth = computed(() => {
+  if (activeCard.value?.extensions?.airi?.generation?.known?.contextWidth)
+    return undefined
+
+  if (!activeProvider.value || !activeModel.value)
+    return undefined
+
+  try {
+    const rawMap = localStorage.getItem('airi:context-width-map')
+    if (!rawMap)
+      return undefined
+
+    const map = JSON.parse(rawMap)
+    return map[activeProvider.value]?.[activeModel.value]
+  }
+  catch {
+    return undefined
+  }
+})
+
+const effectiveContextWidth = computed(() => activeCard.value?.extensions?.airi?.generation?.known?.contextWidth || globalContextWidth.value)
+
 const contextPercentage = computed(() => {
-  if (!contextWidth.value)
+  if (!effectiveContextWidth.value)
     return 0
-  return (sessionTokenCount.value / contextWidth.value) * 100
+  return (sessionTokenCount.value / effectiveContextWidth.value) * 100
 })
 
 onMounted(() => {
@@ -399,9 +420,9 @@ watch(messageInput, () => {
 
     <div class="flex items-center justify-end gap-2 py-1">
       <div
-        v-if="contextWidth"
+        v-if="effectiveContextWidth"
         class="flex cursor-help items-center gap-1.5 px-2 py-1"
-        :title="`Context: ${formattedTokenCount} / ${formatTokenCount(contextWidth)} (${contextPercentage.toFixed(1)}%)`"
+        :title="`${globalContextWidth ? '[Inherited] ' : ''}Context: ${formattedTokenCount} / ${formatTokenCount(effectiveContextWidth)} (${contextPercentage.toFixed(1)}%)`"
       >
         <div class="i-solar:graph-bold-duotone text-[10px] text-neutral-400 dark:text-neutral-500" />
         <span class="text-[10px] text-neutral-400 font-bold leading-none tracking-tight uppercase dark:text-neutral-500">{{ formattedTokenCount }}</span>
