@@ -242,53 +242,20 @@ const emotionsQueue = createQueue<EmotionPayload>({
       }
       else if (stageModelRenderer.value === 'live2d') {
         const emotionName = ctx.data.name
+        const intensity = ctx.data.intensity
         // eslint-disable-next-line no-console
-        console.log('[Stage] Live2D emotion processing:', { name: emotionName, intensity: ctx.data.intensity })
+        console.log('[Stage] Live2D emotion processing:', { name: emotionName, intensity })
 
-        // Case-insensitive match against available Live2D expressions
-        const matchedExp = live2dExpressions.value.find(
-          e => e.name.toLowerCase() === emotionName.toLowerCase(),
-        )
-
-        if (matchedExp) {
-          // eslint-disable-next-line no-console
-          console.log('[Stage] Live2D expression matched:', matchedExp.name, matchedExp.fileName)
-
-          // Apply the expression parameters
-          const expEntry = live2dExpressionData.value.find((e: any) => e.fileName === matchedExp.fileName)
-          if (expEntry?.data?.Parameters) {
-            // Store original values so we can restore them
-            const originalValues: Record<string, number> = {}
-            for (const param of expEntry.data.Parameters) {
-              const id = param.Id || param.id
-              const value = param.Value ?? param.value
-              if (id !== undefined && value !== undefined) {
-                originalValues[id] = live2dModelParameters.value[id] ?? 0
-                live2dModelParameters.value[id] = value
-              }
-            }
-            // Mark as active
-            live2dActiveExpressions.value = { ...live2dActiveExpressions.value, [matchedExp.fileName]: 1 }
-
-            // Auto-reset after 2 seconds (like VRM)
-            setTimeout(() => {
-              for (const [id, origValue] of Object.entries(originalValues)) {
-                live2dModelParameters.value[id] = origValue
-              }
-              live2dActiveExpressions.value = { ...live2dActiveExpressions.value, [matchedExp.fileName]: 0 }
-              // eslint-disable-next-line no-console
-              console.log('[Stage] Live2D expression auto-reset:', matchedExp.name)
-            }, 2000)
-          }
-        }
-        else {
-          // Fallback: try motion mapping
+        // Delegate to store (handles mappings, name-matched fallbacks, and robust resets)
+        const triggered = live2dStore.triggerEmotion(emotionName, intensity)
+        if (!triggered) {
+          // Final fallback: try motion mapping
           const motionGroup = (EMOTION_EmotionMotionName_value as any)[emotionName]
           if (motionGroup) {
             currentMotion.value = { group: motionGroup }
           }
           else {
-            console.warn('[Stage] No Live2D expression or motion found for:', emotionName)
+            console.warn('[Stage] No Live2D explicit mapping, name match, or motion found for:', emotionName)
           }
         }
       }
@@ -518,9 +485,14 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
     if (!model || !voice)
       return null
 
+    const transformedText = speechStore.transformTextForSpeech(request.text, activeSpeechProvider.value)
+
+    if (!transformedText.trim() && !request.special)
+      return null
+
     const input = ssmlEnabled.value
-      ? speechStore.generateSSML(request.text, voice, { ...providerConfig, pitch: pitch.value })
-      : request.text
+      ? speechStore.generateSSML(transformedText, voice, { ...providerConfig, pitch: pitch.value })
+      : transformedText
 
     try {
       const res = await generateSpeech({

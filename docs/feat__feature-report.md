@@ -39,6 +39,7 @@ A structured pipeline that maps AI dialogue tokens into real-time VRM/Live2D exp
 - **Dynamic Name Resolution**: Expression names not in the hardcoded map are resolved via **case-insensitive search** of the VRM's `expressionMap`, allowing any model's custom expressions to work without code changes.
 - **VRMA-Aware ACT Tokens**: ACT tokens can trigger full-body **VRMA animations** (e.g., `<|ACT:{"animation":"crab_dance"}|>`), not just facial expressions. A priority system ensures VRMA takes precedence over blendshape matches.
 - **Smooth Transitions**: All emotion changes use a lerp-based blending system — when one emotion activates, all others fade to zero simultaneously over a configurable `blendDuration`.
+- **Live2D Emotion Parity**: Extended the ACT pipeline to Live2D models, including a **"Stable Baseline Manager"** that flushes pending resets on new triggers, ensuring the model never gets stuck in an emotional state during rapid interaction.
 
 ---
 
@@ -229,3 +230,11 @@ Features from pending upstream PRs that have been squatted, integrated, and main
 | #1026 | **xAI Grok Voice Providers** — Adds Grok TTS/STT as speech providers | — | [PR](https://github.com/moeru-ai/airi/pull/1026) |
 | #1336 | **Chat Connection Guard** — Explicitly wait for LLM/Mind connection status before chat | — | [PR](https://github.com/moeru-ai/airi/pull/1336) |
 | #1065 | **Manual Model Entry** — Allows manual model string entry if auto-discovery fails | — | [PR](https://github.com/moeru-ai/airi/pull/1065) |
+---
+## 16. Live2D Customization & Parity
+Standardizing the Live2D experience to match the premium VRM feature set.
+19:
+20: - **Standardized 3-Panel Architecture**: The Live2D settings surface has been completely reorganized into the core **Character Customizations**, **Scene**, and **Advanced** panels, providing a unified UX across all model types.
+21: - **Live2D Expression Mapping**: Implementation of a **"Hold-to-Map"** interaction. Users can long-press any expression in the grid to bind it to a standard ACT emotion token (Happy, Sad, Angry, etc.).
+22: - **Compact UI Optimization**: Integrated a specialized **compact mode** for the tabbed navigation and shortened terminology (e.g., \"Head & Face\" → \"Face\") to ensure 100% visibility in the narrow side-panel without horizontal clipping.
+23: - **AiriCard Integration**: All Live2D customization data—including expressions, motions, and emotion mappings—is persisted and exported within the character's `AiriCard`, ensuring total portability.

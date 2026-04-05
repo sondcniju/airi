@@ -10,8 +10,6 @@ import { dirname, join, resolve } from 'node:path'
 import { env } from 'node:process'
 import { fileURLToPath } from 'node:url'
 
-import clickDragPlugin from 'electron-click-drag-plugin'
-
 import { is } from '@electron-toolkit/utils'
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
@@ -26,6 +24,7 @@ import icon from '../../../../resources/icon.png?asset'
 
 import { electronStartDraggingWindow } from '../../../shared/eventa'
 import { baseUrl, getElectronMainDirname, load, withHashRoute } from '../../libs/electron/location'
+import { startNativeDrag } from '../../libs/electron/native-drag'
 import { createConfig } from '../../libs/electron/persistence'
 import { setupDashboardWindowElectronInvokes } from './rpc/index.electron'
 
@@ -156,7 +155,7 @@ export async function setupDashboardWindow(params: {
     function handleStartDraggingWindow() {
       try {
         const windowId = window.getNativeWindowHandle()
-        clickDragPlugin.startDrag(windowId)
+        startNativeDrag(windowId)
       }
       catch (error) {
         console.error(error)
