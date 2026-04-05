@@ -7,7 +7,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { captionGetIsFollowingWindow, captionIsFollowingWindowChanged } from '../../shared/eventa'
 
 const attached = ref(true)
-const speakerText = ref('')
+const speakerText = ref('') // NOTICE: do NOT add 'caption-speaker' or user speech to captions. This is intentionally AI-only.
 const assistantText = ref('')
 const { isOutside: isOutsideWindow } = useElectronMouseInWindow()
 const isOutsideWindowFor250Ms = refDebounced(isOutsideWindow, 250)
@@ -20,6 +20,10 @@ type CaptionChannelEvent
   = | { type: 'caption-speaker', text: string }
     | { type: 'caption-assistant', text: string }
 const { data } = useBroadcastChannel<CaptionChannelEvent, CaptionChannelEvent>({ name: 'airi-caption-overlay' })
+
+// NOTICE: Secondary broadcast channel to listen for turn-resets (user messages)
+// This is a hardware-level fix because the 'airi-caption-overlay' empty string reset was failing.
+const { data: sessionUpdate } = useBroadcastChannel<any, any>({ name: 'airi-chat-stream' })
 
 const context = useElectronEventaContext()
 const getAttached = defineInvoke(context.value, captionGetIsFollowingWindow)
@@ -39,15 +43,33 @@ onMounted(async () => {
   catch {}
 
   try {
+    // Hardware-level turn reset: clear everything when a new user message enters the session
+    watch(sessionUpdate, (event) => {
+      if (event?.type === 'session-updated' && event.message?.role === 'user') {
+        console.log('[Caption] New user turn detected (via session-updated), resetting panel.')
+        speakerText.value = ''
+        assistantText.value = ''
+      }
+    })
+
     // Update texts from broadcast channel
     watch(data, (event) => {
+      console.log('[Caption] Received event (overlay):', event)
       if (!event)
         return
+
       if (event.type === 'caption-speaker') {
         speakerText.value = event.text
       }
       else if (event.type === 'caption-assistant') {
-        assistantText.value = event.text
+        // Fallback reset for when assistant sends a reset signal
+        if (event.text === '') {
+          speakerText.value = ''
+          assistantText.value = ''
+        }
+        else {
+          assistantText.value = event.text
+        }
       }
     }, { immediate: true })
   }

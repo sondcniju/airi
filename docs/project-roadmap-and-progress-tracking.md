@@ -20,6 +20,11 @@ This document tracks the current development state of the AIRI project, specific
 
 ## Recent Changes (in `airi-rebase-scratch`)
 
+#### 2026-04-05 - Caption Continuity & Hardware-Level Resets
+- **Hardware-Level Turn Reset**: Implemented a definitive solution for caption "blob" accumulation. Both the sender (`Stage.vue`) and receiver (`caption.vue`) now listen directly to the `airi-chat-stream` broadcast; the moment a new user message is detected, both the internal string accumulator and the overlay display are wiped clean.
+- **AI-Only Caption Guard**: Hardened the codebase with explicit "Ninja Guard" comments to forbid the inclusion of user speech in the caption overlay, preserving it as a pure AI-only context tool.
+- **Receiver Debug Logging**: Added persistent `console.log` state to the caption renderer to allow real-time verification of incoming broadcast events and reset signals.
+
 #### 2026-04-04 - Live2D Expression Mapping & UI Refined
 - **Live2D Settings Revamp**: Reorganized the Live2D settings into a standardized 3-panel architecture (Character, Scene, Advanced) to match the premium VRM experience.
 - **ACT Emotion Mapping**: Implemented a "hold to map" system for Live2D expressions. Users can now long-press any expression button to bind it to a standard ACT emotion (Happy, Sad, etc.).
@@ -164,6 +169,10 @@ This document tracks the current development state of the AIRI project, specific
         - **Toggle buttons** (e.g., Grounding toggle, Voice/Custom mode toggle) should trigger an auto-hide of the island panel.
         - **Cycle buttons** (e.g., Interval cycling) should keep the island panel open for further interaction.
     - [ ] **Status Indicator Audit**: Revisit `settings>modules` and `settings>providers` to ensure the "green state" (connected/enabled) indicators are working accurately for all entries.
+    - [ ] **Gemini Control Island Onboarding Modal**: Implement a one-time "What is this?" premium dialog for the Gemini island:
+        - **Content**: Bullet points covering multimodal capabilities (image/text/voice), Google Live's session-wide overrides (LLM/TTS/STT), and manual camera triggering via the viewfinder icon.
+        - **Persistence**: Once dismissed, mark a `localStorage` key as "seen" to prevent re-showing until copy or keyname changes.
+        - **Trigger**: Automatically prompt the user the first time they open the island after configuring their API key.
     - [ ] **Model Selector Stability (Research & Design)**: Investigate and resolve the "reactive reset" bug where selecting a temporary preview model in the Model Selector is overridden by the active character's stored model configuration:
         - **Problem**: Users on character "Mint" (set to `mint123.vrm`) select `mint456.vrm` in the Model Selector for a temporary preview; reactive logic currently forces a reset back to `mint123.vrm` after a few moments.
         - **Proposed Solution**: Detect when the user is in the Model Selector route/page and suppress the character-scoped model restoration logic.

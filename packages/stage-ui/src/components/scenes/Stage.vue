@@ -23,7 +23,7 @@ import { useBroadcastChannel } from '@vueuse/core'
 // import { embed } from '@xsai/embed'
 import { generateSpeech } from '@xsai/generate-speech'
 import { storeToRefs } from 'pinia'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import { useSpecialTokenQueue } from '../../composables/queues'
 import { categorizeResponse } from '../../composables/response-categoriser'
@@ -95,7 +95,13 @@ const viewUpdateCleanups: Array<() => void> = []
 type CaptionChannelEvent
   = | { type: 'caption-speaker', text: string }
     | { type: 'caption-assistant', text: string }
+// NOTICE: do NOT add 'caption-speaker' or user speech to captions. This is intentionally AI-only.
 const { post: postCaption } = useBroadcastChannel<CaptionChannelEvent, CaptionChannelEvent>({ name: 'airi-caption-overlay' })
+
+// NOTICE: Secondary broadcast channel to listen for turn-resets (user messages)
+// This is a hardware-level fix because the 'airi-caption-overlay' empty string reset was failing.
+const { data: sessionUpdate } = useBroadcastChannel<any, any>({ name: 'airi-chat-stream' })
+
 const assistantCaption = ref('')
 
 type PresentEvent
@@ -610,6 +616,19 @@ function ensureSpeechIntent() {
 
   return currentChatIntent
 }
+
+// Hardware-level turn reset: clear everything when a new user message enters the session
+// This is the absolute truth for turn boundaries and prevents 'blob' accumulation.
+chatHookCleanups.push(watch(sessionUpdate, (event) => {
+  if (event?.type === 'session-updated' && event.message?.role === 'user') {
+    console.log('[Stage] New user turn detected (via session-updated), resetting caption accumulator.')
+    assistantCaption.value = ''
+    try {
+      postCaption({ type: 'caption-assistant', text: '' })
+    }
+    catch {}
+  }
+}))
 
 chatHookCleanups.push(onBeforeMessageComposed(async () => {
   // NOTICE: chat and proactivity share the same speech lane. Stopping playback alone is not
