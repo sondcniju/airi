@@ -26,7 +26,7 @@ import { setupPluginHost } from './services/airi/plugins'
 import { createMicToggleService } from './services/airi/shortcuts/mic-toggle'
 import { setupAutoUpdater } from './services/electron/auto-updater'
 import { createVisionService } from './services/electron/vision'
-import { setupSensorsService } from './services/sensors'
+import { createSensorsService } from './services/sensors'
 import { cleanupMicToggleShortcut } from './services/shortcuts/mic-toggle'
 import { setupTray } from './tray'
 import { setupAboutWindowReusable } from './windows/about'
@@ -183,9 +183,6 @@ app.whenReady().then(async () => {
   const tray = injeca.provide('app:tray', {
     dependsOn: { mainWindow, settingsWindow, captionWindow, widgetsWindow: widgetsManager, serverChannel, beatSyncBgWindow: beatSync, aboutWindow, i18n, appConfig },
     build: async ({ dependsOn }) => {
-      // Start global OS sensor hooks
-      setupSensorsService()
-
       const configHelper = dependsOn.appConfig
       return setupTray({
         ...dependsOn,
@@ -204,6 +201,7 @@ app.whenReady().then(async () => {
       createI18nService({ context, window: deps.mainWindow, i18n: deps.i18n })
       createMicToggleService({ context, window: deps.mainWindow })
       createVisionService({ context })
+      createSensorsService({ context })
 
       import('./libs/bootkit/lifecycle').then((m) => {
         m.onAppBeforeQuit(() => {

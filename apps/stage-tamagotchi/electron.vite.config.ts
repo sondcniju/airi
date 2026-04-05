@@ -22,9 +22,14 @@ const require = createRequire(import.meta.url)
 export default defineConfig({
   main: {
     build: {
+      // NOTICE: Any package added to 'include' below MUST be listed in 'dependencies'
+      // (not 'devDependencies') in package.json to be available in production builds.
       externalizeDeps: {
-        include: [
-          'electron-click-drag-plugin',
+        exclude: [
+          '@proj-airi/electron-screen-capture',
+          '@proj-airi/electron-eventa',
+          '@proj-airi/electron-vueuse',
+          '@proj-airi/plugin-sdk',
         ],
       },
     },
@@ -117,6 +122,7 @@ export default defineConfig({
         '@vueuse/motion',
         'popmotion',
         'uncrypto',
+        'three',
       ],
       exclude: [
         // Internal Packages
@@ -163,6 +169,7 @@ export default defineConfig({
         { find: 'node:crypto', replacement: resolve(join(import.meta.dirname, 'src', 'renderer', 'shims', 'node-crypto.ts')) },
         { find: 'crypto', replacement: resolve(join(import.meta.dirname, 'src', 'renderer', 'shims', 'node-crypto.ts')) },
         { find: 'tslib', replacement: require.resolve('tslib/tslib.es6.js') },
+        { find: 'three', replacement: resolve(join(import.meta.dirname, 'node_modules', 'three')) },
       ],
     },
     ssr: {

@@ -20,6 +20,22 @@ This document tracks the current development state of the AIRI project, specific
 
 ## Recent Changes (in `airi-rebase-scratch`)
 
+#### 2026-04-04 - Control Island UX & Modular Artistry
+- **Model Selector Stability**: Fixed a regression where character card updates (e.g. from proactivity heartbeats) would force-reset the renderer's model while the user was in the Model Selector.
+- **Control Island Mutual Exclusion**: Refactored the UI to ensure the Main island and Gemini/Module islands auto-collapse each other, preventing desktop clutter.
+- **Gemini Control Island UX**: Implemented specialized auto-hide logic (Action vs. Cycle) and disabled legacy settings buttons to match the premium Main island experience.
+- **Native Performance (Koffi)**: Migrated the proactivity sensor pipeline to Koffi for Win32 FFI, achieving sub-1s telemetry heartbeat ticks (optimized from ~1.5s).
+- **Context-Width Inheritance**: Implemented a global `localStorage` map for model-specific context defaults. Characters now automatically inherit their token limit from this map if not explicitly set.
+- **Artistry Module Controls**: Added a global "None" provider and per-character disable switches.
+- **Dynamic Prompt Stripping**: Implemented logic to automatically strip image-generation instructions from the system prompt whenever Artistry is disabled.
+
+#### 2026-04-02 - Performance Stability & Provider Expansion
+- **Performance Regression Fix (Windows)**: Successfully identified and reverted the Async PBO rendering implementation to the robust synchronous fallback. This resolved the "App Not Responding" and mouse jitter issues reported on Windows.
+- **Proactivity Memoization**: Optimized the `proactivity` store by memoizing usage metrics (TTS/STT/Chat counts). Heavy filtering logic is now throttled to the 10s sensor tick instead of running on every reactive update.
+- **AWS Polly Native Integration**: Implemented direct neural speech synthesis using `aws4fetch` for secure V4 signing, bypassing local proxies and supporting dynamic region-based voice discovery.
+- **MCP Management Dashboard**: Launched the premium Antigravity-inspired hub for Model Context Protocol servers. Includes curated discovery, tool titration (per-tool toggles), and real-time status counts.
+- **Localization Rollout (Z.ai & Azure)**: Completed professional marketing copy and backfilled missing titles for 9 locales.
+
 #### 2026-03-31 - Research: Standalone Sticker System & Multi-Window Widgets
 - **Multi-Window Widget Architecture**: Successfully refactored the `WidgetsWindowManager` to support spawning multiple, independent Electron windows instead of a single reusable panel. Each standalone widget now gets its own window lifecycle.
 - **Strict Sticker Transparency**: Implemented a specialized window configuration for stickers that disables "Acrylic" vibrancy to ensure perfect transparency.
@@ -98,31 +114,67 @@ This document tracks the current development state of the AIRI project, specific
   - Used for isolating features into clean PR branches.
 
 ## Pending Items (Roadmap)
-- **AIRI Card Export Preview Modes**: Explore an optional export mode that bakes the currently selected stage background into the composed PNG preview, while keeping the current transparent/framed export as the default. This should stay optional so card portability and predictable framing are not lost.
-- **Onboarding Overhaul (Phase 1)**: Successfully implemented **Sense Portal (Easy Mode)** with OAuth and automatic provider configuration.
-- **Modular Wardrobe System**: Successfully implemented.
-- **Integrated Profile Switcher**: Successfully implemented in the Control Island.
-- **Character Photo Mode / Saved Shots**: Successfully implemented (Full composite capture + Gallery Download + Selfie Previews).
-- [ ] **Character Outfit & Habitat Management**:
-  - [ ] **Outfit Context**: Integrate available and active outfit labels into the Chat Context Manager.
-  - [ ] **Permanent Outfit Changes**: Implement `change_outfit` tool for non-ephemeral swaps (unlike ACT emotions).
-  - [ ] **Polymorphic Tool Logic**: Interface should support a single mutually exclusive swap + additive arrays for enabling/disabling layers/accessories.
-- **Browser-Integrated Card Imports (Phase 2)**: (Next Focus) Deep integration with external character sites via an in-app Electron browser. Hooks for direct importing while respecting site ads/iframes.
-- **Vision Feature Integration**: Bridge the interval-based "Vision Witness" feature from main branch (Alpha 22-23).
-  - [ ] **Research Upstream Logic**: Analyze the "jankier" screenshot hacks used in main and identify the core capture-and-prompt pipeline.
-  - [ ] **Architect Vision Store**: Implement a proper `VisionStore` in `packages/stage-ui` to handle both "Reactive Vision" (User-sent) and "Witness Vision" (Ambient).
-  - [ ] **Ambient Modality**: Evaluate if this belongs in a new "Ambient Image" provider class or works within existing VLM abstractions.
-  - [/] **Gemini Live API Integration**: Developed [Design Document](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/docs/design-gemini-live-api-integration.md). Includes plans for real-time multimodal I/O, tool call plumbing, and chat history inscription using the `google-genai` SDK.
-  - [ ] **ScrollLock Syncing Cleanup**: Fully remove or refactor the ScrollLock mic-toggle state syncing logic in the backend to prevent unwanted LED flickering and OS overlays. (Currently partially disabled in backend).
-- [ ] **MCP Management UI (Settings > Modules)**:
-  - [ ] Refactor the basic `mcp.vue` into a premium, Antigravity-inspired interface.
-  - [ ] Implement the **MCP Store** for curated server discovery (Search, Filesystem, GitHub).
-  - [ ] Implement the **Server Manager** with tool status counts (e.g., `91/91 tools`) and per-tool toggles.
-  - [ ] Add **Integrated Guidance** templates at the top of the configuration view.
-  - [ ] Add a "Refresh" capability to re-poll available tools without restarting the app.
-- [ ] **Privacy Indicator**: Add visual feedback in Controls Island when AIRI is "Watching".
-- [ ] **Provider Refactor (Low Priority)**: Split "Google Gemini API" (API Key) and "Google Gemini OAuth" (Bearer Token) into distinct provider types in `stores/providers.ts` to prevent credential misuse in standard Chat vs. Bidi endpoints.
+- **Artistry & Proactivity Refinement**:
+    - [x] **Artistry Character Toggle**: Allow users to fully disable artistry features on a per-character basis, which will dynamically update the character's system prompt builder to omit relevant image-generation instructions and tool definitions. [x]
+    - [x] **Artistry Global "None" Provider**: Implement a \"none\" state at the global provider level to allow disabling image generation across the entire app, regardless of individual character settings. [x]
+    - [ ] **Proactivity Pipeline Overhaul**: Revisit the end-to-end proactivity pipeline focusing on three key tenets:
+        - **Cross-Platform Compatibility**: Ensure robust performance on Windows, macOS, and Linux with graceful fallbacks for platform-specific sensors (e.g., fallback for PowerShell-based volume on non-Windows).
+        - [x] **Performance Optimization**: Minimize main-thread blocking and resource consumption during sensor polling and evaluation ticks. [x]
+        - **Context Parity**: Ensure the proactivity engine receives the same high-fidelity context payload (same sensors, tool definitions, and history) as the standard chat pipeline to prevent inconsistent reasoning or a \"brain-split\" where the AI thinks it has access to sensors/tools that are actually missing or broken.
 
+- **Speech Experience & Transformation**:
+    - [ ] **Universal Speech Transformer**: Develop a lightweight middleware for the Speech Module to clean/transform text before TTS synthesis.
+        - **Narrative Logic**: Mute or Flatten asterisks and parentheses.
+        - **Visual Cleanup**: Strip emojis and Kaomojis.
+        - **Tilde Handling**: Substitution strings for phrases like "nyan".
+        - **Cost Optimization**: Alphanumeric guard and URL/Markdown stripping.
+        - **UI Location**: Integrated into the left column of the Speech Settings Module.
+        - **Spec**: See [docs/blueprint-tts-universal-speech-transformer.md](docs/blueprint-tts-universal-speech-transformer.md).
+
+- **Character Outfit & Habitat Management**:
+    - [ ] **Live2D Expression Mapping**: Bridge functionality from VRM to allow mapping Live2D expressions to Control Island emojis.
+    - [ ] **Live2D Outfit System**: Port and enable the modular wardrobe/outfit system for Live2D models.
+    - [ ] **Outfit Context**: Integrate available and active outfit labels into the Chat Context Manager.
+    - [ ] **Permanent Outfit Changes (`change_outfit` tool)**: Implement a polymorphic tool for the AI to perform non-ephemeral swaps, supporting mutually exclusive swaps and additive layer/accessory controls. (Blocked until Live2D outfit system is ready).
+- **Browser-Integrated Card Imports (Phase 2)**: (Next Focus) Deep integration with external character sites via an in-app Electron browser. Hooks for direct importing while respecting site ads/iframes.
+- **Vision Feature Integration**:
+  - [/] **Gemini 2.5 vs 3.1 Support**: Implement support for both versions to compare the "richer" experience of 2.5 vs the standard 3.1 implementation. [/]
+- **Discord Bot Revamp**:
+  - [ ] **Unified Discord Service**: Transition the Discord bot from a standalone process to a native AIRI service with a deep, meaningful integration (slash commands, character syncing, and native context routing).
+  - [ ] **Advanced Features**: Implementation of character switching (`/character`), manual emotion triggering (`/emotion`), proactive heartbeat routing, and inline Artistry/media attachments.
+  - [ ] **Full Spec**: See [docs/feat__discord-revamp.md](docs/feat__discord-revamp.md) for the detailed technical roadmap and command registry.
+
+- **Infrastructure & UI Health**:
+    - [ ] **Settings - System Revamp**: Completely overhaul the `settings > system` page to resolve the current "hodge-podge" of disjointed, nested, and potentially duplicated settings:
+        - **Consolidation**: Pivot away from deep nesting and instead group related settings on a single, well-organized page with clear section headers.
+        - **Developer Mode Relegation**: Move developer-specific tools and configuration out of the main system flow to prevent clutter for standard users.
+        - **Deduplication Audit**: Conduct a full audit to identify and merge settings that are currently duplicated across different pages (e.g., speech or consciousness settings appearing in multiple places).
+        - **Emphasis on Discoverability**: Focus on a flatter hierarchy where most critical system options are accessible without multiple layers of navigation.
+    - [ ] **Context-Width Global Mapping**: Implement a global storage map (local storage) that links `providerId` and `modelName` to a user-defined `contextWidth`.
+    - [ ] **Generation Tab Persistence**: Update the generation settings tab to automatically update this global map when a value greater than 0 is set.
+    - [ ] **Context-Width Inheritance**: Refine the chatbox loading-bar logic to coalesce settings: if a character's context width is unset, it should inherit the value from the global map matching the active provider/model pair.
+    - [ ] **Control Island Mutual Exclusion**: Refactor the Control Islands (Main and Gemini/Module-specific) to ensure only one can be open at a time; opening one should automatically close any other open island.
+    - [ ] **Gemini Control Island Auto-Hide Logic**: Update the button behaviors in the Gemini/Module Control Island to match the "Main" island's established UX:
+        - **Toggle buttons** (e.g., Grounding toggle, Voice/Custom mode toggle) should trigger an auto-hide of the island panel.
+        - **Cycle buttons** (e.g., Interval cycling) should keep the island panel open for further interaction.
+    - [ ] **Status Indicator Audit**: Revisit `settings>modules` and `settings>providers` to ensure the "green state" (connected/enabled) indicators are working accurately for all entries.
+    - [ ] **Model Selector Stability (Research & Design)**: Investigate and resolve the "reactive reset" bug where selecting a temporary preview model in the Model Selector is overridden by the active character's stored model configuration:
+        - **Problem**: Users on character "Mint" (set to `mint123.vrm`) select `mint456.vrm` in the Model Selector for a temporary preview; reactive logic currently forces a reset back to `mint123.vrm` after a few moments.
+        - **Proposed Solution**: Detect when the user is in the Model Selector route/page and suppress the character-scoped model restoration logic.
+        - **UI Enhancement**: If the active character's model configuration differs from the current Model Selector preview, display a non-intrusive warning: *"Your model will be restored to the one set on your character once you leave this page unless you click Apply Now."*
+        - **Current Workaround (Kludgy)**: Users are currently forced to "Set model to {character}" just to avoid a reset, even if they aren't ready to commit to the change.
+- [x] **Privacy Indicator**: Add visual feedback in Controls Island when AIRI is "Watching". [x]
+- **[Experimental] Widget-Native Transient Chat Bubbles**:
+  - Context-aware, at-a-glance chat history overlaid directly on the transparent `Stage.vue` model layer.
+  - Typed queries from Whisperdock push directly to the Stage as right-aligned bubbles, with the AI's response cascading below it.
+  - Maintains only the active context (last 2-3 turns) so the model isn't obscured. Designed optimally for characters tuned for short, conversational responses.
+  - Frosted glass aesthetics to blend seamlessly with the desktop background and model canvas.
+  - Focuses on TTS audio delivery; text is aggressively truncated to save space, but expands to reveal the full response upon click/hover if the user missed the audio cue.
 
 ## Defunct / Scrapped Ideas
 - **Live2D ZIP Repackaging**: Intercepting oversized ZIP imports on the Electron side (Scrapped; focus shifted to asset autonomy).
+- **Onboarding Overhaul (Phase 1)**: (Completed via Sense Portal / Easy Mode).
+- **Modular Wardrobe System**: (Completed).
+- **Integrated Profile Switcher**: (Completed).
+- **Character Photo Mode**: (Completed).
+- **MCP Management UI**: (Completed).
