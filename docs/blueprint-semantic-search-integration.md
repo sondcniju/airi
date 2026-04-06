@@ -6,18 +6,30 @@ This blueprint outlines the path to migrating AIRI's memory system from simple k
 
 ## 🏗️ 1. Architecture Overview: The "Human-Like" Brain
 
-We shift from "Search all messages" to **"Manage Episodic & Semantic Experiences."**
+We shift from "Search all messages" to **"Manage Episodic, Semantic & Emotional Experiences."**
 
 1.  **Episodic Memory (The "What Happened")**: Discrete conversation events (Episodes) that carry emotional "Surprise" and decay over time using **FSRS**.
 2.  **Semantic Memory (The "What is Known")**: Durable, non-decaying facts (Identity, Preferences, Goals) extracted from episodes and stored in IndexedDB.
-3.  **Tiered Retrieval**:
-    -   **Tier 1 (Instant)**: Recent conversation buffer (RAM).
-    -   **Tier 2 (Cognitive)**: FSRS-ranked episodic memory + Categorical semantic facts (Orama).
-    -   **Tier 3 (Deep)**: Archive retrieval from IndexedDB (Lazy/Categorical).
+3.  **Emotional State (The "How I Feel")**: A dynamic, persistent internal mood (Valence/Arousal) that shifts based on interaction and reflects in the puppet's physical expressions.
 
 ---
 
-## 🛠️ 2. Strategy: The "Cherry Picks" from Plast Mem
+## 🎭 2. The Tamagotchi Heart: Emotional Awareness
+
+While semantic facts represent what AIRI *knows*, the Mood System represents how she *experiences* the world. Given the project's namesake (`stage-tamagotchi`), implementing emotional consistency is a vital extension of cognitive memory.
+
+### Mood Mapping
+We track 6 core emotional baselines that correspond to standard VRM expressions:
+- **`Neutral`** (Baseline)
+- **`Happy`** (Positive Valence, High Arousal)
+- **`Sad`** (Negative Valence, Low Arousal)
+- **`Angry`** (Negative Valence, High Arousal)
+- **`Surprised`** (High Surprise, High Arousal)
+- **`Relaxed/Relaxed`** (Positive Valence, Low Arousal)
+
+---
+
+## 🛠️ 3. Strategy: The "Cherry Picks" from Plast Mem
 
 We adapt the best elements of cognitive science while maintaining AIRI's browser-native performance.
 
