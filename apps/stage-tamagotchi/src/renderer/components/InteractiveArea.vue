@@ -18,7 +18,6 @@ import { useShortTermMemoryStore } from '@proj-airi/stage-ui/stores/memory-short
 import { useTextJournalStore } from '@proj-airi/stage-ui/stores/memory-text-journal'
 import { buildSystemPrompt, useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
-import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettingsChat } from '@proj-airi/stage-ui/stores/settings'
 import { BasicTextarea } from '@proj-airi/ui'
@@ -40,7 +39,6 @@ const chatStream = useChatStreamStore()
 const textJournalStore = useTextJournalStore()
 const backgroundStore = useBackgroundStore()
 const airiCardStore = useAiriCardStore()
-const proactivityStore = useProactivityStore()
 
 const { activeCard } = storeToRefs(airiCardStore)
 const shortTermMemory = useShortTermMemoryStore()
