@@ -17,6 +17,7 @@ import {
   sensorsGetLocalTime,
   sensorsGetSystemLoad,
   sensorsGetVolumeLevel,
+  sensorsSetTrackingEnabled,
 } from '@proj-airi/stage-shared'
 import { powerMonitor } from 'electron'
 
@@ -135,30 +136,56 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
   }
 
   const MAX_HISTORY = 50
+  let pollInterval: NodeJS.Timeout | null = null
 
-  const pollInterval = setInterval(async () => {
-    const current = await getActiveWindowInfo()
-    if (!current)
+  function startTracking() {
+    if (pollInterval)
       return
 
-    const now = Date.now()
-    const lastEntry = activeWindowHistory.at(-1)
-    if (lastEntry && lastEntry.window.title === current.title && lastEntry.window.processName === current.processName) {
-      lastEntry.endTime = now
-      lastEntry.durationMs = lastEntry.endTime - lastEntry.startTime
-    }
-    else {
-      activeWindowHistory.push({
-        window: current,
-        startTime: now,
-        endTime: now,
-        durationMs: 0,
-      })
+    log.debug('Starting active window tracking background loop.')
+    pollInterval = setInterval(async () => {
+      const current = await getActiveWindowInfo()
+      if (!current)
+        return
 
-      if (activeWindowHistory.length > MAX_HISTORY)
-        activeWindowHistory.shift()
+      const now = Date.now()
+      const lastEntry = activeWindowHistory.at(-1)
+      if (lastEntry && lastEntry.window.title === current.title && lastEntry.window.processName === current.processName) {
+        lastEntry.endTime = now
+        lastEntry.durationMs = lastEntry.endTime - lastEntry.startTime
+      }
+      else {
+        activeWindowHistory.push({
+          window: current,
+          startTime: now,
+          endTime: now,
+          durationMs: 0,
+        })
+
+        if (activeWindowHistory.length > MAX_HISTORY)
+          activeWindowHistory.shift()
+      }
+    }, 10000)
+  }
+
+  function stopTracking() {
+    if (pollInterval) {
+      log.debug('Stopping active window tracking background loop.')
+      clearInterval(pollInterval)
+      pollInterval = null
     }
-  }, 10000)
+  }
+
+  defineInvokeHandler(
+    context,
+    sensorsSetTrackingEnabled,
+    async (payload) => {
+      if (payload.enabled)
+        startTracking()
+      else
+        stopTracking()
+    },
+  )
 
   defineInvokeHandler(
     context,
@@ -214,17 +241,15 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
     try {
       const load = await si.currentLoad()
       const val = load.currentLoad / 100
-      cpuLoads = [val, val, val] // si doesn't provide 1/5/15 load avg directly in a cross-platform way as easily as this, but currentLoad is more meaningful for real-time sensors.
+      cpuLoads = [val, val, val]
     }
     catch (err) {
       log.withError(err).warn('Failed to get CPU load via systeminformation')
-      // Fallback to os.loadavg if si fails
       cpuLoads = os.loadavg() as [number, number, number]
     }
 
     try {
       const graphics = await si.graphics()
-      // Take the max utilization across all GPUs
       gpuLoad = Math.max(0, ...graphics.controllers.map((c: any) => (c.utilizationGpu || 0) as number))
     }
     catch (err) {
@@ -255,6 +280,6 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
 
   return {
     context,
-    stop: () => clearInterval(pollInterval),
+    stop: () => stopTracking(),
   }
 }

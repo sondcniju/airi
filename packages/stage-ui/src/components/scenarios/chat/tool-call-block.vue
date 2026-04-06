@@ -2,6 +2,7 @@
 import { Collapsible } from '@proj-airi/ui'
 import { computed } from 'vue'
 
+import { useJournalPreviewStore } from '../../../stores/journal-preview'
 import { MarkdownRenderer } from '../../markdown'
 
 const props = defineProps<{
@@ -10,6 +11,9 @@ const props = defineProps<{
   state?: 'executing' | 'done' | 'error'
   result?: any
 }>()
+
+const journalPreviewStore = useJournalPreviewStore()
+const { openImagePreview } = journalPreviewStore
 
 interface TextJournalArgs {
   action?: string
@@ -165,7 +169,11 @@ const formattedArgs = computed(() => {
 
         <!-- Result Rendering (for inline mode) -->
         <div v-if="imageJournalResult?.imageUrl" class="mt-4 overflow-hidden border border-primary-500/20 rounded-xl shadow-lg">
-          <img :src="imageJournalResult.imageUrl" class="w-full object-contain">
+          <img
+            :src="imageJournalResult.imageUrl"
+            class="w-full cursor-pointer object-contain transition-all active:scale-[0.98] hover:ring-2 hover:ring-primary-500/50"
+            @click="openImagePreview({ title: (parsedArgs as ImageJournalArgs)?.title || 'Generated Image', url: imageJournalResult.imageUrl })"
+          >
         </div>
       </template>
       <div v-else class="whitespace-pre-wrap break-words font-mono">

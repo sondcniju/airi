@@ -3,7 +3,16 @@ import type { ActiveWindowEntry, SystemLoadAverages } from '@proj-airi/stage-sha
 import type { ChatStreamEventContext, StreamingAssistantMessage } from '../types/chat'
 
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { isWithinSchedule, sensorsGetActiveWindow, sensorsGetActiveWindowHistory, sensorsGetIdleTime, sensorsGetLocalTime, sensorsGetSystemLoad, sensorsGetVolumeLevel } from '@proj-airi/stage-shared'
+import {
+  isWithinSchedule,
+  sensorsGetActiveWindow,
+  sensorsGetActiveWindowHistory,
+  sensorsGetIdleTime,
+  sensorsGetLocalTime,
+  sensorsGetSystemLoad,
+  sensorsGetVolumeLevel,
+  sensorsSetTrackingEnabled,
+} from '@proj-airi/stage-shared'
 import { useIntervalFn } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
@@ -62,6 +71,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
   const getSystemLoadInvoke = isElectron ? useElectronEventaInvoke(sensorsGetSystemLoad) : null
   const getLocalTimeInvoke = isElectron ? useElectronEventaInvoke(sensorsGetLocalTime) : null
   const getVolumeLevelInvoke = isElectron ? useElectronEventaInvoke(sensorsGetVolumeLevel) : null
+  const setTrackingEnabledInvoke = isElectron ? useElectronEventaInvoke(sensorsSetTrackingEnabled) : null
 
   const idleTimeSec = ref<number | undefined>(undefined)
   const activeWinStr = ref('')
@@ -195,11 +205,13 @@ export const useProactivityStore = defineStore('proactivity', () => {
       // eslint-disable-next-line no-console
       console.log('[Proactivity] Resuming sensor polling loop.')
       resume()
+      setTrackingEnabledInvoke?.({ enabled: true })
     }
     else {
       // eslint-disable-next-line no-console
       console.log('[Proactivity] Pausing sensor polling loop (idle).')
       pause()
+      setTrackingEnabledInvoke?.({ enabled: false })
     }
   }, { immediate: true })
 
