@@ -120,6 +120,17 @@ function closePreview() {
   previewModal.value = null
 }
 
+function downloadImage(url: string, title?: string) {
+  const link = document.createElement('a')
+  link.href = url
+  // Sanitizing the filename for OS compatibility
+  const safeTitle = (title || 'Image').replace(/[<>:"/\\|?*]/g, '_')
+  link.download = `AIRI-Journal-${safeTitle}.png`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
 // --- Date Formatting ---
 function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString('en-CA') // YYYY-MM-DD
@@ -396,7 +407,7 @@ watch(messageInput, () => {
         v-for="entry in latestImageEntries"
         :key="entry.id"
         :class="[
-          'relative h-14 w-14 shrink-0 cursor-pointer of-hidden rounded-lg',
+          'group relative h-14 w-14 shrink-0 cursor-pointer of-hidden rounded-lg',
           'border border-primary-200/30 transition-all hover:border-primary-500',
           'dark:border-primary-800/30 dark:hover:border-primary-400',
         ]"
@@ -406,6 +417,18 @@ watch(messageInput, () => {
         <div :class="['absolute inset-0 flex items-end p-1', 'bg-gradient-to-t from-black/60 to-transparent']">
           <span class="truncate text-[8px] text-white font-medium">{{ entry.title }}</span>
         </div>
+
+        <!-- Save Button (Top Right, Hover Only) -->
+        <button
+          :class="[
+            'absolute right-1 top-1 z-10 p-1 rounded-md bg-black/40 text-white backdrop-blur-sm',
+            'opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/60',
+          ]"
+          title="Save to computer"
+          @click.stop="downloadImage(entry.url || '', entry.title)"
+        >
+          <div class="i-solar:download-minimalistic-bold-duotone text-[10px]" />
+        </button>
       </div>
     </div>
 
@@ -606,12 +629,22 @@ watch(messageInput, () => {
                 <div :class="previewModal.type === 'text' ? 'i-solar:notebook-bold-duotone' : 'i-solar:gallery-bold-duotone'" />
                 <span class="truncate">{{ previewModal.title }}</span>
               </div>
-              <button
-                :class="['rounded-full p-1 text-neutral-400 transition-colors', 'hover:bg-neutral-100 hover:text-neutral-600', 'dark:hover:bg-neutral-800 dark:hover:text-neutral-200']"
-                @click="closePreview"
-              >
-                <div i-solar:close-circle-bold-duotone class="text-lg" />
-              </button>
+              <div class="flex items-center gap-1">
+                <button
+                  v-if="previewModal.type === 'image'"
+                  :class="['rounded-full p-1 text-neutral-400 transition-colors', 'hover:bg-neutral-100 hover:text-neutral-600', 'dark:hover:bg-neutral-800 dark:hover:text-neutral-200']"
+                  title="Download image"
+                  @click="downloadImage(previewModal.content, previewModal.title)"
+                >
+                  <div i-solar:download-minimalistic-bold-duotone class="text-lg" />
+                </button>
+                <button
+                  :class="['rounded-full p-1 text-neutral-400 transition-colors', 'hover:bg-neutral-100 hover:text-neutral-600', 'dark:hover:bg-neutral-800 dark:hover:text-neutral-200']"
+                  @click="closePreview"
+                >
+                  <div i-solar:close-circle-bold-duotone class="text-lg" />
+                </button>
+              </div>
             </div>
 
             <!-- Content -->

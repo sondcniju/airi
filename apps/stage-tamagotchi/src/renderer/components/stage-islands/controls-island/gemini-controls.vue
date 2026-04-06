@@ -81,11 +81,6 @@ function handleCaptureNow() {
   emit('close')
 }
 
-function handleOpenSettings() {
-  // router.push('/settings')
-  // emit('close')
-}
-
 function handleToggleOutputMode() {
   liveSessionStore.toggleOutputMode()
   emit('close')
