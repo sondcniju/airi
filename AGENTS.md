@@ -37,7 +37,7 @@ Concise but detailed reference for contributors working across the `moeru-ai/air
 - **Bundling libs**: Use `tsdown` for new modules (see `packages/vite-plugin-warpdrive`).
 - **Styles**: UnoCSS config at `uno.config.ts`; check `apps/stage-web/src/styles` for existing animations; prefer UnoCSS over Tailwind.
 
-## Key Path Index (what lives where)
+## The Rosetta Stone (Key Path Index)
 
 Concise mapping of conceptual features to technical file paths for rapid context retrieval.
 
