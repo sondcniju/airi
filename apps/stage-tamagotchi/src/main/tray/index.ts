@@ -288,6 +288,7 @@ export function setupTray(params: {
                 if (index === -1)
                   index = config.windows.push({ title: 'Caption', tag: 'caption' }) - 1
                 config.windows[index].dock = item.checked ? 'bottom' : undefined
+                console.log('[@proj-airi/stage-tamagotchi] [Tray] Dock Bottom Clicked:', item.checked, 'Index:', index)
                 params.updateConfig(config)
                 params.captionWindow.triggerMove()
                 rebuildContextMenu()
@@ -303,6 +304,7 @@ export function setupTray(params: {
                 if (index === -1)
                   index = config.windows.push({ title: 'Caption', tag: 'caption' }) - 1
                 config.windows[index].dock = item.checked ? 'top' : undefined
+                console.log('[@proj-airi/stage-tamagotchi] [Tray] Dock Top Clicked:', item.checked, 'Index:', index)
                 params.updateConfig(config)
                 params.captionWindow.triggerMove()
                 rebuildContextMenu()

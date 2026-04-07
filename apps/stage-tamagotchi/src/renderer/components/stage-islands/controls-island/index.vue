@@ -20,6 +20,7 @@ import GeminiControls from './gemini-controls.vue'
 import IndicatorMicVolume from './indicator-mic-volume.vue'
 
 import {
+  electronCaptionSyncDocking,
   electronCaptionToggleVisibility,
   electronOpenChat,
   electronOpenSettings,
@@ -69,6 +70,7 @@ const isLinux = ref(false)
 const hideWindow = useElectronEventaInvoke(electronWindowHide)
 const setAlwaysOnTop = useElectronEventaInvoke(electronWindowSetAlwaysOnTop)
 const toggleCaptionVisibility = useElectronEventaInvoke(electronCaptionToggleVisibility)
+const syncCaptionDocking = useElectronEventaInvoke(electronCaptionSyncDocking)
 
 const expanded = ref(false)
 const geminiExpanded = ref(false)
@@ -622,7 +624,12 @@ function triggerWardrobeItem(id: string) {
               <ControlButtonTooltip>
                 <ControlButton
                   :button-style="adjustStyleClasses.button"
-                  @click="settingsStore.captionDocking = (settingsStore.captionDocking === 'bottom' ? 'top' : 'bottom')"
+                  @click="() => {
+                    const next = (settingsStore.captionDocking === 'bottom' ? 'top' : 'bottom')
+                    console.log('[ControlIsland] Toggling Docking Mode from Island Button:', { current: settingsStore.captionDocking, next })
+                    settingsStore.captionDocking = next
+                    syncCaptionDocking(next)
+                  }"
                 >
                   <div
                     :class="[

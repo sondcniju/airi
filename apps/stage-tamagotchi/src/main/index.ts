@@ -14,8 +14,8 @@ import { createLoggLogger, injeca, lifecycle } from 'injeca'
 import { isLinux } from 'std-env'
 
 import icon from '../../resources/icon.png?asset'
-import { electronCaptionToggleVisibility } from '../shared/eventa'
 
+import { electronCaptionSyncDocking, electronCaptionToggleVisibility } from '../shared/eventa'
 import { openDebugger, setupDebugger } from './app/debugger'
 import { createGlobalAppConfig } from './configs/global'
 import { emitAppBeforeQuit, emitAppReady, emitAppWindowAllClosed } from './libs/bootkit/lifecycle'
@@ -221,8 +221,12 @@ app.whenReady().then(async () => {
       createVisionService({ context })
       const sensorsServicePromise = createSensorsService({ context })
       defineInvokeHandler(context, electronCaptionToggleVisibility, async () => {
-        console.log('[@proj-airi/stage-tamagotchi] Caption visibility toggle triggered via Control Island')
+        console.log('[@proj-airi/stage-tamagotchi] [Main] Caption visibility toggle triggered via Control Island')
         await deps.captionWindow.toggleVisibility()
+      })
+      defineInvokeHandler(context, electronCaptionSyncDocking, async (dock) => {
+        console.log('[@proj-airi/stage-tamagotchi] [Main] Caption docking sync triggered via Control Island:', dock)
+        await deps.captionWindow.triggerMove(dock)
       })
 
       const restoreCaption = () => {

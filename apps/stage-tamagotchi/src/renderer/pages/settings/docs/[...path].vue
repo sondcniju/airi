@@ -4,10 +4,10 @@ meta:
 </route>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { useI18n } from 'vue-i18n'
 import { MarkdownRenderer } from '@proj-airi/stage-ui/components'
+import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 
 const route = useRoute()
 const { locale } = useI18n()
@@ -20,7 +20,7 @@ const loading = ref(true)
 const diagnostics = ref('')
 
 const segments = computed(() => {
-  const path = route.params.path as string[] | string
+  const path = (route.params as any).path as string[] | string
   if (Array.isArray(path)) {
     return path.filter(Boolean)
   }
@@ -31,7 +31,7 @@ async function loadContent() {
   loading.value = true
   const lang = locale.value || 'en'
   const pathStr = segments.value.join('/') || 'overview'
-  
+
   const candidates = [
     `../../../../../../../docs/content/${lang}/docs/${pathStr}.md`,
     `../../../../../../../docs/content/${lang}/docs/${pathStr}/index.md`,
@@ -53,14 +53,14 @@ async function loadContent() {
     try {
       const rawRaw = await (loader() as Promise<string>)
       const raw = rawRaw.trim()
-      
+
       // Improved Frontmatter Extraction (Handles CRLF and leading whitespace/BOM)
-      const fmRegex = /^[\s\uFEFF]*---\r?\n([\s\S]*?)\r?\n---/
+      const fmRegex = /^\s*---\r?\n([\s\S]*?)\r?\n---/
       const fmMatch = raw.match(fmRegex)
-      
+
       let title = ''
       let stripped = raw
-      
+
       if (fmMatch) {
         const fm = fmMatch[1]
         const titleMatch = fm.match(/title:\s*(.*)/)
@@ -68,28 +68,32 @@ async function loadContent() {
           title = titleMatch[1].replace(/['"]/g, '').trim()
         }
         stripped = raw.replace(fmRegex, '').trim()
-      } else {
+      }
+      else {
         // Fallback: If no --- block at start, check for loose "title: " at very start
-        const looseTitleMatch = raw.match(/^[\s\uFEFF]*title:\s*(.*)/)
+        const looseTitleMatch = raw.match(/^\s*title:\s*(.*)/)
         if (looseTitleMatch) {
           title = looseTitleMatch[1].split('\n')[0].replace(/['"]/g, '').trim()
-          stripped = raw.replace(/^[\s\uFEFF]*title:.*\n?/, '').trim()
+          stripped = raw.replace(/^\s*title:.*\n?/, '').trim()
         }
       }
-      
+
       // Ensure we don't duplicate a title if the md already starts with #
       if (title && !stripped.startsWith('# ')) {
         content.value = `# ${title}\n\n${stripped}`
-      } else {
+      }
+      else {
         content.value = stripped
       }
 
       diagnostics.value = `Lang: ${lang} | Found: ${finalPath} | Title: ${title || 'NONE'}`
-    } catch (e: any) {
+    }
+    catch (e: any) {
       content.value = `# Error\n${e.message}`
       diagnostics.value = `Load Error: ${e.message}`
     }
-  } else {
+  }
+  else {
     content.value = `# Not Found\nPath: ${pathStr}`
     diagnostics.value = `Not Found in Glob (Size: ${Object.keys(modules).length})`
   }

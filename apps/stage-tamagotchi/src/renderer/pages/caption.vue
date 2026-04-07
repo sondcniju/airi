@@ -113,28 +113,36 @@ const containerStyle = computed(() => ({
       settingsStore.captionDocking === 'top' ? 'items-start' : 'items-end',
     ]"
   >
+    <!-- Content Wrapper (Clean) -->
     <div
       :class="[
-        (!settingsStore.showCaptions || shouldFadeOnCursorWithin) ? 'op-0' : 'op-100',
-        'pointer-events-auto relative select-none rounded-xl px-3 py-2',
-        'backdrop-blur-sm',
-        'transition-all duration-300 ease-in-out',
+        'w-full h-full flex justify-center',
+        settingsStore.captionDocking === 'top' ? 'items-start pt-1' : 'items-end pb-1',
       ]"
-      :style="containerStyle"
     >
-      <div class="max-w-[80vw] flex flex-col gap-1">
-        <div
-          v-if="speakerText"
-          class="rounded-md px-2 py-1 text-[1.1rem] text-neutral-50 font-medium text-shadow-lg text-shadow-color-neutral-900/60"
-        >
-          {{ speakerText }}
-        </div>
-        <div
-          v-if="assistantText"
-          class="rounded-md px-2 py-1 text-[1.25rem] text-primary-50 font-semibold text-stroke-4 text-stroke-primary-300/50 text-shadow-lg text-shadow-color-primary-700/50"
-          :style="{ paintOrder: 'stroke fill' }"
-        >
-          {{ assistantText }}
+      <div
+        :class="[
+          (!settingsStore.showCaptions || shouldFadeOnCursorWithin) ? 'op-0' : 'op-100',
+          'pointer-events-auto relative select-none rounded-xl px-3 py-2',
+          'backdrop-blur-sm',
+          'transition-all duration-300 ease-in-out',
+        ]"
+        :style="containerStyle"
+      >
+        <div class="max-w-[80vw] flex flex-col gap-1">
+          <div
+            v-if="speakerText"
+            class="rounded-md px-2 py-1 text-[1.1rem] text-neutral-50 font-medium text-shadow-lg text-shadow-color-neutral-900/60"
+          >
+            {{ speakerText }}
+          </div>
+          <div
+            v-if="assistantText"
+            class="rounded-md px-2 py-1 text-[1.25rem] text-primary-50 font-semibold text-stroke-4 text-stroke-primary-300/50 text-shadow-lg text-shadow-color-primary-700/50"
+            :style="{ paintOrder: 'stroke fill' }"
+          >
+            {{ assistantText }}
+          </div>
         </div>
       </div>
     </div>
