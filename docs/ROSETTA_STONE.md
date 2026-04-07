@@ -69,7 +69,8 @@ Concise mapping of conceptual features to technical file paths for rapid context
 ## Nicknames Index
 
 - **"chatbox"** -> `ChatArea.vue` / `Interaction*.vue`
-- **"the island"** -> `Stage.vue`
+- **"the island"** -> `controls-island/index.vue` (aka original island / og island)
+- **"the floating widget"** / **"the standalone window"** / **"the tamagotchi"** -> `Stage.vue`
 - **"pencil artistry"** -> `CardCreationTabArtistry.vue`
 - **"the staging_widgets thing"** -> `apps/stage-tamagotchi/src/renderer/stores/tools/builtin/widgets.ts` (The spawning tool)
 - **"the backends"** -> `packages/stage-ui/src/stores/providers.ts`

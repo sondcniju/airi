@@ -103,7 +103,8 @@ Concise mapping of conceptual features to technical file paths for rapid context
 
 ### Nicknames Index
 - **"chatbox"** -> `ChatArea.vue` / `Interaction*.vue`
-- **"the island"** -> `Stage.vue`
+- **"the island"** -> `controls-island/index.vue` (aka original island / og island)
+- **"the floating widget"** / **"the standalone window"** / **"the tamagotchi"** -> `Stage.vue`
 - **"pencil artistry"** -> `CardCreationTabArtistry.vue`
 - **"the staging_widgets thing"** -> `apps/stage-tamagotchi/src/renderer/stores/tools/builtin/widgets.ts` (The spawning tool)
 - **"the backends"** -> `packages/stage-ui/src/stores/providers.ts`
@@ -170,6 +171,16 @@ Concise mapping of conceptual features to technical file paths for rapid context
 ## i18n
 
 - Add/modify translations in `packages/i18n`; avoid scattering i18n across apps/packages.
+- **Large YAML Management**: For large files (e.g., `en.yaml` with 3500+ lines), use `scripts/yaml-manager.js` to avoid memory issues and ensure structural integrity.
+  - **Commands**:
+    - `node scripts/yaml-manager.js analyze <file>`: Show compact tree structure with line numbers.
+    - `node scripts/yaml-manager.js audit <file>`: Check for duplicate keys.
+    - `node scripts/yaml-manager.js search <file> <string>`: Find line numbers for a specific string.
+    - `node scripts/yaml-manager.js find-key <file> <key>`: Locate specific YAML keys.
+    - `node scripts/yaml-manager.js update <file> <path.to.key> <value>`: Safely update or insert a value.
+    - `node scripts/yaml-manager.js sync <src> <dest>`: Find keys in source missing from destination.
+    - `node scripts/yaml-manager.js clean <file>`: Strip trailing garbage/fix corruption.
+    - `node scripts/yaml-manager.js fix-syntax <file>`: Quote scalars containing colons.
 
 ## CSS/UNO
 
@@ -197,4 +208,7 @@ Concise mapping of conceptual features to technical file paths for rapid context
 - Keep changes scoped; use workspace filters (`pnpm -F <workspace> <script>`).
 - Maintain structured `README.md` documentation for each `packages/` and `apps/` entry, covering what it does, how to use it, when to use it, and when not to use it.
 - Always run `pnpm typecheck` and `pnpm lint:fix` after finishing a task.
+- **Commit & Push Etiquette**:
+  - **Never** commit or push untested changes. Verify that your specific changes work as expected in the target environment.
+  - Commit messages must signify **what is actually being submitted**, not just the intent or a vague "fix". If you fixed X, say `fix: X`; if you refactored Y, say `refactor: Y`.
 - Use Conventional Commits for commit messages (e.g., `feat: add runner reconnect backoff`).
