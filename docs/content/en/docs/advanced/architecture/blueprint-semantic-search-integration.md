@@ -14,16 +14,16 @@ We shift from "Search all messages" to **"Manage Episodic, Semantic & Emotional 
 
 ---
 
-## ⚖️ 2. The Philosophy: Lightweight vs. "Big-Boy" Models
+## ⚖️ 2. The Philosophy: Hybrid Intelligence
 
-While projects like **Plast Mem** utilize standalone processes and "Big-Boy" local models (e.g., `qwen3:8b` via Rust/Apalis), AIRI targets a **Browser-Native, Zero-Install Architecture**.
+While projects like **Plast Mem** utilize standalone processes to run local 8B models, AIRI utilizes a **Hybrid Intelligence** architecture. We split the workload to achieve "Hyperscale" reasoning while maintaining a zero-install, browser-native storage runtime.
 
-| Feature | Standalone (Plast Mem) | Lightweight (AIRI) |
+| Layer | Technology | Result |
 | :--- | :--- | :--- |
-| **Env** | Local Binary / Rust / Dedicated Process | **Web Worker / JavaScript / Browser Native** |
-| **Model Size** | 7B - 14B Params | **0.5B - 1.5B Params** (via Transformers.js) |
-| **Performance** | High Accuracy (LoCoMo ~66%) | **Efficiency First** (Targeting 40-50% LoCoMo) |
-| **Mood** | Separate System (Character Core) | **Side-Effect of Consolidation** (Efficiency pass) |
+| **Reasoning (Extraction/PCL)** | **Configured User LLM** (Gemini/OpenAI/Anthropic) | Triple/Quad-digit parameter intelligence. |
+| **Embedding Vectorization** | **Local Web Worker** (e.g., `qwen3-embedding:0.6b` via Transformers.js) | Zero API cost, instant index generation. |
+| **Search (BM25 + Vector RRF)** | **Orama / IndexedDB** | Fast, private, browser-native storage. |
+| **Mood Extraction** | **Side-Effect of Reasoning** | Vibe is emitted during the LLM extraction pass. |
 
 ---
 
@@ -112,9 +112,9 @@ Add the validated stack to `packages/stage-ui/package.json`:
 
 ### Phase 2: The Cognitive Worker (Job Runner)
 Create `packages/stage-ui/src/libs/workers/memory/cognitive-worker.ts`:
--   **Persistent Queue**: The worker monitors a "Job" store in IndexedDB or a `unconsolidated` flag on Episode entries.
--   **Execution Logic**: Runs the 2-pass PCL logic (Predict -> Calibrate).
--   **Concurrency**: Uses `p-queue` or a simple semaphore to limit parallel LLM calls.
+-   **Persistent Queue**: The worker monitors a "Job" store in IndexedDB.
+-   **Execution Logic**: Dispatches the 2-pass PCL summary prompt to the **User's Configured LLM API**.
+-   **Local Indexing**: Generates the vector embedding using `qwen3-embedding:0.6b` inside the worker via Transformers.js.
 
 ---
 
@@ -132,14 +132,15 @@ Create `packages/stage-ui/src/libs/workers/memory/cognitive-worker.ts`:
 
 ## 📈 9. Benchmarks: The LoCoMo Target
 
-To validate AIRI's memory quality in the browser, we benchmark against the **LoCoMo (Long-term Conversational Memory)** dataset.
+To validate AIRI's memory quality, we benchmark against the **LoCoMo (Long-term Conversational Memory)** dataset.
 
-While big-process systems like `plast-mem` (8B+ models) score ~66%, we target a high-performance "Web-Native" tier.
+By utilizing a **Hybrid Intelligence** approach (remote Hyperscale reasoning + local BM25/Vector RRF search), our performance ceiling changes drastically.
 
--   **Target Model Scale**: ~1.3B - 1.5B (targeting 40-50% LoCoMo score).
+-   **Target Score**: **70%+ LoCoMo Score**.
+-   **Why**: Since we use the configured API (e.g., Gemini 1.5 Pro, Claude 3.5), we bypass the limitations of a local 8B model. Our reasoning engine has hundreds of billions of parameters.
 -   **Validation Axes**:
-    -   **Multi-hop Reasoning**: Connecting facts across distant sessions.
-    -   **Temporal Continuity**: Tracking when state changes (like identity or mood) occurred.
+    -   **Multi-hop Reasoning**: Connecting facts across distant sessions (Hyperscale excels here).
+    -   **Temporal Continuity**: Tracking when state changes occurred.
 
 ---
 
