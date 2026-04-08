@@ -1,7 +1,6 @@
+import { getMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { tool } from '@xsai/tool'
 import { z } from 'zod'
-
-import { getMcpToolBridge } from '../stores/mcp-tool-bridge'
 
 const tools = [
   tool({
@@ -100,4 +99,4 @@ const tools = [
   }),
 ]
 
-export const mcp = async () => Promise.all(tools)
+export const mcpTools = async () => Promise.all(tools)

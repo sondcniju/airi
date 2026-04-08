@@ -8,8 +8,6 @@ import { streamText } from '@xsai/stream-text'
 import { defineStore } from 'pinia'
 import { toRaw } from 'vue'
 
-import { mcp } from '../tools'
-
 export type StreamEvent
   = | { type: 'text-delta', text: string }
     | { type: 'reasoning-delta', text: string }
@@ -137,7 +135,6 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
   const supportedTools = streamOptionsToolsCompatibilityOk(model, chatProvider, messages, options)
   const tools = supportedTools
     ? [
-        ...await mcp(),
         ...await resolveTools(),
       ]
     : undefined
@@ -235,7 +232,6 @@ async function generateFrom(model: string, chatProvider: ChatProvider, messages:
   const supportedTools = streamOptionsToolsCompatibilityOk(model, chatProvider, messages, options)
   const tools = supportedTools
     ? [
-        ...await mcp(),
         ...await resolveTools(),
       ]
     : undefined

@@ -10,7 +10,6 @@ import { toast } from 'vue-sonner'
 
 import { useLlmmarkerParser } from '../../composables/llm-marker-parser'
 import { createStreamingCategorizer } from '../../composables/response-categoriser'
-import { mcp } from '../../tools'
 import { useAudioContext } from '../audio'
 import { useChatOrchestratorStore } from '../chat'
 import { useChatContextStore } from '../chat/context-store'
@@ -306,10 +305,9 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     ws.onopen = async () => {
       console.log('[LiveSession] WebSocket connected. Resolving tools and sending setup...')
 
-      // Resolve the full AIRI toolchain: proactive tools + MCP tools
+      // Resolve the full AIRI toolchain: proactive tools
       const proactiveTools = await proactivityStore.resolveRegisteredTools() as Tool[]
-      const mcpTools = await mcp() as Tool[]
-      resolvedToolRegistry = [...proactiveTools, ...mcpTools]
+      resolvedToolRegistry = [...proactiveTools]
 
       // Build the Gemini tools array
       const geminiTools: Record<string, unknown>[] = []

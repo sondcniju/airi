@@ -20,6 +20,14 @@ This document tracks the current development state of the AIRI project, specific
 
 ## Recent Changes (in `airi-rebase-scratch`)
 
+#### 2026-04-07 - Toolchain Consolidation & Conditional Guards
+- **Builtin Tools Unification**: Successfully coalesced the `mcp` tools into the main `builtinTools` registry. MCP is no longer a "sidecar" dependency; it's now part of the unified pipeline shared by Typed Chat, STT, and Proactivity.
+- **Conditional Tool Guards**: Implemented a reactive guard layer for tool inclusion. The LLM is now protected from "tool-call overload" by dynamically hiding unavailable features:
+  - **Artistry Guard**: `stage_widgets` and `image_journal` are omitted if Artistry is not configured.
+  - **Sticker Guard**: `spawn_sticker` is hidden if the character's sticker library is empty.
+  - **MCP Guard**: MCP tools are only registered if at least one MCP server is configured in the system.
+- **Legacy Store Cleanup**: Stripped manual tool injection logic from `llm` and `live-session` stores, significantly reducing technical debt and ensuring consistent behavior across all interaction surfaces.
+
 #### 2026-04-05 - Caption Continuity & Hardware-Level Resets
 - **Hardware-Level Turn Reset**: Implemented a definitive solution for caption "blob" accumulation. Both the sender (`Stage.vue`) and receiver (`caption.vue`) now listen directly to the `airi-chat-stream` broadcast; the moment a new user message is detected, both the internal string accumulator and the overlay display are wiped clean.
 - **AI-Only Caption Guard**: Hardened the codebase with explicit "Ninja Guard" comments to forbid the inclusion of user speech in the caption overlay, preserving it as a pure AI-only context tool.
