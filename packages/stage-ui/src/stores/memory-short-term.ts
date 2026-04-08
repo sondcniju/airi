@@ -104,6 +104,7 @@ function buildSummarizerMessages(
       content: [
         'You summarize one local-calendar day of chat history into a compact short-term memory block for future session continuity.',
         'Write concise markdown only.',
+        'Use the same main language(s) as the chat history for the summary.',
         'Focus on salient events, emotional tone shifts, promises or plans, preferences, facts worth remembering, and unresolved threads.',
         'Do not roleplay. Do not embellish. Do not invent facts. Do not quote large chunks of dialogue.',
         `Aim for roughly ${targetTokensPerDay} tokens or less unless the day is unusually dense.`,

@@ -156,6 +156,11 @@ This document tracks the current development state of the AIRI project, specific
     - [ ] **Outfit Context**: Integrate available and active outfit labels into the Chat Context Manager.
     - [ ] **Permanent Outfit Changes (`change_outfit` tool)**: Implement a polymorphic tool for the AI to perform non-ephemeral swaps, supporting mutually exclusive swaps and additive layer/accessory controls. (Blocked until Live2D outfit system is ready).
 - **Browser-Integrated Card Imports (Phase 2)**: (Next Focus) Deep integration with external character sites via an in-app Electron browser. Hooks for direct importing while respecting site ads/iframes.
+- **Memory & Continuity Management**: (Next Session focus)
+  - [ ] **Short-Term Memory Interface**: Implement a dedicated UI in Settings for managing stored summary blocks:
+    - [ ] **Delete Button**: Allow users to remove inaccurate or "hallucinated" summary blocks manually to prevent them from poisoning future context.
+    - [ ] **Edit Button**: Implement manual editing for summary blocks, allowing users to correct facts or refine the AI's internal continuity record.
+    - [ ] **Language Consistency**: (Completed) Refined the summarization prompt to respect the primary language of the conversation.
 - **Vision Feature Integration**:
   - [/] **Gemini 2.5 vs 3.1 Support**: Implement support for both versions to compare the "richer" experience of 2.5 vs the standard 3.1 implementation. [/]
 - **Unified Multi-Platform Service Revamp**:
