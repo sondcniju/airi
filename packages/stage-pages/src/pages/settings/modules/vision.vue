@@ -25,6 +25,10 @@ const customModelName = ref('')
 const modelSearchQuery = ref('')
 
 const filteredModels = computed(() => {
+  // Bypass strict modality filtering for local/BYOM providers as they often lack metadata
+  if (['lm-studio', 'ollama', 'openai-compatible'].includes(activeProvider.value)) {
+    return providerModels.value
+  }
   const models = providerModels.value.filter((model: any) => model.capabilities?.includes('vision'))
   if (typeof localStorage !== 'undefined' && localStorage.getItem('airi:debug') === '1') {
     console.log(`[Vision UI] Provider Models: ${providerModels.value.length}, Filtered Models: ${models.length}`)
