@@ -4,8 +4,8 @@ meta:
 </route>
 
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
 import { onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 
 const router = useRouter()
 

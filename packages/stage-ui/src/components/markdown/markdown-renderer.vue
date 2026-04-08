@@ -68,7 +68,8 @@ async function processContent() {
 function handleLinkClick(e: MouseEvent) {
   const target = e.target as HTMLElement
   const anchor = target.closest('a')
-  if (!anchor) return
+  if (!anchor)
+    return
 
   const href = anchor.getAttribute('href')
   if (href && (href.startsWith('http') || href.startsWith('mailto:'))) {
@@ -91,13 +92,12 @@ onMounted(() => {
   <div
     :class="props.class"
     class="markdown-content"
-    v-html="processedContent"
     @click="handleLinkClick"
+    v-html="processedContent"
   />
 </template>
 
 <style scoped>
-
 .markdown-content :deep(h1) {
   font-size: 2.5rem;
   font-weight: 900;

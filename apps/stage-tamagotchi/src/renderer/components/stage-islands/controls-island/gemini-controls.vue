@@ -9,10 +9,11 @@ import { storeToRefs } from 'pinia'
 import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { noticeWindowEventa } from '../../../../shared/eventa'
-import { useControlsIslandStore } from '../../../stores/controls-island'
 import ControlButtonTooltip from './control-button-tooltip.vue'
 import ControlButton from './control-button.vue'
+
+import { noticeWindowEventa } from '../../../../shared/eventa'
+import { useControlsIslandStore } from '../../../stores/controls-island'
 
 const emit = defineEmits<{
   (e: 'close'): void
