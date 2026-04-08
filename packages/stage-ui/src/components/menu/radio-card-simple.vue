@@ -5,11 +5,13 @@ defineProps<{
   value: string
   title: string
   description?: string
+  disabled?: boolean
 }>()
 
 defineSlots<{
   topRight?: any
   bottomRight?: any
+  title?: any
 }>()
 
 const modelValue = defineModel<string>({ required: true })
@@ -28,9 +30,10 @@ const modelValue = defineModel<string>({ required: true })
       modelValue === value
         ? 'form_radio-card-simple-active'
         : '',
+      disabled ? 'opacity-50 grayscale-20 pointer-events-none' : 'cursor-pointer',
     ]"
     flex="~ row gap-4"
-    w-full shrink-0 cursor-pointer items-center rounded-xl px-4 py-3 text-left
+    w-full shrink-0 items-center rounded-xl px-4 py-3 text-left
   >
     <input
       v-model="modelValue"
@@ -38,6 +41,7 @@ const modelValue = defineModel<string>({ required: true })
       type="radio"
       :name="name"
       :value="value"
+      :disabled="disabled"
       class="absolute opacity-0 [&:checked+div]:border-primary-500 [&:checked+div_.radio-dot]:opacity-100 dark:[&:checked+div]:border-primary-400"
     >
     <div
@@ -62,7 +66,9 @@ const modelValue = defineModel<string>({ required: true })
         ]"
         transition="all duration-200 ease-in-out"
       >
-        {{ title }}
+        <slot name="title">
+          {{ title }}
+        </slot>
       </span>
       <span
         v-if="description"

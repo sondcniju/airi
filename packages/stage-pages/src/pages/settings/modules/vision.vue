@@ -307,7 +307,17 @@ function handleDeleteProvider(providerId: string) {
             title="Forward to LLM"
             description="Forward the description of the image to your consciousness model"
             class="min-w-65"
-          />
+            :disabled="true"
+          >
+            <template #title>
+              <div flex="~ row items-center gap-2">
+                <span>Forward to LLM</span>
+                <span class="rounded bg-neutral-200 px-1.5 py-0.5 text-[10px] text-neutral-500 font-bold tracking-wider uppercase dark:bg-neutral-800 dark:text-neutral-400">
+                  Planned
+                </span>
+              </div>
+            </template>
+          </RadioCardSimple>
         </div>
       </div>
     </div>
