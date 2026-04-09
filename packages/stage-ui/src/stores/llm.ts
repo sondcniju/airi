@@ -165,8 +165,11 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
       try {
         await options?.onStreamEvent?.(event as StreamEvent)
         if (event && (event as StreamEvent).type === 'finish') {
-          const finishReason = (event as any).finishReason
-          if (finishReason !== 'tool_calls' || !options?.waitForTools)
+          // If we are not waiting for tools, resolve immediately on the first finish event.
+          // Otherwise, we rely on `result.messages.then()` resolving at the very end of all steps,
+          // because buggy endpoints (like Gemini's OpenAI proxy) might erroneously return `stop`
+          // instead of `tool_calls` during the first step of a multi-turn tool interaction.
+          if (!options?.waitForTools)
             resolveOnce()
         }
         else if (event && (event as StreamEvent).type === 'error') {
@@ -198,7 +201,7 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
 
       // We MUST catch all promises returned by streamText to ensure the main promise settles
       // and to prevent "Uncaught (in promise)" errors if the initial handshake fails (e.g. 429).
-      void result.messages.catch((err) => {
+      void result.messages.then(() => resolveOnce()).catch((err) => {
         rejectOnce(err)
         console.error('Stream messages error:', err)
       })
