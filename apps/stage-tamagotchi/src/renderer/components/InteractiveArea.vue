@@ -6,6 +6,7 @@ import { estimateTokens, formatTokenCount } from '@proj-airi/stage-shared'
 import {
   CharacterContextDialog,
   ChatHistory,
+  ChatImagesPopover,
   ChatMemoryPopover,
   JournalPreviewModal,
 } from '@proj-airi/stage-ui/components'
@@ -19,6 +20,7 @@ import { useShortTermMemoryStore } from '@proj-airi/stage-ui/stores/memory-short
 import { useTextJournalStore } from '@proj-airi/stage-ui/stores/memory-text-journal'
 import { buildSystemPrompt, useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
+import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettingsChat } from '@proj-airi/stage-ui/stores/settings'
 import { BasicTextarea } from '@proj-airi/ui'
@@ -27,6 +29,7 @@ import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka
 import { computed, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
+import { toast } from 'vue-sonner'
 
 import { builtinTools } from '../stores/tools/builtin'
 
@@ -58,7 +61,31 @@ const isComposing = ref(false)
 const CHAT_WINDOW_TITLE = 'AIRI - Chat Window'
 
 const journalPreviewStore = useJournalPreviewStore()
+const visionStore = useVisionStore()
 const { openTextPreview, openImagePreview, closePreview } = journalPreviewStore
+
+function addImageAttachmentFromBase64(data: string, mimeType: string, _fileName?: string) {
+  let url = ''
+  try {
+    const binary = atob(data)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i)
+    }
+    const blob = new Blob([bytes], { type: mimeType })
+    url = URL.createObjectURL(blob)
+  }
+  catch {
+    url = `data:${mimeType};base64,${data}`
+  }
+
+  attachments.value.push({
+    type: 'image' as const,
+    data,
+    mimeType,
+    url,
+  })
+}
 
 // --- Journal Preview Data ---
 const latestTextEntries = computed(() => {
@@ -209,16 +236,72 @@ async function handleFilePaste(files: File[]) {
       reader.onload = (e) => {
         const base64Data = (e.target?.result as string)?.split(',')[1]
         if (base64Data) {
-          attachments.value.push({
-            type: 'image' as const,
-            data: base64Data,
-            mimeType: file.type,
-            url: URL.createObjectURL(file),
-          })
+          addImageAttachmentFromBase64(base64Data, file.type, file.name)
         }
       }
       reader.readAsDataURL(file)
     }
+  }
+}
+
+function addScreenshotAttachment(data: string, mimeType: string) {
+  addImageAttachmentFromBase64(data, mimeType, 'screenshot.png')
+}
+
+async function handleScreenshotClick() {
+  console.log('[InteractiveArea] Manual screenshot capture requested via visionStore...')
+  try {
+    const result = await visionStore.captureSnapshot({ width: 1280, height: 720 }) as any
+    console.log('[InteractiveArea] Capture result:', result ? (result.error ? result.error : 'Success') : 'Null/Empty')
+
+    if (result?.error === 'permission_denied') {
+      toast.error('Screen recording permission required.', {
+        action: { label: 'Open Settings', onClick: () => visionStore.openPermissionSettings() },
+      })
+      return
+    }
+
+    if (result?.dataUrl) {
+      const base64 = result.dataUrl.split(',')[1]
+      if (base64) {
+        addScreenshotAttachment(base64, 'image/png')
+        toast.success('Screenshot attached!')
+      }
+    }
+    else {
+      console.warn('[InteractiveArea] Capturing screenshot returned no data. Check screen recording permissions.')
+      toast.error('Capture failed: No data.')
+    }
+  }
+  catch (err) {
+    console.error('[InteractiveArea] Screenshot capture failed:', err)
+  }
+}
+
+async function captureAndSendScreenshot() {
+  console.log('[InteractiveArea] Auto-send screenshot requested (shortcut) via visionStore...')
+  try {
+    const result = await visionStore.captureSnapshot({ width: 1280, height: 720 }) as any
+    if (result?.error === 'permission_denied') {
+      toast.error('Permission denied. Cannot auto-send.', {
+        action: { label: 'Settings', onClick: () => visionStore.openPermissionSettings() },
+      })
+      return
+    }
+    if (result?.dataUrl) {
+      const base64 = result.dataUrl.split(',')[1]
+      if (base64) {
+        addScreenshotAttachment(base64, 'image/png')
+        await handleSend()
+      }
+    }
+    else {
+      console.warn('[InteractiveArea] Auto-send screenshot failed: No data. Check permissions.')
+      toast.error('Auto-send failed: No data.')
+    }
+  }
+  catch (err) {
+    console.error('[InteractiveArea] Auto-send screenshot capture failed:', err)
   }
 }
 
@@ -317,6 +400,15 @@ onMounted(() => {
   updateWindowTitle()
   textJournalStore.load()
   shortTermMemory.load()
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.ctrlKey && e.key === 'F7') {
+      e.preventDefault()
+      captureAndSendScreenshot()
+    }
+  }
+
+  window.addEventListener('keydown', handleKeyDown)
 })
 
 watch(messageInput, () => {
@@ -458,33 +550,11 @@ watch(messageInput, () => {
         @view-context="showContext = true"
       />
 
-      <!-- Image Journal Deep Link -->
-      <button
-        class="max-h-[10lh] min-h-[1lh]"
-        bg="neutral-100 dark:neutral-800"
-        text="lg neutral-500 dark:neutral-400"
-        hover:text="primary-500 dark:primary-400"
-        flex items-center justify-center rounded-md p-2 outline-none
-        transition-colors transition-transform active:scale-95
-        title="Image Journal"
-        @click="navigateToImageJournal"
-      >
-        <div class="i-solar:gallery-bold-duotone" />
-      </button>
-
-      <!-- Attach Image -->
-      <button
-        class="max-h-[10lh] min-h-[1lh]"
-        bg="neutral-100 dark:neutral-800"
-        text="lg neutral-500 dark:neutral-400"
-        hover:text="primary-500 dark:primary-400"
-        flex items-center justify-center rounded-md p-2 outline-none
-        transition-colors transition-transform active:scale-95
-        title="Attach Image"
-        @click="fileInput?.click()"
-      >
-        <div class="i-solar:camera-add-bold-duotone" />
-      </button>
+      <ChatImagesPopover
+        @attach="fileInput?.click()"
+        @screenshot="handleScreenshotClick"
+        @view-journal="navigateToImageJournal"
+      />
 
       <!-- Clear Messages (with safety hook) -->
       <button

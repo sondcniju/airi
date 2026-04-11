@@ -13,3 +13,6 @@ export interface ScreenCaptureResult {
 }
 
 export const visionCaptureScreen = defineInvokeEventa<ScreenCaptureResult | null, ScreenCaptureOptions | undefined>('eventa:invoke:electron:vision:capture-screen')
+
+export const visionCheckPermission = defineInvokeEventa<'granted' | 'denied' | 'restricted' | 'unknown', never>('eventa:invoke:electron:vision:check-permission')
+export const visionRequestPermission = defineInvokeEventa<void, never>('eventa:invoke:electron:vision:request-permission')
