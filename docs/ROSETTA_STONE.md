@@ -34,15 +34,16 @@ Concise mapping of conceptual features to technical file paths for rapid context
 ## Engine & Subsystems
 
 - **ACT Pipeline**: `packages/stage-ui/src/composables/use-llm-marker-parser.ts` (Parser) | `packages/stage-ui-three/src/services/expression.ts` (Execution)
-- **Memory (Long-term)**: `packages/stage-ui/src/stores/memory-text-journal.ts` (IndexedDB) | `Settings -> Memory -> Long Term`
+- **Memory (Long-term / Semantic)**: `packages/stage-ui/src/stores/memory-text-journal.ts` (IndexedDB) | `Settings -> Memory -> Long Term`
+- **Memory (Short-term / Episodic)**: `packages/stage-ui/src/stores/memory-short-term.ts` (Daily summaries / Episode segmentation)
+- **Cognitive Dreaming (Consolidation)**: `packages/stage-ui/src/stores/proactivity.ts` (Idle task logic)
 - **Text Journal Operations**: `write`, `search` (Involved in tool definitions)
 - **Semantic Search Index**: `Transformers.js` / `Orama` / `Voy` (Local indexing in `IndexedDB`)
-- **Memory (Short-term)**: `packages/stage-ui/src/stores/memory-short-term.ts` (Daily summaries)
 - **VRM Animations**: `packages/stage-ui-three/src/assets/vrm/animations/index.ts` (Assets) | `packages/stage-ui-three/src/stores/model-store.ts` (State)
 - **Artistry/ComfyUI**: `apps/stage-tamagotchi/src/main/services/airi/widgets/providers/comfyui.ts` (Native HTTP API)
 - **Scene/Background**: `packages/stage-ui/src/components/scenes/Stage.vue` (Layer) | `packages/stage-pages/src/pages/settings/scene/index.vue` (UI)
 - **Model Position/Lights**: `packages/stage-ui/src/components/scenarios/settings/model-settings/vrm.vue`
-- **Proactivity/Heartbeats**: `packages/stage-ui/src/stores/proactivity.ts` (Idle logic)
+- **Proactivity/Heartbeats**: `packages/stage-ui/src/stores/proactivity.ts` (Idle logic / Amusement loop)
 - **Control Island State**: `packages/stage-ui/src/stores/settings/controls-island.ts` (Shared) | `apps/stage-tamagotchi/src/renderer/stores/controls-island.ts` (Renderer)
 - **Image Journal Store**: `packages/stage-ui/src/stores/background.ts` (Handles Builtin, Scene, Journal, and Selfie types)
 - **Artistry Bridge**: `apps/stage-tamagotchi/src/main/services/airi/widgets/artistry-bridge.ts` (Main process bridge for image widgets)
@@ -55,7 +56,8 @@ Concise mapping of conceptual features to technical file paths for rapid context
 - **Assistant Bubble**: `.../chat/assistant-item.vue`
 - **User Bubble**: `.../chat/user-item.vue`
 - **Bubble Render Parts**: `.../chat/response-part.vue` (Text) | `.../chat/tool-call-block.vue` (Tools)
-- **Journal Strip (Chips)**: `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue` (Scrollable Image/Text previews)
+- **Journal Strip (Chips)**: `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue` (Scrollable Image/Text/Episode previews)
+- **Mood / Vibe Indicator**: `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue` (Emotional baseline display)
 - **Toolbar Strip**: `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue` (Buttons: Grounding, Memory, Trash, Send)
 - **Bubble Styling (ACT)**: extracted from performance tokens in `ChatArea.vue`
 
@@ -65,13 +67,18 @@ Concise mapping of conceptual features to technical file paths for rapid context
 - `packages/stage-shared`: Common constants (`emotions.ts`, `events.ts`) and utils.
 - `apps/stage-tamagotchi`: Electron-specific main/renderer code.
 - `docs/content/en/docs/advanced/architecture/`: Source for all detailed architecture specifications.
+- `docs/design-prospective-rich-journal.md`: Specification for the Cognitive Memory / Dreaming UI.
 
 ## Nicknames Index
 
 - **"chatbox"** -> `ChatArea.vue` / `Interaction*.vue`
 - **"the island"** -> `controls-island/index.vue` (aka original island / og island)
 - **"the floating widget"** / **"the standalone window"** / **"the tamagotchi"** -> `Stage.vue`
+- **"the rich journal"** -> `design-prospective-rich-journal.md`
+- **"dreaming"** -> Memory consolidation via proactive idle tasks.
+- **"vibe indicator"** -> The emotional dashboard in the chatbox.
 - **"pencil artistry"** -> `CardCreationTabArtistry.vue`
 - **"the staging_widgets thing"** -> `apps/stage-tamagotchi/src/renderer/stores/tools/builtin/widgets.ts` (The spawning tool)
 - **"the backends"** -> `packages/stage-ui/src/stores/providers.ts`
 - **"the brain"** -> `packages/stage-ui/src/stores/modules/`
+
