@@ -21,16 +21,21 @@ const hasExpressions = computed(() => availableExpressions.value.length > 0)
 // === Layer 1: Toggle ===
 function toggleExpression(name: string) {
   const current = activeExpressions.value[name] || 0
-  const next = current > 0 ? 0 : 1
-  activeExpressions.value = { ...activeExpressions.value, [name]: next }
+  if (current > 0) {
+    // Toggle OFF: Remove from manual overrides to allow AI/Emote system to resume control
+    const updated = { ...activeExpressions.value }
+    delete updated[name]
+    activeExpressions.value = updated
+  }
+  else {
+    // Toggle ON: Take manual control
+    activeExpressions.value = { ...activeExpressions.value, [name]: 1 }
+  }
 }
 
 function resetAll() {
-  const reset: Record<string, number> = {}
-  for (const name of availableExpressions.value) {
-    reset[name] = 0
-  }
-  activeExpressions.value = reset
+  // Clear all manual overrides to return full control to the AI/Emote systems
+  activeExpressions.value = {}
 }
 
 function isActive(name: string): boolean {

@@ -403,6 +403,16 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     await loadSession(characterIndex.activeSessionId)
     ensureSession(characterIndex.activeSessionId)
 
+<<<<<<< Updated upstream
+=======
+    // NOTICE: Ensure prompt is up to date immediately after card-switch context is resolved.
+    refreshActiveSystemMessage({
+      sessionId: characterIndex.activeSessionId,
+      characterId,
+      prompt: systemPrompt.value,
+    })
+
+>>>>>>> Stashed changes
     console.info('[ChatSession] ensureActiveSessionForCharacter:resolved', {
       characterId,
       activeSessionId: activeSessionId.value,

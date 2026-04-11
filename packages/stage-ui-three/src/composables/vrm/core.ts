@@ -1,6 +1,7 @@
 import type { VRM, VRMCore } from '@pixiv/three-vrm'
 import type { Mesh, Object3D, Scene } from 'three'
 
+import { VRMExpression, VRMExpressionMorphTargetBind } from '@pixiv/three-vrm'
 import { VRMLookAtQuaternionProxy } from '@pixiv/three-vrm-animation'
 import { Box3, Group, Quaternion, Vector3 } from 'three'
 
@@ -35,17 +36,48 @@ export async function loadVrm(model: string, options?: {
   // VRMUtils.removeUnnecessaryVertices(_vrm.scene)
   // VRMUtils.combineSkeletons(_vrm.scene)
 
-  // Zero out all expression weights on load.
-  // Some VRM models (e.g. Satoimo) ship with non-zero default weights
-  // for custom expressions (hearts, glasses, music overlays), causing
-  // everything to render simultaneously ("megazord" state).
-  // This runs at load time so both static preview and animated views start clean.
+  // Auto-register morph targets that are not formally mapped as VRM Expressions.
+  // This allows the user to add custom expressions directly in Blender without having to map them manually.
   if (_vrm.expressionManager) {
-    const expressionNames = Object.keys(_vrm.expressionManager.expressionMap)
-    for (const name of expressionNames) {
-      _vrm.expressionManager.setValue(name, 0)
+    const expressionManager = _vrm.expressionManager
+    const unmappedMorphs = new Map<string, { node: Mesh, index: number }[]>()
+
+    _vrm.scene.traverse((object: Object3D) => {
+      const mesh = object as Mesh
+      if (mesh.isMesh && mesh.morphTargetDictionary) {
+        for (const [name, index] of Object.entries(mesh.morphTargetDictionary)) {
+          if (!expressionManager.getExpression(name)) {
+            if (!unmappedMorphs.has(name)) {
+              unmappedMorphs.set(name, [])
+            }
+            unmappedMorphs.get(name)!.push({ node: mesh, index })
+          }
+        }
+      }
+    })
+
+    for (const [name, morphData] of unmappedMorphs) {
+      const expression = new VRMExpression(name)
+      morphData.forEach((m) => {
+        expression.addBind(new VRMExpressionMorphTargetBind({
+          primitives: [m.node],
+          index: m.index,
+          weight: 1.0,
+        }))
+      })
+      expressionManager.registerExpression(expression)
     }
-    _vrm.expressionManager.update()
+
+    // Zero out all expression weights on load.
+    // Some VRM models (e.g. Satoimo) ship with non-zero default weights
+    // for custom expressions (hearts, glasses, music overlays), causing
+    // everything to render simultaneously ("megazord" state).
+    // This runs at load time so both static preview and animated views start clean.
+    const expressionNames = Object.keys(expressionManager.expressionMap)
+    for (const name of expressionNames) {
+      expressionManager.setValue(name, 0)
+    }
+    expressionManager.update()
   }
 
   // Disable frustum culling
