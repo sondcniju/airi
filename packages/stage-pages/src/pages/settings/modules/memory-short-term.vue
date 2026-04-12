@@ -17,6 +17,26 @@ const selectedCharacter = ref('')
 const windowSize = ref(3)
 const tokensPerDay = ref(1000)
 
+// --- Mock Chips Data ---
+const mockChipClusters = [
+  {
+    afterId: '', // To be inserted relative to real blocks
+    chips: [
+      { label: '#playful', type: 'mood' },
+      { label: '#technical-curiosity', type: 'flavor' },
+      { label: 'Journal Candidate: Gura VRM Milestone', type: 'journal' },
+    ],
+  },
+  {
+    afterId: '',
+    chips: [
+      { label: '#gentle-teasing', type: 'mood' },
+      { label: '#shared-history', type: 'flavor' },
+      { label: 'Journal Candidate: Project AIRI Launch', type: 'journal' },
+    ],
+  },
+]
+
 const characterOptions = computed<CharacterOption[]>(() => {
   return Array.from(cards.value.entries()).map(([id, card]) => ({
     value: id,
@@ -87,71 +107,111 @@ watch(characterOptions, (options) => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
-    <section class="border border-neutral-200 rounded-2xl bg-neutral-100/90 p-5 dark:border-neutral-700 dark:bg-[rgba(0,0,0,0.26)]">
-      <div class="mb-4 flex items-start gap-3">
-        <div class="i-solar:alarm-bold-duotone text-2xl text-cyan-500" />
-        <div>
-          <h2 class="text-lg text-neutral-700 md:text-2xl dark:text-neutral-200">
-            Short-Term Memory
-          </h2>
-          <p class="text-sm text-neutral-500 dark:text-neutral-400">
-            Daily summary blocks derived from chat history. These are designed to preload recent continuity into the prompt without dragging entire conversation logs into every new session.
+  <div class="font-urbanist flex flex-col gap-8 pb-12">
+    <!-- Premium Header -->
+    <header class="relative overflow-hidden border border-neutral-200 rounded-3xl bg-neutral-100/40 p-8 backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-900/40">
+      <div class="absolute h-64 w-64 bg-cyan-500/10 blur-3xl -right-24 -top-24" />
+      <div class="absolute h-64 w-64 bg-blue-500/10 blur-3xl -bottom-24 -left-24" />
+
+      <div class="relative z-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div class="flex flex-col gap-2">
+          <div class="h-12 w-12 flex items-center justify-center rounded-2xl bg-cyan-500/20 text-3xl text-cyan-500 shadow-inner">
+            <div class="i-solar:pulse-bold-duotone" />
+          </div>
+          <h1 class="text-4xl text-neutral-800 font-bold tracking-tight dark:text-neutral-100">
+            Active Pulse
+          </h1>
+          <p class="max-w-2xl text-lg text-neutral-500 line-height-relaxed dark:text-neutral-400">
+            Daily summary blocks derived from your history. These keep recent continuity fresh without dragging entire logs into every session.
           </p>
         </div>
       </div>
 
-      <div class="grid gap-3 md:grid-cols-3">
-        <div class="border border-neutral-200 rounded-xl bg-white/80 p-4 dark:border-neutral-700 dark:bg-neutral-900/60">
-          <div class="mb-1 text-xs text-neutral-500 font-semibold tracking-wide uppercase dark:text-neutral-400">
-            Source
+      <!-- Tripartite Header Cards -->
+      <div class="grid mt-8 gap-4 md:grid-cols-3">
+        <!-- 1. The Operational Window -->
+        <div class="group border border-neutral-200 rounded-2xl bg-white/50 p-5 shadow-sm transition-all dark:border-neutral-700/50 hover:border-cyan-500/30 dark:bg-neutral-800/40">
+          <div class="mb-3 h-8 w-8 flex items-center justify-center rounded-lg bg-cyan-500/10 text-lg text-cyan-500 transition-transform group-hover:scale-110">
+            <div class="i-solar:history-bold-duotone" />
           </div>
-          <div class="text-sm text-neutral-700 dark:text-neutral-200">
-            Rebuilds summarize the selected character's chat history first. Journal-aware short-term memory comes later.
-          </div>
+          <h3 class="mb-1 text-sm text-neutral-700 font-bold dark:text-neutral-200">
+            The Context Window
+          </h3>
+          <p class="mb-4 text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+            Automatically preloads recent continuity into the active prompt.
+          </p>
+          <ul class="flex flex-col gap-1.5 border-t border-neutral-100 pt-3 dark:border-neutral-700/50">
+            <li v-for="s in ['Daily Summary Blocks', 'Cross-Session Continuity', 'History Distillation']" :key="s" class="flex items-center gap-2 text-[10px] text-neutral-500 font-bold tracking-widest uppercase dark:text-neutral-400">
+              <div class="i-solar:check-circle-bold-duotone text-cyan-500" />
+              {{ s }}
+            </li>
+          </ul>
         </div>
-        <div class="border border-neutral-200 rounded-xl bg-white/80 p-4 dark:border-neutral-700 dark:bg-neutral-900/60">
-          <div class="mb-1 text-xs text-neutral-500 font-semibold tracking-wide uppercase dark:text-neutral-400">
-            Injection
+
+        <!-- 2. Dream Handoff -->
+        <div class="group border border-neutral-200 rounded-2xl bg-white/50 p-5 shadow-sm transition-all dark:border-neutral-700/50 hover:border-violet-500/30 dark:bg-neutral-800/40">
+          <div class="mb-3 h-8 w-8 flex items-center justify-center rounded-lg bg-violet-500/10 text-lg text-violet-500 transition-transform group-hover:scale-110">
+            <div class="i-solar:stars-bold-duotone" />
           </div>
-          <div class="text-sm text-neutral-700 dark:text-neutral-200">
-            The latest blocks are automatically loaded as hidden context for the active character.
-          </div>
+          <h3 class="mb-1 text-sm text-neutral-700 font-bold dark:text-neutral-200">
+            Dream Output
+          </h3>
+          <p class="mb-4 text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+            Captures flavor tags and mood highlights generated during the Dream State.
+          </p>
+          <ul class="flex flex-col gap-1.5 border-t border-neutral-100 pt-3 dark:border-neutral-700/50">
+            <li v-for="s in ['Integrated Chips', 'Journal Candidates', '24H Handoff Cycle']" :key="s" class="flex items-center gap-2 text-[10px] text-neutral-500 font-bold tracking-widest uppercase dark:text-neutral-400">
+              <div class="i-solar:check-circle-bold-duotone text-violet-500" />
+              {{ s }}
+            </li>
+          </ul>
         </div>
-        <div class="border border-neutral-200 rounded-xl bg-white/80 p-4 dark:border-neutral-700 dark:bg-neutral-900/60">
-          <div class="mb-1 text-xs text-neutral-500 font-semibold tracking-wide uppercase dark:text-neutral-400">
-            Current State
+
+        <!-- 3. Current State -->
+        <div class="group border border-neutral-200 rounded-2xl bg-white/50 p-5 shadow-sm transition-all dark:border-neutral-700/50 hover:border-emerald-500/30 dark:bg-neutral-800/40">
+          <div class="mb-3 h-8 w-8 flex items-center justify-center rounded-lg bg-emerald-500/10 text-lg text-emerald-500 transition-transform group-hover:scale-110">
+            <div class="i-solar:shield-check-bold-duotone" />
           </div>
-          <div class="text-sm text-neutral-700 dark:text-neutral-200">
-            Rebuild from history is live. Automatic post-midnight generation is still the next step.
-          </div>
+          <h3 class="mb-1 text-sm text-neutral-700 font-bold dark:text-neutral-200">
+            Current Status
+          </h3>
+          <p class="mb-4 text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+            Rebuild from history is live. Periodic post-midnight generation is active.
+          </p>
+          <ul class="flex flex-col gap-1.5 border-t border-neutral-100 pt-3 dark:border-neutral-700/50">
+            <li v-for="s in ['History Rebuild Live', 'ID Bleed Protection', 'Per-Character Scope']" :key="s" class="flex items-center gap-2 text-[10px] text-neutral-500 font-bold tracking-widest uppercase dark:text-neutral-400">
+              <div class="i-solar:check-circle-bold-duotone text-emerald-500" />
+              {{ s }}
+            </li>
+          </ul>
         </div>
       </div>
-    </section>
+    </header>
 
-    <section class="border border-neutral-200 rounded-2xl bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900/70">
-      <div class="grid gap-4 xl:grid-cols-[1.3fr_1fr_auto]">
+    <!-- Controls Console -->
+    <section class="border border-neutral-200 rounded-[2.5rem] bg-white p-8 shadow-inner shadow-sm dark:border-neutral-800 dark:bg-neutral-900/60">
+      <div class="grid gap-6 xl:grid-cols-[1.3fr_1fr_auto]">
         <FieldSelect
           v-model="selectedCharacter"
           label="Active Character"
-          description="Short-term blocks are always scoped to the selected character."
+          description="Context pulse is always scoped to the selected character."
           :options="characterOptions"
         />
         <FieldInput
           v-model="windowSize"
           label="Window Size"
-          description="How many recent daily blocks are kept ready for prompt injection."
+          description="How many daily blocks are kept ready for prompt injection."
           type="number"
         />
         <FieldInput
           v-model="tokensPerDay"
           label="Token Budget Per Day"
-          description="Target size hint for summarization. Exact token control is provider-specific and not guaranteed yet."
+          description="Target size hint for daily summarization."
           type="number"
         />
       </div>
 
-      <div class="mt-4 flex flex-wrap items-center gap-3">
+      <div class="mt-8 flex flex-wrap items-center gap-4">
         <Button
           label="Rebuild From History"
           icon="i-solar:restart-bold-duotone"
@@ -166,134 +226,159 @@ watch(characterOptions, (options) => {
           :disabled="!selectedCharacter || rebuilding"
           @click="rebuildToday"
         />
-        <Button
-          label="Generate Yesterday's Block"
-          icon="i-solar:moon-stars-bold-duotone"
-          variant="secondary-muted"
-          disabled
-        />
-        <div
-          v-if="rebuilding"
-          class="rounded-full bg-cyan-500/10 px-3 py-1 text-xs text-cyan-700 dark:text-cyan-300"
-        >
-          {{ rebuildProgress || 'Rebuilding short-term memory...' }}
-        </div>
-        <div
-          v-else
-          class="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
-        >
-          Automatic daily generation will be added next.
-        </div>
-      </div>
 
-      <div
-        v-if="error"
-        class="mt-4 border border-red-200 rounded-xl bg-red-50/80 p-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
-      >
-        {{ error }}
+        <div class="h-8 w-px bg-neutral-200 dark:bg-neutral-800" />
+
+        <div v-if="rebuilding" class="flex items-center gap-2 rounded-full bg-cyan-500/10 px-4 py-2 text-xs text-cyan-600 font-bold dark:text-cyan-400">
+          <div class="i-solar:running-round-bold-duotone animate-bounce text-base" />
+          {{ rebuildProgress || 'Rebuilding pulse...' }}
+        </div>
+        <div v-else class="flex items-center gap-2 rounded-full bg-neutral-100 px-4 py-2 text-xs text-neutral-500 font-bold dark:bg-neutral-800 dark:text-neutral-400">
+          <div class="i-solar:watch-square-bold-duotone text-base" />
+          Auto-generation pending cycle
+        </div>
       </div>
     </section>
 
-    <div class="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
-      <section class="border border-neutral-200 rounded-2xl bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900/70">
-        <div class="mb-4 flex items-center justify-between gap-3">
+    <!-- The Feed: Summaries + Integrated Chips -->
+    <div class="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+      <section class="flex flex-col gap-6">
+        <div class="flex items-center justify-between px-2">
           <div>
-            <h3 class="text-lg text-neutral-800 font-semibold dark:text-neutral-100">
+            <h3 class="text-2xl text-neutral-800 font-bold dark:text-neutral-100">
               Daily Summary Blocks
             </h3>
-            <p class="text-sm text-neutral-500 dark:text-neutral-400">
-              Reverse-chronological summaries for <span class="text-neutral-700 font-medium dark:text-neutral-200">{{ selectedCharacterLabel }}</span>.
+            <p class="text-sm text-neutral-500 italic dark:text-neutral-400">
+              Reverse-chronological summaries for <span class="text-neutral-700 font-bold dark:text-neutral-200">{{ selectedCharacterLabel }}</span>.
             </p>
           </div>
-          <div class="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+          <div class="border border-neutral-200 rounded-full bg-white px-4 py-1.5 text-xs text-neutral-600 font-bold shadow-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
             {{ visibleBlocks.length }} stored blocks
           </div>
         </div>
 
-        <div
-          v-if="loading"
-          class="border border-neutral-300 rounded-xl border-dashed bg-neutral-50/90 p-6 text-sm text-neutral-500 dark:border-neutral-700 dark:bg-neutral-950/40 dark:text-neutral-400"
-        >
-          Loading short-term memory blocks...
+        <div v-if="loading" class="border-2 border-neutral-200 rounded-[2.5rem] border-dashed bg-neutral-50/50 p-12 text-center text-neutral-400 dark:border-neutral-800 dark:bg-neutral-950/40">
+          <div class="i-solar:loading-bold mx-auto mb-4 animate-spin text-4xl" />
+          Distilling short-term memory...
         </div>
 
-        <div
-          v-else-if="visibleBlocks.length === 0"
-          class="border border-neutral-300 rounded-xl border-dashed bg-neutral-50/90 p-6 text-sm text-neutral-500 dark:border-neutral-700 dark:bg-neutral-950/40 dark:text-neutral-400"
-        >
-          No short-term memory blocks exist for this character yet. Run <span class="text-neutral-700 font-medium dark:text-neutral-200">Rebuild From History</span> to distill existing chat logs into daily continuity blocks.
+        <div v-else-if="visibleBlocks.length === 0" class="font-urbanist border-2 border-neutral-200 rounded-[2.5rem] border-dashed bg-neutral-50/50 p-12 text-center text-neutral-400 dark:border-neutral-800 dark:bg-neutral-950/40">
+          No memory blocks exist. Run <span class="text-neutral-600 font-bold dark:text-neutral-300">Rebuild From History</span> to begin.
         </div>
 
-        <div v-else class="flex flex-col gap-3">
-          <article
-            v-for="block in visibleBlocks"
-            :key="block.id"
-            class="border border-neutral-200 rounded-xl bg-neutral-50/90 p-4 dark:border-neutral-700 dark:bg-neutral-950/50"
-          >
-            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div class="flex items-center gap-2">
-                <div class="rounded-full bg-cyan-500/12 px-2.5 py-1 text-xs text-cyan-700 dark:text-cyan-300">
-                  {{ block.date }}
+        <div v-else class="flex flex-col gap-8">
+          <!-- Interleaved Feed Loop -->
+          <div v-for="(block, index) in visibleBlocks" :key="block.id" class="flex flex-col gap-6">
+            <!-- Daily Block Card -->
+            <article class="group relative overflow-hidden border border-neutral-200 rounded-[2rem] bg-white p-6 shadow-sm transition-all dark:border-neutral-800 hover:border-cyan-500/30 dark:bg-neutral-900/60">
+              <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                  <div class="rounded-xl bg-cyan-500/10 px-4 py-1.5 text-xs text-cyan-600 font-bold dark:text-cyan-400">
+                    {{ block.date }}
+                  </div>
+                  <div :class="['rounded-xl px-4 py-1.5 text-xs font-bold shadow-inner', block.source === 'automatic' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs italic opacity-80']">
+                    {{ block.source === 'automatic' ? '24H Generated' : 'Manual Rebuild' }}
+                  </div>
                 </div>
+                <div class="text-[10px] text-neutral-400 font-bold tracking-widest uppercase">
+                  ~{{ block.estimatedTokens }} tokens | {{ block.messageCount }} msgs
+                </div>
+              </div>
+
+              <div class="relative overflow-hidden border border-neutral-100 rounded-2xl bg-neutral-50/50 p-5 text-sm text-neutral-700 leading-relaxed dark:border-neutral-800 dark:bg-black/20 dark:text-neutral-300">
+                {{ block.summary }}
+              </div>
+            </article>
+
+            <!-- MOCK CHIP CLUSTER: Injected every few blocks -->
+            <div v-if="index === 0 || index % 2 === 0" class="relative px-6">
+              <div class="absolute inset-y-0 left-0 w-px from-transparent via-neutral-200 to-transparent bg-gradient-to-b dark:via-neutral-800" />
+              <div class="mb-2 flex items-center gap-2 text-[10px] text-neutral-400 font-bold tracking-widest uppercase">
+                <div class="i-solar:sparkles-bold-duotone text-violet-500" />
+                Dream Output Preview
+              </div>
+              <div class="flex flex-wrap gap-2">
                 <div
+                  v-for="chip in mockChipClusters[index % 2].chips"
+                  :key="chip.label"
                   :class="[
-                    'rounded-full px-2.5 py-1 text-xs',
-                    block.source === 'automatic'
-                      ? 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300'
-                      : 'bg-amber-500/12 text-amber-700 dark:text-amber-300',
+                    'flex items-center gap-2 border rounded-full px-4 py-1.5 text-xs font-bold shadow-sm transition-transform hover:scale-105',
+                    chip.type === 'mood' ? 'border-violet-200 bg-violet-50 text-violet-600 dark:border-violet-900/40 dark:bg-violet-900/20 dark:text-violet-400'
+                    : chip.type === 'flavor' ? 'border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-400'
+                      : 'border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-400',
                   ]"
                 >
-                  {{ block.source === 'automatic' ? 'Post-midnight generated' : 'Rebuilt from history' }}
+                  <div :class="[chip.type === 'mood' ? 'i-solar:ghost-bold-duotone' : chip.type === 'flavor' ? 'i-solar:magic-stick-bold-duotone' : 'i-solar:bookmark-opened-bold-duotone', 'text-base']" />
+                  {{ chip.label }}
                 </div>
               </div>
-              <div class="text-xs text-neutral-500 dark:text-neutral-400">
-                ~{{ block.estimatedTokens }} tokens | {{ block.messageCount }} messages | {{ block.sessionCount }} sessions
-              </div>
             </div>
-
-            <div class="whitespace-pre-wrap border border-neutral-300 rounded-lg border-dashed bg-white/70 p-3 text-sm text-neutral-700 leading-6 dark:border-neutral-700 dark:bg-neutral-900/60 dark:text-neutral-200">
-              {{ block.summary }}
-            </div>
-          </article>
+          </div>
         </div>
       </section>
 
-      <section class="border border-neutral-200 rounded-2xl bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900/70">
-        <h3 class="mb-3 text-lg text-neutral-800 font-semibold dark:text-neutral-100">
-          Context Injection Preview
-        </h3>
-        <div class="border border-neutral-200 rounded-xl bg-neutral-50/90 p-4 dark:border-neutral-700 dark:bg-neutral-950/40">
-          <div class="mb-2 text-xs text-neutral-500 font-semibold tracking-wide uppercase dark:text-neutral-400">
-            Hidden Session Context
-          </div>
-          <div class="text-sm text-neutral-700 leading-6 dark:text-neutral-200">
-            The latest <span class="font-semibold">{{ windowSize }}</span> daily blocks would be compacted and injected for <span class="font-semibold">{{ selectedCharacterLabel }}</span>, respecting a per-day target of roughly <span class="font-semibold">{{ tokensPerDay }}</span> tokens.
-          </div>
-        </div>
+      <!-- Sidebar: Handoff Preview -->
+      <section class="flex flex-col gap-6">
+        <div class="sticky top-6">
+          <div class="border border-neutral-200 rounded-[2.5rem] bg-white p-8 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/70">
+            <h3 class="font-urbanist mb-4 text-xl text-neutral-800 font-bold dark:text-neutral-100">
+              Dream Output & Handoff
+            </h3>
 
-        <div class="mt-4 border border-neutral-200 rounded-xl bg-white/80 p-4 dark:border-neutral-700 dark:bg-neutral-900/60">
-          <div class="mb-2 text-xs text-neutral-500 font-semibold tracking-wide uppercase dark:text-neutral-400">
-            Design Notes
+            <div class="flex flex-col gap-6">
+              <div class="border border-neutral-100 rounded-2xl bg-neutral-50/70 p-5 dark:border-neutral-800 dark:bg-neutral-950/40">
+                <span class="mb-2 block text-[10px] text-neutral-500 font-bold tracking-widest uppercase">Context Strategy</span>
+                <p class="text-sm text-neutral-700 leading-relaxed dark:text-neutral-200">
+                  The latest <span class="text-cyan-500 font-bold">{{ windowSize }}</span> daily blocks are automatically compacted and injected as hidden session context.
+                </p>
+              </div>
+
+              <div class="font-urbanist border border-neutral-100 rounded-2xl bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/60">
+                <span class="mb-3 block text-[10px] text-neutral-500 font-bold tracking-widest uppercase">Neurological Lifecycle</span>
+                <ul class="flex flex-col gap-4">
+                  <li class="flex gap-4">
+                    <div class="h-8 w-8 flex flex-shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-500">
+                      <div class="i-solar:transfer-horizontal-bold-duotone" />
+                    </div>
+                    <div class="flex flex-col">
+                      <span class="text-sm text-neutral-700 font-bold dark:text-neutral-200">24H Memory Handoff</span>
+                      <span class="text-xs text-neutral-500 dark:text-neutral-400">Summaries are generated daily at midnight from history logs.</span>
+                    </div>
+                  </li>
+                  <li class="flex gap-4">
+                    <div class="h-8 w-8 flex flex-shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-500">
+                      <div class="i-solar:ghost-bold-duotone" />
+                    </div>
+                    <div class="flex flex-col">
+                      <span class="text-sm text-neutral-700 font-bold dark:text-neutral-200">Dream State Synthesis</span>
+                      <span class="text-xs text-neutral-500 dark:text-neutral-400">Inline Chips bridge the gap between context and permanent records.</span>
+                    </div>
+                  </li>
+                  <li class="flex gap-4">
+                    <div class="h-8 w-8 flex flex-shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500">
+                      <div class="i-solar:bookmark-square-bold-duotone" />
+                    </div>
+                    <div class="flex flex-col">
+                      <span class="text-sm text-neutral-700 font-bold dark:text-neutral-200">Journal Promotion</span>
+                      <span class="text-xs text-neutral-500 dark:text-neutral-400">High-worthiness artifacts are flagged for the Sentinel's Journal.</span>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
-          <ul class="flex flex-col gap-2 text-sm text-neutral-700 dark:text-neutral-200">
-            <li class="flex gap-2">
-              <div class="i-solar:check-circle-bold-duotone mt-0.5 text-base text-cyan-500" />
-              <span>One block per day keeps recent context stable and predictable.</span>
-            </li>
-            <li class="flex gap-2">
-              <div class="i-solar:check-circle-bold-duotone mt-0.5 text-base text-cyan-500" />
-              <span>Rebuild uses the selected character's identity fields and post-history instructions to guide summary generation.</span>
-            </li>
-            <li class="flex gap-2">
-              <div class="i-solar:check-circle-bold-duotone mt-0.5 text-base text-cyan-500" />
-              <span>Everything remains per-character to avoid identity bleed across personas.</span>
-            </li>
-          </ul>
         </div>
       </section>
     </div>
   </div>
 </template>
+
+<style scoped>
+.font-urbanist {
+  font-family: 'Urbanist', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+</style>
 
 <route lang="yaml">
 meta:

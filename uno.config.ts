@@ -193,6 +193,7 @@ export function sharedUnoConfig() {
           /\.(vue|svelte|[jt]sx|mdx?|astro|elm|php|phtml|html)($|\?)/,
           // include js/ts files
           '(components|src)/**/*.{js,ts,vue}', // THIS CAN INCLUDE node_modules
+          'packages/**/*.{js,ts,vue}', // ADDED: include shared package pages and components
           '**/stage-ui/**/*.{vue,js,ts}', // THIS TOO
           '**/ui/**/*.{vue,js,ts}', // THIS TOO
         ],
