@@ -334,6 +334,7 @@ async function loadModel() {
         modelSize: vrmModelSize,
         initialCameraOffset: vrmInitialCameraOffset,
         parser: vrmParser,
+        unmappedExpressions: vrmUnlockedExpressions,
       } = _vrmInfo
 
       // ASYNC GUARD: If we unmounted or a new load started, dispose this model immediately
@@ -380,8 +381,8 @@ async function loadModel() {
 
       // Populate available expressions for the settings UI
       if (_vrm.expressionManager) {
-        const expressions = Object.keys(_vrm.expressionManager.expressionMap).sort()
-        modelStore.availableExpressions = expressions
+        const nativeExpressions = Object.keys(_vrm.expressionManager.expressionMap)
+        modelStore.availableExpressions = [...nativeExpressions, ...vrmUnlockedExpressions].sort()
       }
 
       const hipNode = _vrm.humanoid?.getNormalizedBoneNode('hips')

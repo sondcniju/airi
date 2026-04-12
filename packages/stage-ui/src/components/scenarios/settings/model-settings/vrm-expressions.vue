@@ -104,6 +104,20 @@ function toggleFavorite() {
   mappingTarget.value = null
 }
 
+function isSlotOccupied(emotion: string): boolean {
+  return occupiedActiveEmotions.value.has(emotion)
+}
+
+const occupiedActiveEmotions = computed(() => {
+  const available = new Set(availableExpressions.value)
+  const occupied = new Set<string>()
+  for (const [vrmName, actSlot] of Object.entries(emotionMappings.value)) {
+    if (available.has(vrmName))
+      occupied.add(actSlot)
+  }
+  return occupied
+})
+
 function closeModal() {
   mappingTarget.value = null
 }
@@ -386,7 +400,9 @@ function deleteOutfit(id: string) {
                 'border border-solid',
                 getMappedEmotion(mappingTarget!) === emotion
                   ? 'bg-primary-500/20 border-primary-400 text-primary-600 dark:text-primary-300 font-medium'
-                  : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700',
+                  : isSlotOccupied(emotion)
+                    ? 'bg-emerald-500/5 border-emerald-500/40 text-neutral-600 dark:text-neutral-300'
+                    : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700',
               ]"
               @click="assignMapping(emotion)"
             >

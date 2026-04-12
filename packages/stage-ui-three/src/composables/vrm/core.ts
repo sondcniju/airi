@@ -21,6 +21,7 @@ export async function loadVrm(model: string, options?: {
   modelSize: Vector3
   initialCameraOffset: Vector3
   parser: any
+  unmappedExpressions: string[]
 } | undefined> {
   const loader = useVRMLoader()
   const gltf = await loader.loadAsync(model, progress => options?.onProgress?.(progress))
@@ -47,6 +48,22 @@ export async function loadVrm(model: string, options?: {
       _vrm.expressionManager.setValue(name, 0)
     }
     _vrm.expressionManager.update()
+  }
+
+  // Discovery Logic: Find "lost" morph targets that aren't registered as expressions
+  const unmappedExpressions: string[] = []
+  if (_vrm.expressionManager) {
+    const existingExpressions = new Set(Object.keys(_vrm.expressionManager.expressionMap))
+    _vrm.scene.traverse((obj: Object3D) => {
+      const mesh = obj as Mesh
+      if (mesh.isMesh && mesh.morphTargetDictionary) {
+        Object.keys(mesh.morphTargetDictionary).forEach((name) => {
+          if (!existingExpressions.has(name) && !unmappedExpressions.includes(name)) {
+            unmappedExpressions.push(name)
+          }
+        })
+      }
+    })
   }
 
   // Disable frustum culling
@@ -155,5 +172,6 @@ export async function loadVrm(model: string, options?: {
     modelSize,
     initialCameraOffset,
     parser: gltf.parser,
+    unmappedExpressions,
   }
 }

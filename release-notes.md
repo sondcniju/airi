@@ -1,14 +1,14 @@
-### AIRI v0.9.1-stable (April 8, 2026)
+### **AIRI v0.9.1-stable (April 12, 2026)**
 
-This release focuses on improving ease of access to documentation, enhancing the caption overlay experience, and streamlining journal interactions.
+#### **Critical Fixes**
+*   **Icon Restoration**: Resolved a critical regression where UI icons were failing to load across the entire application. This was the primary focus of this release.
+*   **Gemini "Ghost Stream"**: Fixed a bug where Gemini tool calls would prematurely cause the UI to stop rendering, resulting in missing tool bubbles and AI responses.
+*   **Vision Reliability**: Fixed anonymous screenshot capture failures and improved macOS permission handling guards.
 
-#### 🚀 New Features
-- **Settings Documentation**: Added a direct "Documentation" button in the Settings page for quick access to guides and references.
-- **Caption System Stability**: Overhauled caption docking logic, layout history retention, and dragging mechanics for a smoother overlay experience.
-- **Clickable Journal Images**: Integrated clickable inline images in the chat history, supported by a new shared preview modal for high-detail inspection.
-- **Image Export**: Added "Save" icons to journal image strips and previews to simplify resource management.
-
-#### 🔧 UI & Stability
-- **Gemini Polishing**: Improved the onboarding flow and refined auto-hide behavior for the Gemini control island.
-- **Native Stability**: Fixed a critical startup crash in the main process related to active window tracking.
-- **FFI Reliability**: Migrated core system calls to Koffi for better long-term performance and reduced memory overhead.
+#### **New Features & Enhancements**
+*   **Consolidated Interactive Area**: Unified image attachments, unit screenshots, and journal access into a new, streamlined popover menu in the chat interface.
+*   **New "Take Screenshot" Capability**: Added a dedicated screenshot button within the interactive area for quick capture.
+*   **Vision Global Shortcut**: New ability to trigger vision captures using a shortcut while the application window is active and responsive.
+*   **Enhanced Tooltips**: Added clearer visual feedback and improved tooltip states for various control elements and the new vision view.
+*   **Memory Wisdom**: Improved short-term memory with language-aware summarization for better conversational context.
+*   **Infrastructure**: Durable cross-platform patches for native dependencies (active-win), ensuring stable builds across Windows and other environments.

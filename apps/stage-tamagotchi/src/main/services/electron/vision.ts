@@ -1,10 +1,13 @@
 import { defineInvokeHandler } from '@moeru/eventa'
-import {
-  checkMacOSScreenCapturePermission,
-  requestMacOSScreenCapturePermission,
-} from '@proj-airi/electron-screen-capture/main'
 import { visionCaptureScreen, visionCheckPermission, visionRequestPermission } from '@proj-airi/stage-shared'
 import { desktopCapturer } from 'electron'
+
+import * as ScreenCapture from '@proj-airi/electron-screen-capture/main'
+
+const {
+  checkMacOSScreenCapturePermission,
+  requestMacOSScreenCapturePermission,
+} = ScreenCapture as any
 
 /**
  * Screen capture service that provides high-level screen/window capture
