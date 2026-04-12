@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import type { ChatAssistantMessage, ChatHistoryItem, ContextMessage } from '../../../types/chat'
 
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, provide, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import ChatAssistantItem from './assistant-item.vue'
 import ChatErrorItem from './error-item.vue'
 import ChatUserItem from './user-item.vue'
 
+import { chatScrollContainerKey } from './constants'
 import { getChatHistoryItemKey } from './message-key'
 
 const props = withDefaults(defineProps<{
@@ -24,6 +25,7 @@ const props = withDefaults(defineProps<{
 })
 
 const chatHistoryRef = ref<HTMLDivElement>()
+provide(chatScrollContainerKey, chatHistoryRef)
 
 const { t } = useI18n()
 const labels = computed(() => ({

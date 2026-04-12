@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ChatAssistantMessage, ChatSlices, ChatSlicesText } from '../../../types/chat'
+import type { ChatAssistantMessage, ChatHistoryItem, ChatSlices, ChatSlicesText } from '../../../types/chat'
 
 import { computed } from 'vue'
 
@@ -8,6 +8,8 @@ import ChatToolCallBlock from './tool-call-block.vue'
 
 import { useChatSessionStore } from '../../../stores/chat/session-store'
 import { MarkdownRenderer } from '../../markdown'
+import { ChatActionMenu } from './components/action-menu'
+import { getChatHistoryItemCopyText } from './utils'
 
 const props = withDefaults(defineProps<{
   message: ChatAssistantMessage & { id?: string, createdAt?: number }
@@ -18,6 +20,11 @@ const props = withDefaults(defineProps<{
   showPlaceholder: false,
   variant: 'desktop',
 })
+
+const emit = defineEmits<{
+  (e: 'copy'): void
+  (e: 'delete'): void
+}>()
 
 const chatSession = useChatSessionStore()
 
@@ -193,7 +200,7 @@ const moodClasses = computed(() => {
 })
 
 const showLoader = computed(() => props.showPlaceholder && resolvedSlices.value.length === 0)
-const containerClass = computed(() => props.variant === 'mobile' ? 'mr-0' : 'mr-12')
+const containerClass = computed(() => props.variant === 'mobile' ? 'mr-0' : 'mr-28')
 const boxClasses = computed(() => [
   props.variant === 'mobile' ? 'px-2 py-2 text-sm bg-primary-50/90 dark:bg-primary-950/90' : 'px-3 py-3 bg-primary-50/80 dark:bg-primary-950/80',
   moodClasses.value,
@@ -212,66 +219,75 @@ const boxStyle = computed(() => {
   }
 })
 
-function deleteSelf() {
+const copyText = computed(() => getChatHistoryItemCopyText(props.message as ChatHistoryItem))
+
+function handleCopy() {
+  emit('copy')
+}
+
+function handleDelete() {
   if (props.message.id)
     chatSession.deleteMessage(props.message.id)
+  emit('delete')
 }
 </script>
 
 <template>
   <div flex :class="containerClass" class="ph-no-capture group">
-    <div
-      flex="~ col" shadow="sm primary-200/50 dark:none"
-      h="unset <sm:fit"
-      relative min-w-20 rounded-xl
-      transition="all duration-300"
-      :class="boxClasses"
-      :style="boxStyle"
+    <ChatActionMenu
+      :copy-text="copyText"
+      placement="right"
+      @copy="handleCopy"
+      @delete="handleDelete"
     >
-      <div>
-        <span text-sm text="black/60 dark:white/65" font-normal class="inline <sm:hidden">{{ label }}</span>
-      </div>
-      <div v-if="resolvedSlices.length > 0" class="break-words" text="primary-700 dark:primary-100">
-        <template v-for="(slice, sliceIndex) in resolvedSlices" :key="sliceIndex">
-          <ChatToolCallBlock
-            v-if="slice.type === 'tool-call'"
-            :tool-name="(slice.toolCall as any).function?.name || (slice.toolCall as any).toolName"
-            :args="(slice.toolCall as any).function?.arguments || (slice.toolCall as any).args"
-            :state="slice.state"
-            :result="slice.result"
-            class="mb-2"
+      <template #default="{ setMeasuredElement }">
+        <div
+          :ref="setMeasuredElement"
+          flex="~ col" shadow="sm primary-200/50 dark:none"
+          h="unset <sm:fit"
+          relative min-w-20 rounded-xl
+          transition="all duration-300"
+          :class="boxClasses"
+          :style="boxStyle"
+        >
+          <div>
+            <span text-sm text="black/60 dark:white/65" font-normal class="inline <sm:hidden">{{ label }}</span>
+          </div>
+          <div v-if="resolvedSlices.length > 0" class="break-words" text="primary-700 dark:primary-100">
+            <template v-for="(slice, sliceIndex) in resolvedSlices" :key="sliceIndex">
+              <ChatToolCallBlock
+                v-if="slice.type === 'tool-call'"
+                :tool-name="(slice.toolCall as any).function?.name || (slice.toolCall as any).toolName"
+                :args="(slice.toolCall as any).function?.arguments || (slice.toolCall as any).args"
+                :state="slice.state"
+                :result="slice.result"
+                class="mb-2"
+              />
+              <template v-else-if="slice.type === 'tool-call-result'" />
+              <template v-else-if="slice.type === 'text'">
+                <MarkdownRenderer :content="slice.text" />
+              </template>
+            </template>
+          </div>
+          <div v-else-if="showLoader" i-eos-icons:three-dots-loading />
+
+          <ChatResponsePart
+            v-if="message.categorization"
+            :message="message"
+            :variant="variant"
           />
-          <template v-else-if="slice.type === 'tool-call-result'" />
-          <template v-else-if="slice.type === 'text'">
-            <MarkdownRenderer :content="slice.text" />
-          </template>
-        </template>
-      </div>
-      <div v-else-if="showLoader" i-eos-icons:three-dots-loading />
 
-      <ChatResponsePart
-        v-if="message.categorization"
-        :message="message"
-        :variant="variant"
-      />
-
-      <button
-        v-if="message.id"
-        class="absolute z-10 p-1 text-black/30 opacity-0 transition-opacity -right-1 -top-1 dark:text-white/30 group-hover:opacity-100 hover:text-red-500!"
-        @click="deleteSelf"
-      >
-        <div i-ph:trash-duotone />
-      </button>
-
-      <div
-        v-if="variant === 'desktop' && formattedTime"
-        class="absolute left-full top-1/2 ml-4 opacity-0 transition-opacity -translate-y-1/2 group-hover:opacity-100"
-      >
-        <span class="whitespace-nowrap text-xs text-neutral-400 font-medium tabular-nums dark:text-neutral-500">
-          {{ formattedTime }}
-        </span>
-      </div>
-    </div>
+          <div
+            v-if="variant === 'desktop' && formattedTime"
+            class="absolute left-full top-1/2 ml-4 opacity-0 transition-opacity -translate-y-1/2 group-hover:opacity-100"
+          >
+            <span class="whitespace-nowrap text-xs text-neutral-400 font-medium tabular-nums dark:text-neutral-500">
+              {{ formattedTime }}
+            </span>
+          </div>
+        </div>
+      </template>
+    </ChatActionMenu>
   </div>
 </template>
 
