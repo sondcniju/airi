@@ -200,7 +200,7 @@ const moodClasses = computed(() => {
 })
 
 const showLoader = computed(() => props.showPlaceholder && resolvedSlices.value.length === 0)
-const containerClass = computed(() => props.variant === 'mobile' ? 'mr-0' : 'mr-28')
+const containerClass = computed(() => props.variant === 'mobile' ? 'mr-0' : 'mr-12')
 const boxClasses = computed(() => [
   props.variant === 'mobile' ? 'px-2 py-2 text-sm bg-primary-50/90 dark:bg-primary-950/90' : 'px-3 py-3 bg-primary-50/80 dark:bg-primary-950/80',
   moodClasses.value,
@@ -233,10 +233,11 @@ function handleDelete() {
 </script>
 
 <template>
-  <div flex :class="containerClass" class="ph-no-capture group">
+  <div w-full flex :class="containerClass" class="ph-no-capture group">
     <ChatActionMenu
       :copy-text="copyText"
       placement="right"
+      full-width
       @copy="handleCopy"
       @delete="handleDelete"
     >
@@ -245,7 +246,7 @@ function handleDelete() {
           :ref="setMeasuredElement"
           flex="~ col" shadow="sm primary-200/50 dark:none"
           h="unset <sm:fit"
-          relative min-w-20 rounded-xl
+          relative min-w-20 w-full rounded-xl
           transition="all duration-300"
           :class="boxClasses"
           :style="boxStyle"

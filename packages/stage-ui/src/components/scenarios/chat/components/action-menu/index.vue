@@ -32,12 +32,14 @@ const props = withDefaults(defineProps<{
   copyText?: string
   menuLabel?: string
   placement?: 'left' | 'right'
+  fullWidth?: boolean
 }>(), {
   canCopy: true,
   canDelete: true,
   copyText: '',
   menuLabel: 'Message actions',
   placement: 'right',
+  fullWidth: false,
 })
 
 const emit = defineEmits<{
@@ -273,7 +275,8 @@ watch(isTouching, (val) => {
       <div
         ref="contextMenuContainer"
         :class="[
-          'group/chat-action relative w-fit',
+          'group/chat-action relative',
+          props.fullWidth ? 'w-full' : 'w-fit',
           'transition-transform duration-150 ease-in-out',
         ]"
         :style="{
