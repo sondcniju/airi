@@ -1,5 +1,6 @@
 export * from './background'
 export * from './display-models'
+export * from './echo-chips'
 export * from './memory-short-term'
 export * from './memory-text-journal'
 export * from './modules/airi-card'

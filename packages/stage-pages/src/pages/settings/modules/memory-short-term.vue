@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { useAiriCardStore, useShortTermMemoryStore } from '@proj-airi/stage-ui/stores'
+import { MarkdownRenderer } from '@proj-airi/stage-ui/components'
+import { useAiriCardStore, useEchoesStore, useShortTermMemoryStore } from '@proj-airi/stage-ui/stores'
 import { Button, FieldInput, FieldSelect } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -9,33 +10,22 @@ interface CharacterOption { value: string, label: string }
 
 const cardStore = useAiriCardStore()
 const shortTermMemory = useShortTermMemoryStore()
+const echoesStore = useEchoesStore()
 
 const { cards } = storeToRefs(cardStore)
 const { activeCardId, loading, rebuilding, rebuildProgress, error } = storeToRefs(shortTermMemory)
+const { chips: allChips, loading: echoesLoading } = storeToRefs(echoesStore)
 
 const selectedCharacter = ref('')
 const windowSize = ref(3)
 const tokensPerDay = ref(1000)
 
-// --- Mock Chips Data ---
-const mockChipClusters = [
-  {
-    afterId: '', // To be inserted relative to real blocks
-    chips: [
-      { label: '#playful', type: 'mood' },
-      { label: '#technical-curiosity', type: 'flavor' },
-      { label: 'Journal Candidate: Gura VRM Milestone', type: 'journal' },
-    ],
-  },
-  {
-    afterId: '',
-    chips: [
-      { label: '#gentle-teasing', type: 'mood' },
-      { label: '#shared-history', type: 'flavor' },
-      { label: 'Journal Candidate: Project AIRI Launch', type: 'journal' },
-    ],
-  },
-]
+// --- Helper: Clean Summary Fences ---
+function cleanSummary(text: string) {
+  if (!text)
+    return ''
+  return text.replace(/^```markdown\n|```$/g, '').trim()
+}
 
 const characterOptions = computed<CharacterOption[]>(() => {
   return Array.from(cards.value.entries()).map(([id, card]) => ({
@@ -54,20 +44,25 @@ const selectedCharacterLabel = computed(() => {
   return characterOptions.value.find(option => option.value === selectedCharacter.value)?.label ?? 'Unknown Character'
 })
 
+function getChipsForDate(date: string) {
+  return allChips.value.filter(c => c.characterId === selectedCharacter.value && c.date === date)
+}
+
 async function rebuildFromHistory() {
   if (!selectedCharacter.value)
     return
 
+  const id = toast.loading('Rebuilding short-term memory...')
   try {
     const result = await shortTermMemory.rebuildFromHistory(selectedCharacter.value, {
       tokenBudgetPerDay: tokensPerDay.value,
     })
 
-    toast.success(`Short-term rebuild complete. Created ${result.created}, updated ${result.updated}, skipped ${result.skipped}.`)
+    toast.success(`Short-term rebuild complete. Created ${result.created}, updated ${result.updated}, skipped ${result.skipped}.`, { id })
   }
   catch (rebuildError) {
     const message = rebuildError instanceof Error ? rebuildError.message : String(rebuildError)
-    toast.error(`Short-term rebuild failed: ${message}`)
+    toast.error(`Short-term rebuild failed: ${message}`, { id })
   }
 }
 
@@ -75,24 +70,41 @@ async function rebuildToday() {
   if (!selectedCharacter.value)
     return
 
+  const id = toast.loading('Rebuilding today\'s summary...')
   try {
     const success = await shortTermMemory.rebuildToday(selectedCharacter.value, {
       tokenBudgetPerDay: tokensPerDay.value,
     })
 
     if (success) {
-      toast.success(`Short-term block for today has been successfully rebuilt.`)
+      toast.success(`Short-term block for today has been successfully rebuilt.`, { id })
     }
   }
   catch (rebuildError) {
     const message = rebuildError instanceof Error ? rebuildError.message : String(rebuildError)
-    toast.error(`Today's rebuild failed: ${message}`)
+    toast.error(`Today's rebuild failed: ${message}`, { id })
+  }
+}
+
+async function synthesizeEchoes() {
+  if (!selectedCharacter.value)
+    return
+
+  const id = toast.loading('Synthesizing echo chips...')
+  try {
+    const newChips = await echoesStore.synthesizeForCharacter(selectedCharacter.value)
+    toast.success(`Generated ${newChips.length} new echo chips.`, { id })
+  }
+  catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    toast.error(`Echo synthesis failed: ${message}`, { id })
   }
 }
 
 onMounted(async () => {
   cardStore.initialize()
   await shortTermMemory.load()
+  await echoesStore.load()
 
   if (!selectedCharacter.value) {
     selectedCharacter.value = activeCardId.value || characterOptions.value[0]?.value || ''
@@ -229,9 +241,23 @@ watch(characterOptions, (options) => {
 
         <div class="h-8 w-px bg-neutral-200 dark:bg-neutral-800" />
 
+        <Button
+          label="Synthesize Echoes"
+          icon="i-solar:sparkles-bold-duotone"
+          variant="secondary"
+          :disabled="!selectedCharacter || echoesLoading"
+          @click="synthesizeEchoes"
+        />
+
+        <div class="flex-1" />
+
         <div v-if="rebuilding" class="flex items-center gap-2 rounded-full bg-cyan-500/10 px-4 py-2 text-xs text-cyan-600 font-bold dark:text-cyan-400">
           <div class="i-solar:running-round-bold-duotone animate-bounce text-base" />
           {{ rebuildProgress || 'Rebuilding pulse...' }}
+        </div>
+        <div v-else-if="echoesLoading" class="flex items-center gap-2 rounded-full bg-violet-500/10 px-4 py-2 text-xs text-violet-600 font-bold dark:text-violet-400">
+          <div class="i-solar:ghost-bold-duotone animate-pulse text-base" />
+          Synthesizing interpretation...
         </div>
         <div v-else class="flex items-center gap-2 rounded-full bg-neutral-100 px-4 py-2 text-xs text-neutral-500 font-bold dark:bg-neutral-800 dark:text-neutral-400">
           <div class="i-solar:watch-square-bold-duotone text-base" />
@@ -268,7 +294,7 @@ watch(characterOptions, (options) => {
 
         <div v-else class="flex flex-col gap-8">
           <!-- Interleaved Feed Loop -->
-          <div v-for="(block, index) in visibleBlocks" :key="block.id" class="flex flex-col gap-6">
+          <div v-for="block in visibleBlocks" :key="block.id" class="flex flex-col gap-6">
             <!-- Daily Block Card -->
             <article class="group relative overflow-hidden border border-neutral-200 rounded-[2rem] bg-white p-6 shadow-sm transition-all dark:border-neutral-800 hover:border-cyan-500/30 dark:bg-neutral-900/60">
               <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -285,22 +311,25 @@ watch(characterOptions, (options) => {
                 </div>
               </div>
 
-              <div class="relative overflow-hidden border border-neutral-100 rounded-2xl bg-neutral-50/50 p-5 text-sm text-neutral-700 leading-relaxed dark:border-neutral-800 dark:bg-black/20 dark:text-neutral-300">
-                {{ block.summary }}
+              <div class="relative overflow-hidden border border-neutral-100 rounded-2xl bg-neutral-50/50 p-5 dark:border-neutral-800 dark:bg-black/20">
+                <MarkdownRenderer
+                  :content="cleanSummary(block.summary)"
+                  class="text-sm text-neutral-700 leading-relaxed dark:text-neutral-300"
+                />
               </div>
             </article>
 
-            <!-- MOCK CHIP CLUSTER: Injected every few blocks -->
-            <div v-if="index === 0 || index % 2 === 0" class="relative px-6">
+            <!-- CHIP CLUSTER: Injected conditionally if chips exist for this date -->
+            <div v-if="getChipsForDate(block.date).length > 0" class="relative px-6">
               <div class="absolute inset-y-0 left-0 w-px from-transparent via-neutral-200 to-transparent bg-gradient-to-b dark:via-neutral-800" />
               <div class="mb-2 flex items-center gap-2 text-[10px] text-neutral-400 font-bold tracking-widest uppercase">
                 <div class="i-solar:sparkles-bold-duotone text-violet-500" />
-                Dream Output Preview
+                Dream Output
               </div>
               <div class="flex flex-wrap gap-2">
                 <div
-                  v-for="chip in mockChipClusters[index % 2].chips"
-                  :key="chip.label"
+                  v-for="chip in getChipsForDate(block.date)"
+                  :key="chip.id"
                   :class="[
                     'flex items-center gap-2 border rounded-full px-4 py-1.5 text-xs font-bold shadow-sm transition-transform hover:scale-105',
                     chip.type === 'mood' ? 'border-violet-200 bg-violet-50 text-violet-600 dark:border-violet-900/40 dark:bg-violet-900/20 dark:text-violet-400'
@@ -309,7 +338,8 @@ watch(characterOptions, (options) => {
                   ]"
                 >
                   <div :class="[chip.type === 'mood' ? 'i-solar:ghost-bold-duotone' : chip.type === 'flavor' ? 'i-solar:magic-stick-bold-duotone' : 'i-solar:bookmark-opened-bold-duotone', 'text-base']" />
-                  {{ chip.label }}
+                  <div v-if="chip.relevanceScore < 0.7" class="h-1.5 w-1.5 rounded-full bg-neutral-300 dark:bg-neutral-600" title="Low relevance" />
+                  {{ chip.content }}
                 </div>
               </div>
             </div>
@@ -377,6 +407,34 @@ watch(characterOptions, (options) => {
 .font-urbanist {
   font-family: 'Urbanist', sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+:deep(.text-sm h1) {
+  font-size: 1.8em !important;
+  line-height: 1.2;
+  margin-bottom: 0.5em;
+}
+</style>
+
+<route lang="yaml">
+meta:
+  layout: settings
+  titleKey: settings.pages.modules.memory-short-term.title
+  subtitleKey: settings.title
+  stageTransition:
+    name: slide
+</route>
+
+<style scoped>
+.font-urbanist {
+  font-family: 'Urbanist', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+:deep(.text-sm h1) {
+  font-size: 1.8em !important;
+  line-height: 1.2;
+  margin-bottom: 0.5em;
 }
 </style>
 

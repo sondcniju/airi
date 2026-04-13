@@ -130,11 +130,11 @@ function nextStep() {
           <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-3">
               <div class="h-10 w-10 flex items-center justify-center rounded-xl bg-amber-500/10 text-xl text-amber-500">
-                <div class="i-solar:star-shield-bold-duotone" />
+                <div class="i-solar:dna-bold-duotone" />
               </div>
               <div>
                 <h2 class="text-2xl text-neutral-800 font-bold dark:text-neutral-100">
-                  Canonical Soul Blueprint
+                  Canonical Thread
                 </h2>
                 <p class="text-sm text-neutral-500 italic dark:text-neutral-400">
                   This is the distilled 1k entry AIRI reloads from.
@@ -344,7 +344,7 @@ function nextStep() {
       <div class="shadow-3xl max-w-4xl w-full border border-neutral-200 rounded-[2.5rem] bg-white p-10 dark:border-neutral-800 dark:bg-neutral-900">
         <header class="mb-8 flex items-center justify-between">
           <h3 class="text-2xl text-neutral-800 font-bold dark:text-neutral-100">
-            Soul Blueprint: Source Explorer
+            Canonical Thread: Source Explorer
           </h3>
           <Button icon="i-solar:close-circle-bold-duotone" variant="secondary-muted" @click="showSourceModal = false" />
         </header>

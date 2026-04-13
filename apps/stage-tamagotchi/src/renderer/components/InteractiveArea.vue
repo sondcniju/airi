@@ -15,6 +15,7 @@ import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatMaintenanceStore } from '@proj-airi/stage-ui/stores/chat/maintenance'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useChatStreamStore } from '@proj-airi/stage-ui/stores/chat/stream-store'
+import { useEchoesStore } from '@proj-airi/stage-ui/stores/echo-chips'
 import { useJournalPreviewStore } from '@proj-airi/stage-ui/stores/journal-preview'
 import { useShortTermMemoryStore } from '@proj-airi/stage-ui/stores/memory-short-term'
 import { useTextJournalStore } from '@proj-airi/stage-ui/stores/memory-text-journal'
@@ -43,6 +44,7 @@ const chatStream = useChatStreamStore()
 const textJournalStore = useTextJournalStore()
 const backgroundStore = useBackgroundStore()
 const airiCardStore = useAiriCardStore()
+const echoesStore = useEchoesStore()
 
 const { activeCard } = storeToRefs(airiCardStore)
 const shortTermMemory = useShortTermMemoryStore()
@@ -112,25 +114,66 @@ const latestTextEntries = computed(() => {
         id: b.id,
         type: 'auto' as const,
         timestamp: b.updatedAt || b.createdAt,
-        title: `My thoughts after ${b.messageCount} messages together~`,
+        messageCount: b.messageCount,
+        title: 'Daily Recap',
         content,
       })
     })
 
-  return [...manualEntries, ...autoEntries]
+  const echoEntries = echoesStore.getCharacterChips(activeCardId.value)
+    .map(c => ({
+      id: c.id,
+      type: 'echo' as const,
+      echoType: c.type,
+      timestamp: c.createdAt,
+      title: c.type.charAt(0).toUpperCase() + c.type.slice(1).replace('_', ' '),
+      content: c.content,
+    }))
+
+  return [...manualEntries, ...autoEntries, ...echoEntries]
     .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, 2)
+    .slice(0, 15)
+})
+
+const groupedTextEntries = computed(() => {
+  const entries = latestTextEntries.value
+  const groups: { type: 'single' | 'echo-group', entry?: any, items?: any[] }[] = []
+  let tempEchoGroup: any[] = []
+
+  entries.forEach((entry) => {
+    if (entry.type === 'echo') {
+      tempEchoGroup.push(entry)
+    }
+    else {
+      if (tempEchoGroup.length > 0) {
+        groups.push({ type: 'echo-group', items: [...tempEchoGroup] })
+        tempEchoGroup = []
+      }
+      groups.push({ type: 'single', entry })
+    }
+  })
+
+  if (tempEchoGroup.length > 0) {
+    groups.push({ type: 'echo-group', items: tempEchoGroup })
+  }
+
+  return groups
 })
 
 const latestImageEntries = computed(() => {
   if (!activeCardId.value)
     return []
-  return backgroundStore.journalEntries.slice(0, 3)
+  return backgroundStore.journalEntries.slice(0, 15)
 })
 
 // --- Date Formatting ---
 function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString('en-CA') // YYYY-MM-DD
+}
+
+function formatDayMonth(timestamp: number): string {
+  const d = new Date(timestamp)
+  return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
 function formatLocalDayKey(date: Date): string {
@@ -400,6 +443,7 @@ onMounted(() => {
   updateWindowTitle()
   textJournalStore.load()
   shortTermMemory.load()
+  echoesStore.load()
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.ctrlKey && e.key === 'F7') {
@@ -436,55 +480,116 @@ watch(messageInput, () => {
     </div>
 
     <!-- Journal Preview Chips -->
-    <div v-if="latestTextEntries.length > 0 || latestImageEntries.length > 0" class="flex gap-2 overflow-x-auto px-2 py-1 scrollbar-none">
+    <div v-if="latestTextEntries.length > 0 || latestImageEntries.length > 0" class="w-full flex gap-2 px-2 py-1">
       <!-- Text Journal Chips -->
       <div
-        v-for="entry in latestTextEntries"
-        :key="entry.id"
+        v-if="groupedTextEntries.length > 0"
         :class="[
-          'min-w-32 max-w-44 flex flex-col cursor-pointer',
-          'border border-primary-200/30 rounded-lg bg-primary-50/50 p-2 text-xs',
-          'transition-all hover:bg-primary-100/50',
-          'dark:border-primary-800/30 dark:bg-primary-900/30 dark:hover:bg-primary-800/50',
+          latestImageEntries.length > 0 ? 'w-1/2' : 'w-full',
+          'flex gap-2 overflow-x-auto scrollbar-none',
         ]"
-        @click="openTextPreview(entry)"
       >
-        <div :class="['flex items-center gap-1', 'text-primary-500 text-[10px] font-bold uppercase tracking-tighter']">
-          <div :class="entry.type === 'auto' ? 'i-solar:magic-stick-3-bold-duotone' : 'i-solar:notebook-bold-duotone'" />
-          <span>{{ formatDate(entry.timestamp) }}</span>
-        </div>
-        <div :class="['line-clamp-2', 'text-primary-900/70 dark:text-primary-100/70']">
-          {{ entry.title }}
-        </div>
+        <template v-for="(group, idx) in groupedTextEntries" :key="idx">
+          <!-- Echo Group (2-story Ticker) -->
+          <div v-if="group.type === 'echo-group'" class="h-14 min-w-fit flex flex-col flex-wrap gap-1">
+            <div
+              v-for="entry in group.items"
+              :key="entry.id"
+              :class="[
+                'h-[26px] flex items-center gap-2 shrink-0 cursor-pointer px-2 py-1 rounded-lg border border-opacity-30 transition-all',
+                entry.echoType === 'mood' ? 'bg-rose-50/50 border-rose-200 text-rose-600 dark:bg-rose-900/20 dark:border-rose-800 dark:text-rose-400'
+                : entry.echoType === 'flavor' ? 'bg-amber-50/50 border-amber-200 text-amber-600 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400'
+                  : 'bg-indigo-50/50 border-indigo-200 text-indigo-600 dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-400',
+              ]"
+              @click="openTextPreview(entry)"
+            >
+              <div class="flex items-center gap-1 text-[8px] font-bold tracking-tighter uppercase opacity-70">
+                <span>{{ formatDayMonth(entry.timestamp) }}</span>
+                <div
+                  :class="[
+                    'text-[10px]',
+                    entry.echoType === 'mood' ? 'i-solar:heart-bold-duotone'
+                    : entry.echoType === 'flavor' ? 'i-solar:tag-bold-duotone'
+                      : 'i-solar:magic-stick-3-bold-duotone',
+                  ]"
+                />
+              </div>
+              <span class="max-w-40 truncate text-[10px] font-bold leading-none">{{ entry.content }}</span>
+            </div>
+          </div>
+
+          <!-- Single Entries (DNA Snaps / Emerald Cards) -->
+          <div v-else-if="group.type === 'single'" @click="openTextPreview(group.entry)">
+            <!-- STMM (Auto) Square Block -->
+            <div
+              v-if="group.entry.type === 'auto'"
+              :class="[
+                'h-14 w-14 shrink-0 flex flex-col items-center justify-between p-1 cursor-pointer',
+                'border border-primary-200/30 rounded-lg bg-primary-50/50 transition-all hover:bg-primary-100/50',
+                'dark:border-primary-800/30 dark:bg-primary-900/30 dark:hover:bg-primary-800/50',
+              ]"
+            >
+              <span class="mt-0.5 text-[9px] text-primary-500/80 font-bold leading-none">{{ formatDayMonth(group.entry.timestamp) }}</span>
+              <div class="i-solar:dna-bold-duotone text-sm text-primary-500" />
+              <span class="mb-0.5 text-[8px] text-primary-400 font-bold leading-none font-mono dark:text-primary-500">{{ group.entry.messageCount }}</span>
+            </div>
+
+            <!-- Manual Journal Card -->
+            <div
+              v-else
+              :class="[
+                'min-w-28 max-w-40 h-14 flex flex-col shrink-0 cursor-pointer p-2 text-xs',
+                'border border-emerald-200/30 rounded-lg bg-emerald-50/50 transition-all hover:bg-emerald-100/50',
+                'dark:border-emerald-800/30 dark:bg-emerald-900/30 dark:hover:bg-emerald-800/50',
+              ]"
+            >
+              <div :class="['flex items-center gap-1', 'text-emerald-500 text-[10px] font-bold uppercase tracking-tighter leading-none mb-1']">
+                <div class="i-solar:notebook-bold-duotone" />
+                <span>{{ formatDate(group.entry.timestamp) }}</span>
+              </div>
+              <div :class="['line-clamp-2 text-[10px] leading-tight', 'text-emerald-900/70 dark:text-emerald-100/70']">
+                {{ group.entry.title }}
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
 
       <!-- Image Journal Chips -->
       <div
-        v-for="entry in latestImageEntries"
-        :key="entry.id"
+        v-if="latestImageEntries.length > 0"
         :class="[
-          'group relative h-14 w-14 shrink-0 cursor-pointer of-hidden rounded-lg',
-          'border border-primary-200/30 transition-all hover:border-primary-500',
-          'dark:border-primary-800/30 dark:hover:border-primary-400',
+          latestTextEntries.length > 0 ? 'w-1/2' : 'w-full',
+          'flex gap-2 overflow-x-auto scrollbar-none',
         ]"
-        @click="openImagePreview(entry)"
       >
-        <img :src="entry.url || ''" class="h-full w-full object-cover">
-        <div :class="['absolute inset-0 flex items-end p-1', 'bg-gradient-to-t from-black/60 to-transparent']">
-          <span class="truncate text-[8px] text-white font-medium">{{ entry.title }}</span>
-        </div>
-
-        <!-- Save Button (Top Right, Hover Only) -->
-        <button
+        <div
+          v-for="entry in latestImageEntries"
+          :key="entry.id"
           :class="[
-            'absolute right-1 top-1 z-10 p-1 rounded-md bg-black/40 text-white backdrop-blur-sm',
-            'opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/60',
+            'group relative h-14 w-14 shrink-0 cursor-pointer of-hidden rounded-lg',
+            'border border-primary-200/30 transition-all hover:border-primary-500',
+            'dark:border-primary-800/30 dark:hover:border-primary-400',
           ]"
-          title="Save to computer"
-          @click.stop="journalPreviewStore.downloadImage(entry.url || '', entry.title)"
+          @click="openImagePreview(entry)"
         >
-          <div class="i-solar:download-minimalistic-bold-duotone text-[10px]" />
-        </button>
+          <img :src="entry.url || ''" class="h-full w-full object-cover">
+          <div :class="['absolute inset-0 flex items-end p-1', 'bg-gradient-to-t from-black/60 to-transparent']">
+            <span class="truncate text-[8px] text-white font-medium">{{ entry.title }}</span>
+          </div>
+
+          <!-- Save Button (Top Right, Hover Only) -->
+          <button
+            :class="[
+              'absolute right-1 top-1 z-10 p-1 rounded-md bg-black/40 text-white backdrop-blur-sm',
+              'opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/60',
+            ]"
+            title="Save to computer"
+            @click.stop="journalPreviewStore.downloadImage(entry.url || '', entry.title)"
+          >
+            <div class="i-solar:download-minimalistic-bold-duotone text-[10px]" />
+          </button>
+        </div>
       </div>
     </div>
 

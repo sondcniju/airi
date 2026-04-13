@@ -347,6 +347,22 @@ export const useLLM = defineStore('llm', () => {
     return generateFrom(model, chatProvider, messages, { ...options, toolsCompatibility: toolsCompatibility.value })
   }
 
+  async function generateObject<T>(
+    model: string,
+    chatProvider: ChatProvider,
+    options: Omit<import('@proj-airi/stage-shared').StructuredOutputOptions<T>, 'model' | 'apiKey' | 'baseURL'>,
+  ) {
+    const { generateObject: sharedGenerateObject } = await import('@proj-airi/stage-shared')
+    const chatConfig = chatProvider.chat(model)
+
+    return await sharedGenerateObject({
+      ...options,
+      model,
+      apiKey: chatConfig.apiKey,
+      baseURL: String(chatConfig.baseURL),
+    })
+  }
+
   async function discoverToolsCompatibility(model: string, chatProvider: ChatProvider, _: Message[], options?: Omit<StreamOptions, 'supportsTools'>) {
     // Cached, no need to discover again
     const key = `${chatProvider.chat(model).baseURL}-${model}`
@@ -382,6 +398,7 @@ export const useLLM = defineStore('llm', () => {
     models,
     stream,
     generate,
+    generateObject,
     discoverToolsCompatibility,
   }
 })
