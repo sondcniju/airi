@@ -4,7 +4,10 @@ import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
 
+import { chatSessionsRepo } from '../database/repos/chat-sessions.repo'
+import { shortTermMemoryRepo } from '../database/repos/short-term-memory.repo'
 import { textJournalRepo } from '../database/repos/text-journal.repo'
+import { layeredMemory } from '../libs/search/layered-memory'
 import { useAuthStore } from './auth'
 import { useAiriCardStore } from './modules/airi-card'
 
@@ -64,11 +67,76 @@ export const useTextJournalStore = defineStore('text-journal', () => {
     loading.value = true
     try {
       entries.value = normalizeEntries(await textJournalRepo.getAll(currentUserId) ?? [])
+
+      // Initialize layered memory index
+      await layeredMemory.init()
+
       initializedForUserId.value = currentUserId
+
+      // Fire-and-forget background indexing
+      backgroundIndexAll().catch(err => console.error('text_journal: background search indexing failed:', err))
     }
     finally {
       loading.value = false
     }
+  }
+
+  async function backgroundIndexAll() {
+    const userId = getCurrentUserId()
+    const cardId = activeCardId.value
+    if (!userId || !cardId)
+      return
+
+    // 1. LTMM
+    const ltmm = entries.value.filter(e => e.characterId === cardId).map(e => ({
+      id: e.id,
+      fact: e.content,
+      kind: 'ltmm_entry',
+      timestamp: new Date(e.createdAt).toISOString(),
+      source: e.source,
+    }))
+
+    // 2. STMM
+    const stmmRaw = await shortTermMemoryRepo.getAll(userId) ?? []
+    const stmm = stmmRaw.filter(b => b.characterId === cardId).map(b => ({
+      id: b.id,
+      fact: b.summary,
+      kind: 'stmm_block',
+      timestamp: b.date,
+      source: b.source,
+    }))
+
+    // 3. Raw (Sampling recent sessions)
+    const index = await chatSessionsRepo.getIndex(userId)
+    const raw: any[] = []
+    if (index && index.characters[cardId]) {
+      const characterSessions = index.characters[cardId]
+      const sessions = Object.values(characterSessions.sessions)
+        .sort((a, b) => b.updatedAt - a.updatedAt)
+        .slice(0, 5) // Last 5 sessions
+
+      for (const s of sessions) {
+        const session = await chatSessionsRepo.getSession(s.sessionId)
+        if (session) {
+          for (const m of session.messages) {
+            if (m.role === 'user' || m.role === 'assistant') {
+              const text = typeof m.content === 'string' ? m.content : ''
+              if (text.length > 40) {
+                raw.push({
+                  id: m.id,
+                  fact: text,
+                  kind: 'raw_turn',
+                  timestamp: new Date(m.createdAt || Date.now()).toISOString(),
+                  source: `chat:${s.sessionId}`,
+                })
+              }
+            }
+          }
+        }
+      }
+    }
+
+    await layeredMemory.indexDocuments([...ltmm, ...stmm, ...raw])
   }
 
   async function persist(nextEntries: TextJournalEntry[]) {
@@ -161,38 +229,41 @@ export const useTextJournalStore = defineStore('text-journal', () => {
       throw new Error(`text_journal: failed to load entries before searching: ${err instanceof Error ? err.message : String(err)}`)
     }
 
-    const normalizedQuery = input.query.trim().toLowerCase()
-    if (!normalizedQuery)
+    const query = input.query.trim()
+    if (!query)
       return []
 
-    const targetCharacterId = input.characterId ?? activeCardId.value ?? ''
-    const scopedEntries = entries.value.filter(entry => !targetCharacterId || entry.characterId === targetCharacterId)
+    const results = await layeredMemory.search(query, input.limit ?? 5)
 
-    const ranked = scopedEntries
-      .map((entry) => {
-        const title = entry.title.toLowerCase()
-        const content = entry.content.toLowerCase()
-        const characterName = entry.characterName.toLowerCase()
+    // Log search results for developer review
+    console.log(`[TextJournal:Search] Query: "${query}" | Results:`, results)
 
-        let score = 0
-        if (title.includes(normalizedQuery))
-          score += 4
-        if (content.includes(normalizedQuery))
-          score += 2
-        if (characterName.includes(normalizedQuery))
-          score += 1
-
+    // For now, map layered results back to the most relevant TextJournalEntry if it exists,
+    // or provide surrogate entries for STMM/Raw.
+    return results.map((res) => {
+      const existing = entries.value.find(e => e.id === res.id)
+      if (existing) {
         return {
-          entry,
-          score,
+          ...existing,
+          kind: res.kind,
         }
-      })
-      .filter(item => item.score > 0)
-      .sort((a, b) => b.score - a.score || b.entry.createdAt - a.entry.createdAt)
+      }
 
-    return ranked
-      .slice(0, Math.max(1, Math.min(input.limit ?? 5, 10)))
-      .map(item => item.entry)
+      // Surrogate entry for STMM/Raw context
+      return {
+        id: res.id,
+        userId: getCurrentUserId(),
+        characterId: input.characterId ?? activeCardId.value ?? '',
+        characterName: activeCard.value?.name ?? 'Unknown',
+        title: `[${res.kind.toUpperCase()}] Memory`,
+        content: res.content,
+        kind: res.kind,
+        source: 'tool',
+        type: 'message',
+        createdAt: new Date(res.timestamp).getTime(),
+        updatedAt: new Date(res.timestamp).getTime(),
+      } as TextJournalEntry & { kind: string }
+    })
   }
 
   return {
@@ -202,6 +273,7 @@ export const useTextJournalStore = defineStore('text-journal', () => {
     createEntry,
     seedActiveCharacterEntry,
     searchEntries,
+    backgroundIndexAll,
     persist,
   }
 })

@@ -26,6 +26,8 @@ const { entries, loading } = storeToRefs(textJournalStore)
 
 const selectedCharacter = ref('all')
 const searchTerm = ref('')
+const isSearching = ref(false)
+const semanticResults = ref<(any & { kind?: string })[]>([])
 
 const characterOptions = computed<CharacterOption[]>(() => {
   const options = Array.from(cards.value.entries()).map(([id, card]) => ({
@@ -39,7 +41,8 @@ const characterOptions = computed<CharacterOption[]>(() => {
   ]
 })
 
-const visibleEntries = computed(() => {
+// Legacy keyword filter as a fallback
+const keywordFilteredEntries = computed(() => {
   const term = searchTerm.value.trim().toLowerCase()
 
   return entries.value.filter((entry) => {
@@ -51,6 +54,52 @@ const visibleEntries = computed(() => {
 
     return matchesCharacter && matchesTerm
   })
+})
+
+const visibleEntries = computed(() => {
+  const term = searchTerm.value.trim()
+  if (!term)
+    return keywordFilteredEntries.value
+
+  // If we have semantic results, use them (already character-filtered in the search logic or post-filtered)
+  if (semanticResults.value.length > 0) {
+    return semanticResults.value.filter(res =>
+      selectedCharacter.value === 'all' || res.characterId === selectedCharacter.value,
+    )
+  }
+
+  // Fallback to keyword search if semantic came up empty
+  return keywordFilteredEntries.value
+})
+
+let searchTimeout: any = null
+watch(searchTerm, (term) => {
+  if (searchTimeout)
+    clearTimeout(searchTimeout)
+
+  const trimmed = term.trim()
+  if (!trimmed) {
+    semanticResults.value = []
+    return
+  }
+
+  searchTimeout = setTimeout(async () => {
+    isSearching.value = true
+    try {
+      const results = await textJournalStore.searchEntries({
+        query: trimmed,
+        limit: 20,
+      })
+      semanticResults.value = results
+    }
+    catch (err) {
+      console.error('LTMM: Semantic search failed, falling back to keywords:', err)
+      semanticResults.value = []
+    }
+    finally {
+      isSearching.value = false
+    }
+  }, 300)
 })
 
 async function seedEntry() {
@@ -174,13 +223,9 @@ watch(characterOptions, (options) => {
         <FieldInput
           v-model="searchTerm"
           label="Search Archive"
-          description="Keyword search over narrative content and character labels."
+          description="High-fidelity semantic retrieval across all memory layers (Raw, STMM, LTMM)."
           placeholder="Filter memories..."
-        >
-          <template #icon>
-            <div class="i-solar:magnifer-linear text-neutral-400" />
-          </template>
-        </FieldInput>
+        />
         <div class="flex items-end">
           <Button
             label="Seed Record"
@@ -209,9 +254,9 @@ watch(characterOptions, (options) => {
           </div>
         </div>
 
-        <div v-if="loading" class="border-2 border-neutral-200 rounded-[2.5rem] border-dashed bg-neutral-50/50 p-12 text-center text-neutral-400 dark:border-neutral-800 dark:bg-neutral-950/40">
+        <div v-if="loading || isSearching" class="border-2 border-neutral-200 rounded-[2.5rem] border-dashed bg-neutral-50/50 p-12 text-center text-neutral-400 dark:border-neutral-800 dark:bg-neutral-950/40">
           <div class="i-solar:loading-bold mx-auto mb-4 animate-spin text-4xl" />
-          Opening the vault...
+          {{ isSearching ? 'Probing memory layers...' : 'Opening the vault...' }}
         </div>
 
         <div v-else-if="visibleEntries.length === 0" class="font-urbanist border-2 border-neutral-200 rounded-[2.5rem] border-dashed bg-neutral-50/50 p-12 text-center text-neutral-400 dark:border-neutral-800 dark:bg-neutral-950/40">
@@ -232,16 +277,18 @@ watch(characterOptions, (options) => {
                 <div
                   :class="[
                     'rounded-xl px-4 py-1.5 text-xs font-bold uppercase tracking-widest',
-                    entry.source === 'tool'
-                      ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400'
-                      : entry.source === 'seed'
-                        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                        : entry.source === 'proactivity'
-                          ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                          : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400',
+                    (entry as any).kind === 'raw_turn'
+                      ? 'bg-primary-500/10 text-primary-600 dark:text-primary-400'
+                      : (entry as any).kind === 'stmm_block'
+                        ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400'
+                        : entry.source === 'tool'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                          : entry.source === 'seed'
+                            ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                            : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400',
                   ]"
                 >
-                  Source: {{ entry.source }}
+                  Source: {{ (entry as any).kind === 'raw_turn' ? 'Chat' : (entry as any).kind === 'stmm_block' ? 'Recap' : 'Journal' }}
                 </div>
               </div>
               <div class="text-[10px] text-neutral-400 font-bold tracking-widest uppercase">

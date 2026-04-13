@@ -13,7 +13,7 @@ const shortTermMemory = useShortTermMemoryStore()
 const echoesStore = useEchoesStore()
 
 const { cards } = storeToRefs(cardStore)
-const { activeCardId, loading, rebuilding, rebuildProgress, error } = storeToRefs(shortTermMemory)
+const { activeCardId, loading, rebuilding, rebuildProgress } = storeToRefs(shortTermMemory)
 const { chips: allChips, loading: echoesLoading } = storeToRefs(echoesStore)
 
 const selectedCharacter = ref('')

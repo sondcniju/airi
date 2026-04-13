@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, FieldInput, FieldSelect } from '@proj-airi/ui'
+import { FieldInput } from '@proj-airi/ui'
 import { ref } from 'vue'
 
 // --- Mock State (UI only) ---

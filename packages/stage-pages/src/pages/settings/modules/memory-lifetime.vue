@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Button, FieldInput, FieldSelect } from '@proj-airi/ui'
-import { computed, ref } from 'vue'
+import { Button } from '@proj-airi/ui'
+import { ref } from 'vue'
 
 // --- Mock Stats & State ---
 const isProvisioned = ref(true)
@@ -119,7 +119,7 @@ function nextStep() {
       <p class="mx-auto mb-8 max-w-lg text-neutral-500 dark:text-neutral-400">
         Lifetime monitoring is not yet active for <span class="text-neutral-700 font-bold dark:text-neutral-200">{{ activeCharacter.name }}</span>. Enable the Eternal Thread to start distilling daily conversations into a permanent soul blueprint.
       </p>
-      <Button label="Enable Eternal Thread" variant="primary" size="large" icon="i-solar:plug-circle-bold-duotone" @click="startProvisioning" />
+      <Button label="Enable Eternal Thread" variant="primary" size="lg" icon="i-solar:plug-circle-bold-duotone" @click="startProvisioning" />
     </section>
 
     <!-- STATE B: Character Provisioned (The Terminal) -->

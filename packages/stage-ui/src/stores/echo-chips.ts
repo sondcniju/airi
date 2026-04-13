@@ -54,7 +54,19 @@ export const useEchoesStore = defineStore('echo-chips', () => {
 
     loading.value = true
     try {
-      chips.value = await echoChipsRepo.getAll(currentUserId) ?? []
+      const raw = await echoChipsRepo.getAll(currentUserId) ?? []
+      // Defensive sanitization for loaded data
+      chips.value = raw.map(c => ({
+        id: c.id,
+        userId: c.userId || currentUserId,
+        characterId: c.characterId,
+        date: c.date,
+        content: c.content,
+        type: (c.type || 'flavor') as EchoChipType,
+        relevanceScore: typeof c.relevanceScore === 'number' ? c.relevanceScore : 0.8,
+        evidenceIndices: c.evidenceIndices || [],
+        createdAt: c.createdAt || Date.now(),
+      }))
       initializedForUserId.value = currentUserId
     }
     finally {
@@ -64,7 +76,9 @@ export const useEchoesStore = defineStore('echo-chips', () => {
 
   async function persist(nextChips: EchoChip[]) {
     const currentUserId = getCurrentUserId()
-    await echoChipsRepo.saveAll(currentUserId, nextChips)
+    // Clean serialization to strip reactive proxies
+    const serialized = JSON.parse(JSON.stringify(nextChips))
+    await echoChipsRepo.saveAll(currentUserId, serialized)
     chips.value = nextChips
     initializedForUserId.value = currentUserId
   }
