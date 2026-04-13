@@ -133,6 +133,9 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
   ) {
     chatLog('performSend starting with message:', sendingMessage)
 
+    let bridgedSteps = 0
+    let needsBridgedFollowUp = false
+
     if (!sendingMessage && !options.attachments?.length)
       return
 
@@ -294,6 +297,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
           if (speechOnly.trim()) {
             buildingMessage.content += speechOnly
+            turnSpeechContent += speechOnly
 
             await hooks.emitTokenLiteralHooks(speechOnly, streamingMessageContext)
 
@@ -318,16 +322,23 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         },
       })
 
-      async function tryBridgeMarker(marker: string): Promise<boolean> {
-        chatLog('tryBridgeMarker evaluating:', marker)
+      /**
+       * Evaluates a potential tool marker string.
+       * RETURNS: Info about the match and whether it was successfully bridged as a tool call.
+       */
+      async function tryBridgeMarker(input: string): Promise<{ matchedText: string, bridged: boolean }> {
+        chatLog('tryBridgeMarker evaluating input (partial):', input.trim().substring(0, 100))
         // Supports: <|tool:args|>, [call_tool:tool, args], and hybrid <|tool:args</tool_call>
-        const match = marker.match(/^<\|([\w-]+):([^|]*?)(?:\|>|<\/tool_call>|$)/)
-          || marker.match(/^\[call_tool:([\w-]+),\s*([^\]]*?)(?:\]|<\/tool_call>|$)/)
-          || marker.match(/<tool_call>([\w-]+)\((.*?)\)<\/tool_call>/s)
-          || marker.match(/<tool_call>(\{.*?\})<\/tool_call>/s)
+        // Use non-greedy match and NO start-of-line anchor to allow finding markers within blocks.
+        const match = input.match(/<\|([\w-]+):([^|]*?)(?:\|>|<\/tool_call>|$)/)
+          || input.match(/\[call_tool:([\w-]+),\s*([^\]]*?)(?:\]|<\/tool_call>|$)/)
+          || input.match(/<tool_call>([\w-]+)\((.*?)\)<\/tool_call>/s)
+          || input.match(/<tool_call>(\{.*?\})<\/tool_call>/s)
 
         if (!match)
-          return false
+          return { matchedText: '', bridged: false }
+
+        const matchedMarkerText = match[0]
         let toolName: string
         let argsRaw: string
 
@@ -341,18 +352,21 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           }
           catch (e) {
             console.error('[ChatDebug] Failed to parse JSON tool call tag:', e)
-            return false
+            return { matchedText: '', bridged: false }
           }
         }
         else {
           toolName = match[1]
           argsRaw = match[2] || ''
         }
+
         const resolvedTools = typeof options.tools === 'function' ? await options.tools() : options.tools
         const tool = resolvedTools?.find(t => (t.function?.name || (t as any).name) === toolName)
 
-        if (!tool)
-          return false
+        if (!tool) {
+          chatLog(`[ChatDebug] Marker found but tool not executable/found in this context: ${toolName}`)
+          return { matchedText: matchedMarkerText, bridged: false }
+        }
 
         chatLog(`Bridging marker to tool call: ${toolName}`)
         try {
@@ -397,6 +411,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
               type: 'tool-call',
               toolCall: {
                 id: `bridge-${nanoid()}`,
+                type: 'function',
                 function: {
                   name: toolName,
                   arguments: JSON.stringify(args),
@@ -404,13 +419,17 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
               } as any,
               bridged: true,
             })
-            return true
+
+            // Strip the EXPLICIT matched marker text (not the whole input) from the raw accumulator
+            fullText = fullText.replace(matchedMarkerText, '')
+
+            return { matchedText: matchedMarkerText, bridged: true }
           }
         }
         catch (err) {
           console.error('[ChatDebug] Failed to bridge marker:', err)
         }
-        return false
+        return { matchedText: matchedMarkerText, bridged: false }
       }
 
       const parser = useLlmmarkerParser({
@@ -419,21 +438,17 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           if (shouldAbort())
             return
 
-          // Catch hallucinated markers
-          const literalMarkerMatch = text.match(/\[call_tool:[\w-]+,[^\]]+\]/)
-            || text.match(/<\|([\w-]+):[^|]+\|>/)
-            || text.match(/<tool_call>.*?<\/tool_call>/s)
-            || text.match(/<\|[\w-]+:.*?<\/tool_call>/s)
-
-          if (literalMarkerMatch) {
-            const marker = literalMarkerMatch[0]
-            if (await tryBridgeMarker(marker)) {
-              text = text.replace(marker, '')
-            }
+          // Catch hallucinated markers - Loop to handle multiple markers in one delta
+          let currentText = text
+          let lastMatch: { matchedText: string, bridged: boolean }
+          while ((lastMatch = await tryBridgeMarker(currentText)).matchedText !== '') {
+            currentText = currentText.replace(lastMatch.matchedText, '')
+            if (lastMatch.bridged)
+              needsBridgedFollowUp = true
           }
 
-          if (text.trim()) {
-            await literalInterceptor.consume(text)
+          if (currentText.trim()) {
+            await literalInterceptor.consume(currentText)
           }
         },
         onSpecial: async (special) => {
@@ -441,11 +456,16 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           if (shouldAbort())
             return
 
-          if (await tryBridgeMarker(special))
+          // Use the refactored tryBridgeMarker which returns the match info
+          const bridgeResult = await tryBridgeMarker(special)
+          if (bridgeResult.bridged) {
+            needsBridgedFollowUp = true
             return
+          }
 
           await hooks.emitTokenSpecialHooks(special, streamingMessageContext)
         },
+
         onEnd: async (fullText) => {
           chatLog('parser.onEnd triggered with fullText length:', fullText.length)
           if (isStaleGeneration())
@@ -539,168 +559,236 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         ],
       })
 
-      let newMessages = inferenceMessages.map((msg: any) => {
-        const { context: _context, id: _id, createdAt: _createdAt, ...withoutContext } = msg
-        const rawMessage = toRaw(withoutContext)
-
-        if (rawMessage.role === 'assistant') {
-          const { slices: _slices, tool_results: _toolResults, categorization: _categorization, ...rest } = rawMessage as ChatAssistantMessage
-          return toRaw(rest)
-        }
-
-        return rawMessage
-      })
-
-      const contextsSnapshot = chatContext.getContextsSnapshot()
-      const groundingEnabled = activeCard.value?.extensions?.airi?.groundingEnabled
-      const sensorPayload = groundingEnabled ? proactivityStore.sensorPayload : ''
-
-      if (Object.keys(contextsSnapshot).length > 0 || sensorPayload) {
-        const system = newMessages.slice(0, 1)
-        const afterSystem = newMessages.slice(1, newMessages.length)
-
-        let contextContent = ''
-        if (Object.keys(contextsSnapshot).length > 0) {
-          contextContent += 'These are the contextual information retrieved or on-demand updated from other modules:\n'
-            + `${Object.entries(contextsSnapshot).map(([key, value]) => `Module ${key}: ${JSON.stringify(value)}`).join('\n')}\n`
-        }
-
-        if (sensorPayload) {
-          contextContent += `${contextContent ? '\n---\n' : ''
-          }[ENVIRONMENTAL AWARENESS]\n`
-          + `The following telemetry describes your current environmental context. `
-          + `Use it to stay grounded in the user's reality and inform your response. `
-          + `You may reference specific values (like time or active applications) if relevant `
-          + `to the conversation, but avoid a dry, technical recitation of the data.\n`
-          + `---\n`
-          + `${sensorPayload}\n`
-        }
-
-        newMessages = [
-          ...system,
-          {
-            role: 'system',
-            content: contextContent.trim(),
-          },
-          ...afterSystem,
-        ]
-      }
-
-      streamingMessageContext.composedMessage = newMessages as Message[]
-
-      await hooks.emitAfterMessageComposedHooks(sendingMessage, streamingMessageContext)
-      await hooks.emitBeforeSendHooks(sendingMessage, streamingMessageContext)
-
       let fullText = ''
-      const headers = (effectiveConfig?.headers || {}) as Record<string, string>
-      const generationConfig = activeCard.value?.extensions?.airi?.generation
-      const generationKnown = generationConfig?.enabled ? generationConfig.known : undefined
-      const abortController = new AbortController()
+      let turnSpeechContent = ''
+      const bridgedTurnsHistory: { content: string, tool_calls?: any[], tool_results: any[] }[] = []
 
-      const clearStreamIdleTimeout = () => {
-        if (streamIdleTimeout)
-          clearTimeout(streamIdleTimeout)
-      }
+      while (bridgedSteps < 5) {
+        bridgedSteps++
+        needsBridgedFollowUp = false
+        turnSpeechContent = ''
 
-      const resetStreamIdleTimeout = () => {
-        clearStreamIdleTimeout()
-        streamIdleTimeout = setTimeout(() => {
-          abortController.abort(new Error('Stream idle timeout exceeded'))
-        }, settingsChat.streamIdleTimeoutMs)
-      }
+        chatLog(`[ChatDebug] Starting inference step ${bridgedSteps}`)
 
-      if (shouldAbort())
-        return
+        // Reconstruct messages for this turn using the segmented bridgedTurnsHistory.
+        let newMessages = inferenceMessages.map((msg: any) => {
+          const { context: _context, id: _id, createdAt: _createdAt, ...withoutContext } = msg
+          const rawMessage = toRaw(withoutContext)
 
-      resetStreamIdleTimeout()
-
-      const providerModels = providersStore.getModelsForProvider(effectiveProviderId)
-      const currentModel = providerModels.find(m => m.id === effectiveModel)
-      const isVisionSupported = isVlmTurn || (currentModel?.capabilities?.includes('vision') || false)
-
-      console.log(`[ChatDebug] Model: ${effectiveModel}, Provider: ${effectiveProviderId}, Vision Supported: ${isVisionSupported}`)
-
-      await llmStore.stream(effectiveModel, effectiveProvider, newMessages as Message[], {
-        headers,
-        tools: effectiveTools,
-        temperature: generationKnown?.temperature,
-        top_p: generationKnown?.topP,
-        max_tokens: generationKnown?.maxTokens,
-        contextWidth: generationKnown?.contextWidth,
-        vision: isVisionSupported,
-        requestOverrides: generationConfig?.enabled ? generationConfig.advanced : undefined,
-        abortSignal: abortController.signal,
-        waitForTools: true,
-        onStreamEvent: async (event: StreamEvent) => {
-          resetStreamIdleTimeout()
-          switch (event.type) {
-            case 'tool-call':
-              toolCallQueue.enqueue({
-                type: 'tool-call',
-                toolCall: event,
-              })
-              break
-            case 'tool-result':
-              toolCallQueue.enqueue({
-                type: 'tool-call-result',
-                id: event.toolCallId,
-                result: event.result,
-              })
-              break
-            case 'text-delta': {
-              const healedText = healMozibake(event.text)
-              console.log('[ChatDebug] text-delta:', healedText)
-              fullText += healedText
-              ;(window as any).electron.ipcRenderer.send('llm-raw-output', {
-                type: 'delta',
-                text: healedText,
-                sessionId,
-              })
-              await parser.consume(healedText)
-              break
-            }
-            case 'reasoning-delta': {
-              const healedText = healMozibake(event.text)
-              if (!(buildingMessage as any).categorization) {
-                ;(buildingMessage as any).categorization = { speech: '', reasoning: '' }
-              }
-              ;(buildingMessage as any).categorization.reasoning += healedText
-              updateUI()
-              break
-            }
-            case 'finish':
-              console.log('[ChatDebug] Stream finished. Reason:', (event as any).finishReason, 'fullText length:', fullText.length)
-              ;(window as any).electron.ipcRenderer.send('llm-raw-output', {
-                type: 'full',
-                text: fullText,
-                sessionId,
-              })
-              break
-            case 'usage':
-              console.log('[ChatDebug] usage report:', event.usage)
-              const liveSession = useLiveSessionStore()
-              liveSession.recordInferenceUsage(event.usage.total_tokens || event.usage.totalTokenCount || event.usage.totalUsage || 0)
-              break
-            case 'error':
-              throw event.error ?? new Error('Stream error')
+          if (rawMessage.role === 'assistant') {
+            const { slices: _slices, tool_results: _toolResults, categorization: _categorization, ...rest } = rawMessage as ChatAssistantMessage
+            return toRaw(rest)
           }
-        },
-      })
 
-      clearStreamIdleTimeout()
-      await parser.end()
+          return rawMessage
+        })
 
-      // Final attempt to bridge any unclosed markers in the full accumulated text
-      if (fullText.includes('<|') || fullText.includes('[call_tool:') || fullText.includes('<tool_call>')) {
-        const hybridMatch = fullText.match(/<\|([\w-]+):.*$/s)
-          || fullText.match(/\[call_tool:([\w-]+),.*$/s)
-          || fullText.match(/<tool_call>.*$/s)
-
-        if (hybridMatch) {
-          chatLog('Attempting recovery of unclosed tool call at stream end')
-          await tryBridgeMarker(hybridMatch[0])
+        // Inject all previously completed bridged turns into newMessages history
+        for (const turn of bridgedTurnsHistory) {
+          newMessages.push({
+            role: 'assistant',
+            content: turn.content,
+            tool_calls: turn.tool_calls,
+          })
+          for (const res of turn.tool_results) {
+            newMessages.push({
+              role: 'tool',
+              tool_call_id: res.id,
+              content: typeof res.result === 'string' ? res.result : JSON.stringify(res.result),
+            })
+          }
         }
+
+        const contextsSnapshot = chatContext.getContextsSnapshot()
+        const groundingEnabled = activeCard.value?.extensions?.airi?.groundingEnabled
+        const sensorPayload = groundingEnabled ? proactivityStore.sensorPayload : ''
+
+        if (Object.keys(contextsSnapshot).length > 0 || sensorPayload) {
+          const system = newMessages.slice(0, 1)
+          const afterSystem = newMessages.slice(1, newMessages.length)
+
+          let contextContent = ''
+          if (Object.keys(contextsSnapshot).length > 0) {
+            contextContent += 'These are the contextual information retrieved or on-demand updated from other modules:\n'
+              + `${Object.entries(contextsSnapshot).map(([key, value]) => `Module ${key}: ${JSON.stringify(value)}`).join('\n')}\n`
+          }
+
+          if (sensorPayload) {
+            contextContent += `${contextContent ? '\n---\n' : ''
+            }[ENVIRONMENTAL AWARENESS]\n`
+            + `The following telemetry describes your current environmental context. `
+            + `Use it to stay grounded in the user's reality and inform your response. `
+            + `You may reference specific values (like time or active applications) if relevant `
+            + `to the conversation, but avoid a dry, technical recitation of the data.\n`
+            + `---\n`
+            + `${sensorPayload}\n`
+          }
+
+          newMessages = [
+            ...system,
+            {
+              role: 'system',
+              content: contextContent.trim(),
+            },
+            ...afterSystem,
+          ]
+        }
+
+        streamingMessageContext.composedMessage = newMessages as Message[]
+
+        await hooks.emitAfterMessageComposedHooks(sendingMessage, streamingMessageContext)
+        await hooks.emitBeforeSendHooks(sendingMessage, streamingMessageContext)
+
+        const headers = (effectiveConfig?.headers || {}) as Record<string, string>
+        const generationConfig = activeCard.value?.extensions?.airi?.generation
+        const generationKnown = generationConfig?.enabled ? generationConfig.known : undefined
+        const abortController = new AbortController()
+
+        const clearStreamIdleTimeout = () => {
+          if (streamIdleTimeout)
+            clearTimeout(streamIdleTimeout)
+        }
+        const resetStreamIdleTimeout = () => {
+          clearStreamIdleTimeout()
+          streamIdleTimeout = setTimeout(() => {
+            abortController.abort(new Error('Stream idle timeout exceeded'))
+          }, settingsChat.streamIdleTimeoutMs)
+        }
+
+        if (shouldAbort())
+          return
+
+        resetStreamIdleTimeout()
+
+        const providerModels = providersStore.getModelsForProvider(effectiveProviderId)
+        const currentModel = providerModels.find(m => m.id === effectiveModel)
+        const isVisionSupported = isVlmTurn || (currentModel?.capabilities?.includes('vision') || false)
+
+        console.log(`[ChatDebug] Model: ${effectiveModel}, Provider: ${effectiveProviderId}, Vision Supported: ${isVisionSupported}`)
+
+        await llmStore.stream(effectiveModel, effectiveProvider, newMessages as Message[], {
+          headers,
+          tools: effectiveTools,
+          temperature: generationKnown?.temperature,
+          top_p: generationKnown?.topP,
+          max_tokens: generationKnown?.maxTokens,
+          contextWidth: generationKnown?.contextWidth,
+          vision: isVisionSupported,
+          requestOverrides: generationConfig?.enabled ? generationConfig.advanced : undefined,
+          abortSignal: abortController.signal,
+          waitForTools: true,
+          onStreamEvent: async (event: StreamEvent) => {
+            resetStreamIdleTimeout()
+            switch (event.type) {
+              case 'tool-call':
+                toolCallQueue.enqueue({
+                  type: 'tool-call',
+                  toolCall: event,
+                })
+                break
+              case 'tool-result':
+                toolCallQueue.enqueue({
+                  type: 'tool-call-result',
+                  id: event.toolCallId,
+                  result: event.result,
+                })
+                break
+              case 'text-delta': {
+                const healedText = healMozibake(event.text)
+                chatLog('text-delta:', healedText)
+                fullText += healedText
+                ;(window as any).electron.ipcRenderer.send('llm-raw-output', {
+                  type: 'delta',
+                  text: healedText,
+                  sessionId,
+                })
+                await parser.consume(healedText)
+                break
+              }
+              case 'reasoning-delta': {
+                const healedText = healMozibake(event.text)
+                if (!(buildingMessage as any).categorization) {
+                  ;(buildingMessage as any).categorization = { speech: '', reasoning: '' }
+                }
+                ;(buildingMessage as any).categorization.reasoning += healedText
+                updateUI()
+                break
+              }
+              case 'finish':
+                chatLog('Stream finished. Reason:', (event as any).finishReason, 'fullText length:', fullText.length)
+                ;(window as any).electron.ipcRenderer.send('llm-raw-output', {
+                  type: 'full',
+                  text: fullText,
+                  sessionId,
+                })
+                break
+              case 'usage':
+                chatLog('usage report:', event.usage)
+                const liveSession = useLiveSessionStore()
+                liveSession.recordInferenceUsage(event.usage.total_tokens || event.usage.totalTokenCount || event.usage.totalUsage || 0)
+                break
+              case 'error':
+                throw event.error ?? new Error('Stream error')
+            }
+          },
+        })
+
+        clearStreamIdleTimeout()
+        await parser.end()
+
+        // Wait for all tools (bridged or native) to finish processing for this turn
+        await new Promise<void>((resolve) => {
+          if (toolCallQueue.length() === 0)
+            return resolve()
+          toolCallQueue.on('drain', () => resolve())
+        })
+
+        // Final attempt to bridge any unclosed markers in the full accumulated text for THIS turn
+        if (fullText.includes('<|') || fullText.includes('[call_tool:') || fullText.includes('<tool_call>')) {
+          chatLog('Scanning for unclosed tool calls in fullText accumulator')
+          let lastRecovered: { matchedText: string, bridged: boolean }
+          while ((lastRecovered = await tryBridgeMarker(fullText)).matchedText !== '') {
+            chatLog('Successfully processed marker from turn end:', lastRecovered.matchedText, 'Bridged:', lastRecovered.bridged)
+
+            if (lastRecovered.bridged) {
+              needsBridgedFollowUp = true
+              // Wait for EACH bridged tool to finish so results are ready for Turn 2/3
+              await new Promise<void>((resolve) => {
+                if (toolCallQueue.length() === 0)
+                  return resolve()
+                toolCallQueue.on('drain', () => resolve())
+              })
+            }
+            else {
+              // If not bridged, we still need to strip it from fullText to avoid infinite loop
+              fullText = fullText.replace(lastRecovered.matchedText, '')
+            }
+          }
+        }
+
+        // Commit this turn to history before potentially starting the next turn step
+        const currentTurnResults = buildingMessage.tool_results.filter(res =>
+          !bridgedTurnsHistory.some(prev => prev.tool_results.some(p => p.id === res.id)),
+        )
+
+        bridgedTurnsHistory.push({
+          content: turnSpeechContent,
+          tool_calls: buildingMessage.slices
+            .filter(s => s.type === 'tool-call' && currentTurnResults.some(r => r.id === (s as any).toolCall?.id))
+            .map(s => (s as any).toolCall),
+          tool_results: [...currentTurnResults],
+        })
+
+        // Terminal condition check: if no more bridged tools requested a follow-up, we exit
+        if (!needsBridgedFollowUp) {
+          chatLog('[ChatDebug] No bridged follow-up requested, exiting turn loop.')
+          break
+        }
+
+        chatLog(`[ChatDebug] Bridged tool(s) executed, triggering turn step ${bridgedSteps + 1}`)
       }
+
+      // Turn loop ended
 
       if (!isStaleGeneration() && buildingMessage.slices.length > 0) {
         const currentMessages = chatSession.getSessionMessages(sessionId)
