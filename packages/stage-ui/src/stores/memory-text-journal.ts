@@ -233,7 +233,7 @@ export const useTextJournalStore = defineStore('text-journal', () => {
     if (!query)
       return []
 
-    const results = await layeredMemory.search(query, input.limit ?? 5)
+    const results = await layeredMemory.search(query, input.limit ?? 3)
 
     // Log search results for developer review
     console.log(`[TextJournal:Search] Query: "${query}" | Results:`, results)
