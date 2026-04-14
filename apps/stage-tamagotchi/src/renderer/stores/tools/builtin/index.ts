@@ -1,6 +1,6 @@
 import type { Tool } from '@xsai/shared-chat'
 
-import { getMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
+import { tryGetMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useStickersStore } from '@proj-airi/stage-ui/stores/stickers'
 
@@ -14,8 +14,21 @@ export async function builtinTools(): Promise<Tool[]> {
   const artistry = useArtistryStore()
   const stickers = useStickersStore()
 
-  const mcpBridge = getMcpToolBridge()
-  const mcpStatus = await mcpBridge.getRuntimeStatus()
+  const mcpBridge = tryGetMcpToolBridge()
+  let hasMcpServers = false
+
+  if (mcpBridge) {
+    try {
+      const mcpStatus = await mcpBridge.getRuntimeStatus()
+      hasMcpServers = mcpStatus.servers.length > 0
+    }
+    catch (err) {
+      console.warn('[builtinTools] 🔌 Failed to fetch MCP status, skipping MCP tools:', err)
+    }
+  }
+  else {
+    console.warn('[builtinTools] 🔌 MCP bridge not found, skipping MCP tools.')
+  }
 
   const toolPromises: Promise<Tool[]>[] = []
 
@@ -36,8 +49,8 @@ export async function builtinTools(): Promise<Tool[]> {
   }
 
   // MCP Servers
-  if (mcpStatus.servers.length > 0) {
-    console.log(`[builtinTools] 🔌 MCP Servers configured (${mcpStatus.servers.length}), enabling mcp tools.`)
+  if (hasMcpServers) {
+    console.log('[builtinTools] 🔌 MCP Servers found, enabling mcp tools.')
     toolPromises.push(mcpTools())
   }
 

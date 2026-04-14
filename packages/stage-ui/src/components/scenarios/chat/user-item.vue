@@ -55,7 +55,6 @@ const images = computed(() => {
 
 const containerClasses = computed(() => [
   'flex',
-  'w-full',
   props.variant === 'mobile' ? 'ml-0 flex-row' : 'ml-12 flex-row-reverse',
 ])
 
@@ -77,11 +76,10 @@ function handleDelete() {
 </script>
 
 <template>
-  <div v-if="message.role === 'user'" :class="containerClasses" class="ph-no-capture group">
+  <div v-if="message.role === 'user'" self-end class="group ph-no-capture max-w-[calc(100%-4rem)]" :class="containerClasses">
     <ChatActionMenu
       :copy-text="copyText"
       placement="left"
-      full-width
       @copy="handleCopy"
       @delete="handleDelete"
     >
@@ -90,7 +88,7 @@ function handleDelete() {
           :ref="setMeasuredElement"
           flex="~ col" shadow="sm neutral-200/50 dark:none"
           h="unset <sm:fit"
-          relative min-w-20 w-full rounded-xl
+          relative min-w-20 rounded-xl
           :class="boxClasses"
         >
           <div>

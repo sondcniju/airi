@@ -1,4 +1,4 @@
-import { getMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
+import { tryGetMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { tool } from '@xsai/tool'
 import { z } from 'zod'
 
@@ -9,7 +9,11 @@ const tools = [
     execute: async () => {
       console.log('[mcp_list_tools] 🔍 Discovery initiated...')
       try {
-        const bridge = getMcpToolBridge()
+        const bridge = tryGetMcpToolBridge()
+        if (!bridge) {
+          throw new Error('MCP tool bridge is not available in this runtime.')
+        }
+
         const tools = await bridge.listTools()
 
         const names = tools.map(t => t.name)
@@ -44,7 +48,12 @@ const tools = [
       if (name === 'mcp_list_tools') {
         console.log('[mcp_call_tool] 💡 FORGIVENESS: Redirecting list request to discovery bridge...')
         try {
-          const result = await getMcpToolBridge().listTools()
+          const bridge = tryGetMcpToolBridge()
+          if (!bridge) {
+            throw new Error('MCP tool bridge is not available in this runtime.')
+          }
+
+          const result = await bridge.listTools()
           return {
             tools: result,
             names: result.map(t => t.name),
@@ -59,7 +68,11 @@ const tools = [
 
       try {
         const parametersObject = Object.fromEntries(parameters.map(({ name, value }) => [name, value]))
-        const bridge = getMcpToolBridge()
+        const bridge = tryGetMcpToolBridge()
+        if (!bridge) {
+          throw new Error('MCP tool bridge is not available in this runtime.')
+        }
+
         console.log(`[mcp_call_tool] 🌉 Bridge found, executing "${name}"...`)
 
         const result = await bridge.callTool({

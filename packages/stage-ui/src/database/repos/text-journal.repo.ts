@@ -10,6 +10,7 @@ export const textJournalRepo = {
 
   async saveAll(userId: string, entries: TextJournalEntry[]) {
     const key = `local:memory/text-journal/${userId}`
-    await storage.setItemRaw(key, entries)
+    const cleanEntries = JSON.parse(JSON.stringify(entries))
+    await storage.setItemRaw(key, cleanEntries)
   },
 }

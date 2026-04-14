@@ -10,6 +10,7 @@ export const shortTermMemoryRepo = {
 
   async saveAll(userId: string, blocks: ShortTermMemoryBlock[]) {
     const key = `local:memory/short-term/${userId}`
-    await storage.setItemRaw(key, blocks)
+    const cleanBlocks = JSON.parse(JSON.stringify(blocks))
+    await storage.setItemRaw(key, cleanBlocks)
   },
 }

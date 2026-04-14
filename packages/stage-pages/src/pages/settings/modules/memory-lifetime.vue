@@ -1,32 +1,50 @@
 <script setup lang="ts">
+import { estimateTokens } from '@proj-airi/stage-shared'
+import { MarkdownRenderer } from '@proj-airi/stage-ui/components'
+import { useMemoryLifetimeStore } from '@proj-airi/stage-ui/stores/memory-lifetime'
+import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { Button } from '@proj-airi/ui'
-import { ref } from 'vue'
+import { storeToRefs } from 'pinia'
+import { computed, onMounted, ref, watch } from 'vue'
 
-// --- Mock Stats & State ---
-const isProvisioned = ref(true)
-const isProvisioning = ref(false)
+import LifetimeHistoryModal from './components/LifetimeHistoryModal.vue'
+import LifetimeProvisioningModal from './components/LifetimeProvisioningModal.vue'
+
+const airiCardStore = useAiriCardStore()
+const { activeCardId, cards } = storeToRefs(airiCardStore)
+const lifetimeStore = useMemoryLifetimeStore()
+const { artifacts, isProvisioning } = storeToRefs(lifetimeStore)
+
+// --- Local State ---
 const showSourceModal = ref(false)
-const showProvisioningWizard = ref(false)
-const provisioningStep = ref(1)
-
+const showHistoryModal = ref(false)
+const showLifetimeModal = ref(false)
 const tokenPreset = ref('1000')
 const autoHandoff = ref(true)
 
-const activeCharacter = {
-  name: 'Bunny Mint',
-  historyTurns: 351,
-  estimatedChunks: 12,
-}
+const activeCharacterArtifact = computed(() => {
+  if (!activeCardId.value)
+    return null
+  return artifacts.value.get(activeCardId.value) || null
+})
 
-const canonicalThread = `The character retains a deep, sisterly affection for the user, rooted in their shared technical explorations. She prioritizes intellectual honesty and gentle teasing as core interaction motifs. Her identity is anchored in the "Larkspur" archetype—stable, observational, and quietly supportive, avoiding erratic emotional shifts.`
+const isProvisioned = computed(() => !!activeCharacterArtifact.value)
 
-const sourceData7k = `[7,420 Tokens - Undistilled Summary Chunks]
-- Recalls specific collaboration on "Project AIRI" across 351 turns.
-- Noted a shift from clinical to sisterly rapport during late-night debugging.
-- Personality baseline remains observational but increasingly supportive.
-- Preference for intellectual honesty confirmed in session 42.
-- Teasing motifs emerged after the "Gura VRM" milestone.
-- Stability confirmed across 4 major session resets...`
+const activeCard = computed(() => {
+  if (!activeCardId.value)
+    return null
+  return cards.value.get(activeCardId.value) || null
+})
+
+const artifactTokens1k = computed(() => {
+  const content = activeCharacterArtifact.value?.distilledContent
+  return content ? estimateTokens(content) : 0
+})
+
+const artifactTokens7k = computed(() => {
+  const content = activeCharacterArtifact.value?.baseContent
+  return content ? estimateTokens(content) : 0
+})
 
 const presetOptions = [
   { value: '500', label: 'Compact (500)', description: 'Dense, essential identity only.' },
@@ -34,27 +52,23 @@ const presetOptions = [
   { value: '3000', label: 'Rich (3000)', description: 'Deep narrative artifact with high nuance.' },
 ]
 
-const threadStatus = [
+const threadStatus = computed(() => [
   { label: 'Soul Active', icon: 'i-solar:dna-bold-duotone' },
-  { label: 'STMM Handoff: Active', icon: 'i-solar:history-bold-duotone' },
-  { label: 'Last Merge: 2h ago', icon: 'i-solar:calendar-date-bold-duotone' },
-]
+  { label: `Archive: ${activeCharacterArtifact.value?.metadata?.chunkCount || 0} Chunks`, icon: 'i-solar:layers-bold-duotone' },
+  {
+    label: activeCharacterArtifact.value?.chunkSummaries?.length ? 'Foundation: OK' : 'Foundation: Missing',
+    icon: activeCharacterArtifact.value?.chunkSummaries?.length ? 'i-solar:database-bold-duotone' : 'i-solar:database-minimalistic-bold-duotone',
+  },
+])
 
-function startProvisioning() {
-  showProvisioningWizard.value = true
-  provisioningStep.value = 1
-}
-
-function nextStep() {
-  if (provisioningStep.value < 4) {
-    provisioningStep.value++
-  }
-  else {
-    isProvisioning.value = false
-    isProvisioned.value = true
-    showProvisioningWizard.value = false
+async function loadData() {
+  if (activeCardId.value) {
+    await lifetimeStore.loadForCharacter(activeCardId.value)
   }
 }
+
+watch(activeCardId, () => loadData(), { immediate: true })
+onMounted(() => loadData())
 </script>
 
 <template>
@@ -117,64 +131,13 @@ function nextStep() {
         Permanent Identity Offline
       </h2>
       <p class="mx-auto mb-8 max-w-lg text-neutral-500 dark:text-neutral-400">
-        Lifetime monitoring is not yet active for <span class="text-neutral-700 font-bold dark:text-neutral-200">{{ activeCharacter.name }}</span>. Enable the Eternal Thread to start distilling daily conversations into a permanent soul blueprint.
+        Lifetime monitoring is not yet active for <span class="text-neutral-700 font-bold dark:text-neutral-200">{{ activeCard?.name || 'this character' }}</span>. Enable the Eternal Thread to start distilling daily conversations into a permanent soul blueprint.
       </p>
-      <Button label="Enable Eternal Thread" variant="primary" size="lg" icon="i-solar:plug-circle-bold-duotone" @click="startProvisioning" />
+      <Button label="Enable Eternal Thread" variant="primary" size="lg" icon="i-solar:plug-circle-bold-duotone" @click="showLifetimeModal = true" />
     </section>
 
     <!-- STATE B: Character Provisioned (The Terminal) -->
     <div v-if="isProvisioned" class="flex flex-col gap-8">
-      <!-- HERO: The 1k Soul Blueprint -->
-      <section class="relative overflow-hidden border border-amber-500/20 rounded-[2.5rem] bg-amber-500/5 p-1 px-1 shadow-2xl dark:border-amber-500/10">
-        <div class="rounded-[2.2rem] bg-white p-10 dark:bg-neutral-900/90">
-          <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <div class="flex items-center gap-3">
-              <div class="h-10 w-10 flex items-center justify-center rounded-xl bg-amber-500/10 text-xl text-amber-500">
-                <div class="i-solar:dna-bold-duotone" />
-              </div>
-              <div>
-                <h2 class="text-2xl text-neutral-800 font-bold dark:text-neutral-100">
-                  Canonical Thread
-                </h2>
-                <p class="text-sm text-neutral-500 italic dark:text-neutral-400">
-                  This is the distilled 1k entry AIRI reloads from.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div class="relative overflow-hidden border border-neutral-200 rounded-2xl bg-neutral-50/50 p-6 leading-relaxed dark:border-neutral-800 dark:bg-black/20">
-            <div class="absolute right-4 top-4 text-4xl text-amber-500/10">
-              <div class="i-solar:quotation-mark-bold-duotone" />
-            </div>
-            <p class="text-lg text-neutral-700 leading-loose italic italic dark:text-neutral-200">
-              "{{ canonicalThread }}"
-            </p>
-          </div>
-
-          <div class="mt-6 flex flex-wrap items-center justify-between gap-6">
-            <div class="flex items-center gap-6">
-              <div class="flex flex-col">
-                <span class="text-[10px] text-neutral-500 tracking-tighter uppercase">Distilled Artifact</span>
-                <span class="text-sm text-neutral-800 font-bold dark:text-neutral-200">~1,024 Tokens</span>
-              </div>
-              <div class="h-8 w-px bg-neutral-200 dark:bg-neutral-800" />
-              <button
-                class="group flex flex-col text-left transition-colors hover:text-primary-500"
-                @click="showSourceModal = true"
-              >
-                <span class="text-[10px] text-neutral-500 tracking-tighter uppercase group-hover:text-primary-400">Source Archive (7k)</span>
-                <span class="text-sm text-neutral-800 font-bold underline decoration-dotted dark:text-neutral-200 group-hover:text-primary-500">351 Turns Condensed</span>
-              </button>
-            </div>
-            <div class="flex gap-3">
-              <Button label="View Thread History" variant="secondary" icon="i-solar:history-line-duotone" />
-              <Button label="Merge Lifetime History" variant="primary" icon="i-solar:restart-bold-duotone" />
-            </div>
-          </div>
-        </div>
-      </section>
-
       <!-- The Trinity Cards -->
       <div class="grid gap-6 lg:grid-cols-3">
         <section class="border border-neutral-200 rounded-3xl bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/60">
@@ -232,6 +195,59 @@ function nextStep() {
         </section>
       </div>
 
+      <!-- HERO: The 1k Soul Blueprint -->
+      <section v-if="activeCharacterArtifact" class="relative overflow-hidden border border-amber-500/20 rounded-[2.5rem] bg-amber-500/5 p-1 px-1 shadow-2xl dark:border-amber-500/10">
+        <div class="rounded-[2.2rem] bg-white p-10 dark:bg-neutral-900/90">
+          <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+              <div class="h-10 w-10 flex items-center justify-center rounded-xl bg-amber-500/10 text-xl text-amber-500">
+                <div class="i-solar:dna-bold-duotone" />
+              </div>
+              <div>
+                <h2 class="text-2xl text-neutral-800 font-bold dark:text-neutral-100">
+                  Canonical Thread
+                </h2>
+                <p class="text-sm text-neutral-500 italic dark:text-neutral-400">
+                  This is the distilled 1k entry AIRI reloads from.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="relative overflow-hidden border border-neutral-200 rounded-2xl bg-neutral-50/50 p-6 leading-relaxed dark:border-neutral-800 dark:bg-black/20">
+            <div class="absolute right-4 top-4 text-4xl text-amber-500/10">
+              <div class="i-solar:quotation-mark-bold-duotone" />
+            </div>
+            <div class="text-lg text-neutral-700 leading-loose dark:text-neutral-200">
+              <MarkdownRenderer :content="activeCharacterArtifact.distilledContent" />
+            </div>
+          </div>
+
+          <div class="mt-6 flex flex-wrap items-center justify-between gap-6">
+            <div class="flex items-center gap-6">
+              <div class="flex flex-col">
+                <span class="text-[10px] text-neutral-500 tracking-tighter uppercase">Distilled Artifact</span>
+                <span class="text-sm text-neutral-800 font-bold dark:text-neutral-200">~{{ artifactTokens1k }} Tokens</span>
+              </div>
+              <div class="h-8 w-px bg-neutral-200 dark:bg-neutral-800" />
+              <button
+                class="group flex flex-col text-left transition-colors hover:text-primary-500"
+                @click="showSourceModal = true"
+              >
+                <span class="text-[10px] text-neutral-500 tracking-tighter uppercase group-hover:text-primary-400">Source Archive ({{ Math.round(artifactTokens7k / 1000) }}k)</span>
+                <span class="text-sm text-neutral-800 font-bold underline decoration-dotted dark:text-neutral-200 group-hover:text-primary-500">
+                  {{ activeCharacterArtifact.sourceManifest.rawTurnCount }} Turns Condensed
+                </span>
+              </button>
+            </div>
+            <div class="flex gap-3">
+              <Button label="View Thread History" variant="secondary" icon="i-solar:history-line-duotone" @click="showHistoryModal = true" />
+              <Button label="Merge Lifetime History" variant="primary" icon="i-solar:restart-bold-duotone" @click="showLifetimeModal = true" />
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- Lifecycle Console -->
       <section class="border border-neutral-200 rounded-[2.5rem] bg-white p-10 shadow-xl dark:border-neutral-800 dark:bg-neutral-900/80">
         <h2 class="mb-8 text-2xl text-neutral-800 font-bold dark:text-neutral-100">
@@ -275,73 +291,9 @@ function nextStep() {
       </section>
     </div>
 
-    <!-- STAGING MODAL: Provisioning Wizard -->
-    <div v-if="showProvisioningWizard" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-      <div class="shadow-3xl max-w-xl w-full scale-100 transform border border-neutral-200 rounded-[2.5rem] bg-white p-10 transition-all dark:border-neutral-800 dark:bg-neutral-900">
-        <div class="flex flex-col gap-6">
-          <header class="flex flex-col gap-2">
-            <h3 class="font-urbanist text-2xl text-neutral-800 font-bold dark:text-neutral-100">
-              Initiate Soul Bonding
-            </h3>
-            <p class="text-sm text-neutral-500 italic dark:text-neutral-400">
-              Provisioning permanent memory for <span class="text-neutral-700 font-bold dark:text-neutral-200">{{ activeCharacter.name }}</span>
-            </p>
-          </header>
-
-          <!-- Wizard Steps -->
-          <div class="flex flex-col gap-8">
-            <div v-if="provisioningStep === 1" class="flex flex-col gap-6">
-              <div class="border border-amber-500/20 rounded-2xl bg-amber-500/5 p-6">
-                <span class="mb-2 block text-xs text-neutral-500 font-bold tracking-widest uppercase">History Scope</span>
-                <div class="flex items-end gap-1">
-                  <span class="text-4xl text-amber-500 font-bold">{{ activeCharacter.historyTurns }}</span>
-                  <span class="mb-1.5 text-sm text-neutral-500 font-bold tracking-tighter uppercase">Turns found in log</span>
-                </div>
-              </div>
-              <p class="text-sm text-neutral-700 leading-relaxed dark:text-neutral-300">
-                The system will distill your entire chat history into its first permanent baseline. This requires roughly <span class="text-amber-500 font-bold">{{ activeCharacter.estimatedChunks }}</span> high-context LLM processing chunks.
-              </p>
-            </div>
-
-            <div v-if="provisioningStep === 2" class="flex flex-col gap-6">
-              <div class="border border-red-500/20 rounded-2xl bg-red-500/5 p-6 dark:border-red-500/30">
-                <span class="mb-1 block text-xs text-red-500 font-bold tracking-widest uppercase">Provisioning Warning</span>
-                <p class="text-sm text-red-700 font-medium leading-relaxed dark:text-red-300">
-                  This process is resource-intensive and will take several minutes. Please do not close the window while the Soul Bonding is in progress.
-                </p>
-              </div>
-            </div>
-
-            <div v-if="provisioningStep === 3" class="flex flex-col gap-8 py-4">
-              <div class="flex flex-col gap-2">
-                <div class="flex items-center justify-between text-xs font-bold tracking-tighter uppercase">
-                  <span class="animate-pulse text-amber-500">Building Foundation...</span>
-                  <span class="text-neutral-500">65%</span>
-                </div>
-                <div class="h-3 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
-                  <div class="h-full w-[65%] bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)]" />
-                </div>
-              </div>
-              <ul class="flex flex-col gap-3">
-                <li v-for="s in ['Calculating history scope...', 'Deduplicating turn events...', 'Distilling narrative baseline...']" :key="s" class="flex items-center gap-3 text-xs text-neutral-500 italic dark:text-neutral-400">
-                  <div class="i-solar:check-circle-bold-duotone text-sm text-emerald-500" />
-                  {{ s }}
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <footer class="mt-4 flex justify-end gap-3">
-            <Button v-if="provisioningStep < 3" label="Cancel" variant="secondary-muted" @click="showProvisioningWizard = false" />
-            <Button :label="provisioningStep === 3 ? 'Building...' : 'Initiate Bond'" variant="primary" :disabled="provisioningStep === 3" @click="nextStep" />
-          </footer>
-        </div>
-      </div>
-    </div>
-
     <!-- STAGING MODAL: Source Data (7k) Explorer -->
-    <div v-if="showSourceModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-      <div class="shadow-3xl max-w-4xl w-full border border-neutral-200 rounded-[2.5rem] bg-white p-10 dark:border-neutral-800 dark:bg-neutral-900">
+    <div v-if="showSourceModal && activeCharacterArtifact" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div class="shadow-3xl max-w-6xl w-full border border-neutral-200 rounded-[2.5rem] bg-white p-10 dark:border-neutral-800 dark:bg-neutral-900">
         <header class="mb-8 flex items-center justify-between">
           <h3 class="text-2xl text-neutral-800 font-bold dark:text-neutral-100">
             Canonical Thread: Source Explorer
@@ -352,17 +304,21 @@ function nextStep() {
         <div class="grid gap-8 md:grid-cols-2">
           <!-- 7k Source (Undistilled) -->
           <div class="flex flex-col gap-3">
-            <span class="text-xs text-neutral-500 font-bold tracking-widest uppercase">Undistilled Source (7k)</span>
-            <div class="max-h-[400px] flex-1 overflow-y-auto whitespace-pre-wrap border border-neutral-200 rounded-2xl bg-neutral-50 p-6 text-sm text-neutral-600 leading-relaxed italic dark:border-neutral-800 dark:bg-black/20 dark:text-neutral-400">
-              {{ sourceData7k }}
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-neutral-500 font-bold tracking-widest uppercase">Undistilled Source ({{ artifactTokens7k }} tokens)</span>
+            </div>
+            <div class="max-h-[500px] flex-1 overflow-y-auto border border-neutral-200 rounded-2xl bg-neutral-50 p-6 text-[13px] text-neutral-600 dark:border-neutral-800 dark:bg-black/20 dark:text-neutral-400">
+              <MarkdownRenderer :content="activeCharacterArtifact.baseContent" />
             </div>
           </div>
 
           <!-- 1k Canonical (Distilled) -->
           <div class="flex flex-col gap-3">
-            <span class="text-xs text-amber-600 font-bold tracking-widest uppercase">Canonical Thread (1k)</span>
-            <div class="max-h-[400px] flex-1 overflow-y-auto whitespace-pre-wrap border border-amber-500/20 rounded-2xl bg-amber-500/5 p-6 text-sm text-neutral-800 leading-relaxed italic dark:border-amber-500/10 dark:bg-amber-500/5 dark:text-neutral-200">
-              {{ canonicalThread }}
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-amber-600 font-bold tracking-widest uppercase">Distilled Essence ({{ artifactTokens1k }} tokens)</span>
+            </div>
+            <div class="max-h-[500px] flex-1 overflow-y-auto border border-amber-500/20 rounded-2xl bg-amber-500/5 p-6 text-[13px] text-neutral-800 dark:border-amber-500/10 dark:bg-amber-500/5 dark:text-neutral-200">
+              <MarkdownRenderer :content="activeCharacterArtifact.distilledContent" />
             </div>
           </div>
         </div>
@@ -374,6 +330,20 @@ function nextStep() {
         </footer>
       </div>
     </div>
+
+    <!-- Lifetime Provisioning Modal -->
+    <LifetimeProvisioningModal
+      v-if="activeCardId"
+      v-model:open="showLifetimeModal"
+      :character-id="activeCardId"
+    />
+
+    <!-- Lifetime History Modal -->
+    <LifetimeHistoryModal
+      v-if="activeCardId"
+      v-model:open="showHistoryModal"
+      :character-id="activeCardId"
+    />
   </div>
 </template>
 

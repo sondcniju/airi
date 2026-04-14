@@ -233,11 +233,10 @@ function handleDelete() {
 </script>
 
 <template>
-  <div w-full flex :class="containerClass" class="ph-no-capture group">
+  <div flex self-start class="max-w-[calc(100%-4rem)]" :class="containerClass">
     <ChatActionMenu
       :copy-text="copyText"
       placement="right"
-      full-width
       @copy="handleCopy"
       @delete="handleDelete"
     >
@@ -246,7 +245,7 @@ function handleDelete() {
           :ref="setMeasuredElement"
           flex="~ col" shadow="sm primary-200/50 dark:none"
           h="unset <sm:fit"
-          relative min-w-20 w-full rounded-xl
+          relative min-w-20 rounded-xl
           transition="all duration-300"
           :class="boxClasses"
           :style="boxStyle"
