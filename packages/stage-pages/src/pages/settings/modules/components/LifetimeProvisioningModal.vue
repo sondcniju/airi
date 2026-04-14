@@ -25,7 +25,13 @@ const estimatedCalls = computed(() => {
   const chunkSize = 20
   const totalDocs = sourceCounts.value.raw + sourceCounts.value.stmm + sourceCounts.value.ltmm
   const chunkCount = Math.ceil(totalDocs / chunkSize)
-  return chunkCount + 2 // N chunk calls + 1 base synthesis + 1 distill
+  return chunkCount + 3 // N chunk calls + 1 base synthesis + 2 distill passes
+})
+
+const estimatedChunks = computed(() => {
+  const chunkSize = 20
+  const totalDocs = sourceCounts.value.raw + sourceCounts.value.stmm + sourceCounts.value.ltmm
+  return Math.ceil(totalDocs / chunkSize)
 })
 
 const estimatedDuration = computed(() => {
@@ -84,10 +90,11 @@ const progressPercent = computed(() => {
 
 const phaseLabel = computed(() => {
   switch (progress.value.phase) {
-    case 'aggregating': return 'Phase 1/3: Gathering History'
-    case 'chunking': return `Phase 1/3: Analyzing Chunks (${progress.value.currentChunk}/${progress.value.totalChunks})`
-    case 'synthesizing': return 'Phase 2/3: Synthesizing Base Archive'
-    case 'distilling': return 'Phase 3/3: Distilling Relational Essence'
+    case 'aggregating': return 'Phase 1/4: Gathering History'
+    case 'chunking': return `Phase 1/4: Analyzing Chunks (${progress.value.currentChunk}/${progress.value.totalChunks})`
+    case 'synthesizing': return 'Phase 2/4: Synthesizing Base Archive'
+    case 'distill_pass_1': return 'Phase 3/4: Dedupe Pass'
+    case 'distill_pass_2': return 'Phase 4/4: Dense Distill Pass'
     case 'success': return 'Provisioning Complete'
     default: return 'Preparing'
   }
@@ -191,7 +198,8 @@ const canResume = computed(() => !!activeSession.value)
                 <span class="text-sm font-bold tracking-tight uppercase">Provisioning Impact</span>
               </div>
               <p class="mt-2 text-xs text-neutral-600 leading-relaxed dark:text-neutral-400">
-                This will run a multi-stage distillation pass. Estimated <strong>{{ estimatedCalls }} API calls</strong>.
+                This will process <strong>{{ estimatedChunks }} chunks</strong>, then synthesize a base archive and run two distill passes.
+                Estimated <strong>{{ estimatedCalls }} API calls</strong>.
                 Est. time: <strong>{{ estimatedDuration }}</strong>.
               </p>
             </div>

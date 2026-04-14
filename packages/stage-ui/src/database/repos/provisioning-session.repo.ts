@@ -2,9 +2,11 @@ import { storage } from '../storage'
 
 export interface ProvisioningSession {
   characterId: string
-  phase: 'idle' | 'aggregating' | 'chunking' | 'synthesizing' | 'distilling' | 'success'
+  phase: 'idle' | 'aggregating' | 'chunking' | 'synthesizing' | 'distill_pass_1' | 'distill_pass_2' | 'success'
   chunkSummaries: any[]
+  baseArchive?: Record<string, any>
   baseContent?: string
+  distillPass1Pack?: Record<string, any>
   sourceDocCount: number
   totalChunks: number
   completedChunks: number

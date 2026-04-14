@@ -19,7 +19,7 @@ import { useConsciousnessStore } from './modules/consciousness'
 import { useProvidersStore } from './providers'
 
 interface ProvisioningProgress {
-  phase: 'idle' | 'aggregating' | 'chunking' | 'synthesizing' | 'distilling' | 'success' | 'error'
+  phase: 'idle' | 'aggregating' | 'chunking' | 'synthesizing' | 'distill_pass_1' | 'distill_pass_2' | 'success' | 'error'
   currentChunk: number
   totalChunks: number
   completedCalls: number
@@ -50,12 +50,28 @@ const ChunkArchiveJsonSchema = {
   ],
 } as const
 
-const SynthesisJsonSchema = {
+const LifetimeArchiveJsonSchema = {
   type: 'object',
   properties: {
-    archive_md: { type: 'string' },
+    relationship_summary: { type: 'string' },
+    recurring_preferences: { type: 'array', items: { type: 'string' } },
+    recurring_topics: { type: 'array', items: { type: 'string' } },
+    relationship_dynamics: { type: 'array', items: { type: 'string' } },
+    user_mannerisms: { type: 'array', items: { type: 'string' } },
+    meaningful_old_moments: { type: 'array', items: { type: 'string' } },
+    inside_jokes_or_motifs: { type: 'array', items: { type: 'string' } },
+    archive_notes: { type: 'array', items: { type: 'string' } },
   },
-  required: ['archive_md'],
+  required: [
+    'relationship_summary',
+    'recurring_preferences',
+    'recurring_topics',
+    'relationship_dynamics',
+    'user_mannerisms',
+    'meaningful_old_moments',
+    'inside_jokes_or_motifs',
+    'archive_notes',
+  ],
 } as const
 
 const DistillPass1Schema = {
@@ -80,19 +96,171 @@ const DistillPass1Schema = {
   ],
 } as const
 
-const FinalDistilledSchema = {
-  type: 'object',
-  properties: {
-    distilled_md: { type: 'string' },
-  },
-  required: ['distilled_md'],
-} as const
-
 interface SourceDoc {
   id: string
   layer: 'raw' | 'stmm' | 'ltmm'
   timestamp: string
   text: string
+}
+
+interface LifetimeArchive {
+  relationship_summary: string
+  recurring_preferences: string[]
+  recurring_topics: string[]
+  relationship_dynamics: string[]
+  user_mannerisms: string[]
+  meaningful_old_moments: string[]
+  inside_jokes_or_motifs: string[]
+  archive_notes: string[]
+}
+
+interface DistilledPack {
+  relationship_core: string[]
+  user_patterns: string[]
+  shared_rituals: string[]
+  stable_topics: string[]
+  meaningful_old_moments: string[]
+  inside_jokes_or_motifs: string[]
+  compression_notes: string[]
+}
+
+function buildBaseArchivePrompt(characterName: string, docs: SourceDoc[], chunkSummaries: any[]) {
+  const flattened = {
+    durableFacts: [...new Set(chunkSummaries.flatMap((c: any) => c.durable_facts || []))],
+    recurringPreferences: [...new Set(chunkSummaries.flatMap((c: any) => c.recurring_preferences || []))],
+    recurringTopics: [...new Set(chunkSummaries.flatMap((c: any) => c.recurring_topics || []))],
+    relationshipDynamics: [...new Set(chunkSummaries.flatMap((c: any) => c.relationship_dynamics || []))],
+    userMannerisms: [...new Set(chunkSummaries.flatMap((c: any) => c.user_mannerisms || []))],
+    meaningfulMoments: [...new Set(chunkSummaries.flatMap((c: any) => c.meaningful_moments || []))],
+    insideJokes: [...new Set(chunkSummaries.flatMap((c: any) => c.inside_jokes_or_motifs || []))],
+  }
+
+  return [
+    `You are building the first canonical lifetime relationship archive for "${characterName}".`,
+    '',
+    'Write the archive from the perspective of actual interactions, not from the character system prompt.',
+    'The relationship summary must be one dense paragraph of about five sentences.',
+    'It should answer things like:',
+    '- how does the user actually treat you?',
+    '- what do they like to do with you?',
+    '- what do they talk about most?',
+    '- what long-ago moments still matter?',
+    '',
+    'Do not let one recent day overwrite the whole relationship.',
+    'Preserve older meaningful moments if they are durable.',
+    '',
+    `Manifest context: ${docs.length} documents (${docs.filter(d => d.layer === 'raw').length} raw / ${docs.filter(d => d.layer === 'stmm').length} stmm / ${docs.filter(d => d.layer === 'ltmm').length} ltmm).`,
+    '',
+    'Durable facts:',
+    ...flattened.durableFacts.map(line => `- ${line}`),
+    '',
+    'Recurring preferences:',
+    ...flattened.recurringPreferences.map(line => `- ${line}`),
+    '',
+    'Recurring topics:',
+    ...flattened.recurringTopics.map(line => `- ${line}`),
+    '',
+    'Relationship dynamics:',
+    ...flattened.relationshipDynamics.map(line => `- ${line}`),
+    '',
+    'User mannerisms:',
+    ...flattened.userMannerisms.map(line => `- ${line}`),
+    '',
+    'Meaningful old moments:',
+    ...flattened.meaningfulMoments.map(line => `- ${line}`),
+    '',
+    'Inside jokes or motifs:',
+    ...flattened.insideJokes.map(line => `- ${line}`),
+  ].join('\n')
+}
+
+function renderLifetimeArchiveMd(characterName: string, archive: LifetimeArchive, docCount: number, chunkCount: number) {
+  return [
+    `# Lifetime Archive: ${characterName}`,
+    '',
+    `- Documents processed: ${docCount}`,
+    `- Chunk count: ${chunkCount}`,
+    '',
+    '## Relationship Summary',
+    '',
+    archive.relationship_summary,
+    '',
+    '## Recurring Preferences',
+    ...archive.recurring_preferences.map(line => `- ${line}`),
+    '',
+    '## Recurring Topics',
+    ...archive.recurring_topics.map(line => `- ${line}`),
+    '',
+    '## Relationship Dynamics',
+    ...archive.relationship_dynamics.map(line => `- ${line}`),
+    '',
+    '## User Mannerisms',
+    ...archive.user_mannerisms.map(line => `- ${line}`),
+    '',
+    '## Meaningful Old Moments',
+    ...archive.meaningful_old_moments.map(line => `- ${line}`),
+    '',
+    '## Inside Jokes Or Motifs',
+    ...archive.inside_jokes_or_motifs.map(line => `- ${line}`),
+    '',
+    '## Archive Notes',
+    ...archive.archive_notes.map(line => `- ${line}`),
+    '',
+  ].join('\n')
+}
+
+function renderPackForReview(pack: DistilledPack) {
+  return [
+    'relationship_core:',
+    ...pack.relationship_core.map(line => `- ${line}`),
+    '',
+    'user_patterns:',
+    ...pack.user_patterns.map(line => `- ${line}`),
+    '',
+    'shared_rituals:',
+    ...pack.shared_rituals.map(line => `- ${line}`),
+    '',
+    'stable_topics:',
+    ...pack.stable_topics.map(line => `- ${line}`),
+    '',
+    'meaningful_old_moments:',
+    ...pack.meaningful_old_moments.map(line => `- ${line}`),
+    '',
+    'inside_jokes_or_motifs:',
+    ...pack.inside_jokes_or_motifs.map(line => `- ${line}`),
+    '',
+    'compression_notes:',
+    ...pack.compression_notes.map(line => `- ${line}`),
+  ].join('\n')
+}
+
+function renderDistilledArtifactMd(characterName: string, pack: DistilledPack) {
+  return [
+    `# Distilled Lifetime Context Pack: ${characterName}`,
+    '',
+    '## Relationship Core',
+    '',
+    ...pack.relationship_core.map(line => `- ${line}`),
+    '',
+    '## User Patterns',
+    ...pack.user_patterns.map(line => `- ${line}`),
+    '',
+    '## Shared Rituals',
+    ...pack.shared_rituals.map(line => `- ${line}`),
+    '',
+    '## Stable Topics',
+    ...pack.stable_topics.map(line => `- ${line}`),
+    '',
+    '## Meaningful Old Moments',
+    ...pack.meaningful_old_moments.map(line => `- ${line}`),
+    '',
+    '## Inside Jokes Or Motifs',
+    ...pack.inside_jokes_or_motifs.map(line => `- ${line}`),
+    '',
+    '## Compression Notes',
+    ...pack.compression_notes.map(line => `- ${line}`),
+    '',
+  ].join('\n')
 }
 
 export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
@@ -192,13 +360,14 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
     return docs.sort((a, b) => a.timestamp.localeCompare(b.timestamp))
   }
 
-  async function callJsonMode<T>(prompt: string, schema: object, provider: ChatProvider, modelId: string): Promise<T> {
+  async function callJsonMode<T>(prompt: string, schema: object, provider: ChatProvider, modelId: string, systemExtras: string[] = []): Promise<T> {
     const systemPrompt = [
       'You must return ONLY valid JSON.',
       'Do not return markdown fences.',
       'Do not add commentary.',
       'Return JSON matching this schema exactly:',
       JSON.stringify(schema, null, 2),
+      ...systemExtras,
     ].join('\n')
 
     const response = await llmStore.generate(modelId, provider, [
@@ -255,7 +424,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
     try {
       let session: ProvisioningSession
       let docs: SourceDoc[] = []
-      let chunks: SourceDoc[][] = []
+      const chunks: SourceDoc[][] = []
       const chunkSize = 20
 
       if (resume && activeSession.value) {
@@ -291,7 +460,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
         activeSession.value = session
       }
 
-      // N chunks + 1 Synthesis + 2 Distillation Passes = N + 3
+      // N chunks + 1 base synthesis + 2 distillation passes = N + 3
       const totalCalls = chunks.length + 3
       progress.value.totalCalls = totalCalls
       progress.value.totalChunks = chunks.length
@@ -336,54 +505,25 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
         await provisioningSessionRepo.save(session)
       }
 
-      // Phase 3: Base Synthesis (The "Rich Archive" Markdown)
+      // Phase 3: Base synthesis using the lab's structured archive contract
       if (session.phase === 'synthesizing') {
         progress.value.phase = 'synthesizing'
         progress.value.completedCalls = chunks.length
-        progress.value.message = 'Synthesizing rich first-pass archive...'
+        progress.value.message = 'Synthesizing base lifetime archive...'
 
-        const synthesisPrompt = [
-          `Synthesize the first stable ${card.name} lifetime archive from these chunk summaries.`,
-          '',
-          'This is the base archive document for later incremental diffs.',
-          'Do not mechanically concatenate the chunks.',
-          'Instead, synthesize the durable relationship-level archive that those chunks imply.',
-          'The output should feel like a rich first-pass archive, not a final compressed reload pack yet.',
-          '',
-          'Requirements:',
-          '- preserve grounded specifics',
-          '- merge duplicates across chunks',
-          '- keep enough detail to serve as the base for later diff updates',
-          '- write dense markdown with sections and bullets',
-          '- aim for a substantial archive document',
-          '- keep old meaningful moments that still matter',
-          '',
-          'Use this structure:',
-          '- Relationship Core',
-          '- User Patterns',
-          '- Shared Rituals',
-          '- Stable Topics',
-          '- Meaningful Old Moments',
-          '- Inside Jokes Or Motifs',
-          '- Archive Notes',
-          '',
-          'Chunk materials:',
-          JSON.stringify(session.chunkSummaries, null, 2),
-        ].join('\n')
-
-        const synthesisResult = await withRetry(() => callJsonMode<{ archive_md: string }>(synthesisPrompt, SynthesisJsonSchema, provider, modelId))
-        session.baseContent = synthesisResult.archive_md
-        session.phase = 'distilling'
+        const synthesisPrompt = buildBaseArchivePrompt(card.name, docs, session.chunkSummaries)
+        const synthesisResult = await withRetry(() => callJsonMode<LifetimeArchive>(synthesisPrompt, LifetimeArchiveJsonSchema, provider, modelId))
+        session.baseArchive = synthesisResult
+        session.baseContent = renderLifetimeArchiveMd(card.name, synthesisResult, docs.length, chunks.length)
+        session.phase = 'distill_pass_1'
         session.updatedAt = Date.now()
         await provisioningSessionRepo.save(session)
         await maybeDelay()
       }
 
-      // Phase 4: 2-Pass Distillation
-      if (session.phase === 'distilling') {
-        progress.value.phase = 'distilling'
-
-        // Pass 1: Semantic Extraction
+      // Phase 4A: Distill pass 1 (dedupe + normalize)
+      if (session.phase === 'distill_pass_1') {
+        progress.value.phase = 'distill_pass_1'
         progress.value.completedCalls = chunks.length + 1
         progress.value.message = 'Distilling relational essence (Pass 1/2)...'
 
@@ -412,10 +552,49 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
           session.baseContent!,
         ].join('\n')
 
-        const distillResult = await withRetry(() => callJsonMode<any>(distillPass1Prompt, DistillPass1Schema, provider, modelId))
+        session.distillPass1Pack = await withRetry(() => callJsonMode<DistilledPack>(
+          distillPass1Prompt,
+          DistillPass1Schema,
+          provider,
+          modelId,
+          [
+            'You are compressing an internal semantic archive into a reload-grade lifetime artifact.',
+            'Do not use markdown.',
+            'Compression rules inspired by caveman-compress:',
+            '- remove articles when possible: a, an, the',
+            '- remove filler: just, really, basically, actually, simply, essentially, generally',
+            '- remove pleasantries and hedging',
+            '- remove connective fluff: however, furthermore, additionally, in addition',
+            '- remove duplication',
+            '- merge near-identical bullets',
+            '- use short synonyms',
+            '- fragments OK in bullets',
+            '- keep technical truth, drop fluff',
+            '- preserve grounded specifics',
+            '- prefer dense and memorable phrasing',
+            '- target a compressed reload pack around 1000 tokens or less',
+            '- do not write an essay paragraph unless absolutely needed',
+            '- prefer dense bullet lists over prose',
+            '- do not rewrite based on system prompt fantasy',
+            '- do not over-index on one recent day',
+            'Section definitions:',
+            '- relationship_core: highest-level bond, power dynamic, role framing, long-horizon connection',
+            '- user_patterns: what the user repeatedly does or how they behave',
+            '- shared_rituals: repeated relational routines or repeated intimacy/domestic acts',
+            '- stable_topics: recurring conversation/project subjects',
+            '- meaningful_old_moments: concrete past events still worth remembering',
+            '- inside_jokes_or_motifs: recurring phrases, symbols, jokes, prompt quirks',
+          ],
+        ))
+        session.phase = 'distill_pass_2'
+        session.updatedAt = Date.now()
+        await provisioningSessionRepo.save(session)
         await maybeDelay()
+      }
 
-        // Pass 2: Caveman Refinement
+      // Phase 4B: Distill pass 2 (dense refinement)
+      if (session.phase === 'distill_pass_2') {
+        progress.value.phase = 'distill_pass_2'
         progress.value.completedCalls = chunks.length + 2
         progress.value.message = 'Performing Caveman Refinement (Pass 2/2)...'
 
@@ -423,28 +602,46 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
           'Refine this lifetime context pack into a cleaner final version.',
           '',
           'Critical rules:',
-          '- remove articles when possible: a, an, the',
-          '- remove filler: just, really, basically, actually, simply, essentially, generally',
-          '- remove pleasantries and hedging',
-          '- remove connective fluff: however, furthermore, additionally, in addition',
-          '- remove duplication',
-          '- merge near-identical bullets',
-          '- use short synonyms',
-          '- fragments OK in bullets',
-          '- keep technical truth, drop fluff',
-          '- preserve grounded specifics',
-          '- prefer dense and memorable phrasing',
-          '- target a compressed reload pack around 1000 tokens or less',
-          '- do not write an essay paragraph unless absolutely needed',
-          '- prefer dense bullet lists over prose',
-          '- do not rewrite based on system prompt fantasy',
-          '- do not over-index on one recent day',
+          '- one concept, one section',
+          '- do not repeat the same idea across sections',
+          '- if a concept fits multiple sections, choose the single best home',
+          '- every bullet must be self-contained enough for reload context',
+          '- cryptic bullets are not allowed',
+          '- keep enough context for a model to use the bullet later',
+          '- preserve grounded specifics but compress hard',
+          '- remove near-duplicates aggressively',
+          '- prefer one canonical phrasing per recurring concept',
+          '- bullets should usually be 4-14 words, but may be longer if needed for clarity',
+          '- meaningful old moments and inside jokes may use a short clause to explain why they matter',
+          '- keep total output around 1000 tokens or less',
           '',
           'Current pack to refine:',
-          JSON.stringify(distillResult, null, 2),
+          renderPackForReview(session.distillPass1Pack as DistilledPack),
         ].join('\n')
 
-        const finalDistilledResult = await withRetry(() => callJsonMode<{ distilled_md: string }>(distillPass2Prompt, FinalDistilledSchema, provider, modelId))
+        const finalDistilledPack = await withRetry(() => callJsonMode<DistilledPack>(
+          distillPass2Prompt,
+          DistillPass1Schema,
+          provider,
+          modelId,
+          [
+            'You are compressing an internal semantic archive into a reload-grade lifetime artifact.',
+            'Do not use markdown.',
+            'Compression rules inspired by caveman-compress:',
+            '- remove articles when possible: a, an, the',
+            '- remove filler: just, really, basically, actually, simply, essentially, generally',
+            '- remove pleasantries and hedging',
+            '- remove connective fluff: however, furthermore, additionally, in addition',
+            '- remove duplication',
+            '- merge near-identical bullets',
+            '- use short synonyms',
+            '- fragments OK in bullets',
+            '- keep technical truth, drop fluff',
+            '- preserve grounded specifics',
+            '- prefer dense and memorable phrasing',
+            '- target a compressed reload pack around 1000 tokens or less',
+          ],
+        ))
 
         // Final Persistence
         const artifact: LifetimeMemoryArtifact = {
@@ -452,8 +649,10 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
           characterId,
           version: 1,
           chunkSummaries: session.chunkSummaries,
+          baseArchive: session.baseArchive,
           baseContent: session.baseContent!,
-          distilledContent: finalDistilledResult.distilled_md,
+          distillPass1Pack: session.distillPass1Pack,
+          distilledContent: renderDistilledArtifactMd(card.name, finalDistilledPack),
           sourceManifest: {
             rawTurnCount: docs.filter(d => d.layer === 'raw').length,
             stmmBlockCount: docs.filter(d => d.layer === 'stmm').length,
@@ -520,9 +719,12 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
         characterId,
         phase: 'synthesizing',
         chunkSummaries: artifact.chunkSummaries,
+        baseArchive: artifact.baseArchive,
         sourceDocCount: artifact.sourceManifest.rawTurnCount + artifact.sourceManifest.stmmBlockCount + artifact.sourceManifest.ltmmEntryCount,
         totalChunks: artifact.chunkSummaries.length,
         completedChunks: artifact.chunkSummaries.length,
+        baseContent: artifact.baseContent,
+        distillPass1Pack: artifact.distillPass1Pack,
         updatedAt: Date.now(),
       }
       activeSession.value = session
