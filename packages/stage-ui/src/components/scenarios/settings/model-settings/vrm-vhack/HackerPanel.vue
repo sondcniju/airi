@@ -86,13 +86,40 @@ function getGltfImageIndex(texture: any) {
   return null
 }
 
-function getGltfNodeIndex(node: any) {
+function getGltfNodeIndex(node: any, gltf?: any) {
   if (!activeVrmParser.value || !node)
     return null
   const assoc = activeVrmParser.value.associations.get(node)
   if (assoc && assoc.nodes !== undefined) {
     return assoc.nodes
   }
+
+  // Fallback: Dual-Layer Fuzzy Matching (Fixes "Ghost Models" like Gura)
+  if (gltf && node.name) {
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const stripSuffix = (s: string) => s.replace(/(_\d+)$/, '') // Remove Three.js suffixes like _1, _2
+
+    const sceneName = stripSuffix(node.name)
+    const normSceneName = normalize(sceneName)
+
+    // Stage 1: Match against GLTF Node Names
+    const nodeIdx = gltf.nodes.findIndex((n: any) => n.name && normalize(stripSuffix(n.name)) === normSceneName)
+    if (nodeIdx !== -1)
+      return nodeIdx
+
+    // Stage 2: Match against GLTF Mesh Names (Accounts for Gura-style renaming)
+    const meshIdx = gltf.nodes.findIndex((n: any) => {
+      if (n.mesh === undefined)
+        return false
+      const mesh = gltf.meshes[n.mesh]
+      return mesh && mesh.name && normalize(stripSuffix(mesh.name)) === normSceneName
+    })
+    if (meshIdx !== -1) {
+      console.info(`[VHACK] Mesh-Layer Match: Scene "${node.name}" -> Mesh "${gltf.meshes[gltf.nodes[meshIdx].mesh].name}" (Node ${meshIdx})`)
+      return meshIdx
+    }
+  }
+
   return null
 }
 
@@ -715,20 +742,59 @@ async function exportVrm() {
     const gltf = JSON.parse(jsonContent)
 
     // EXPORT VISIBILITY SURGERY: Permanently disable nodes that are hidden in the UI
+    console.group('>>> [VHACK] Surgical Export (Primitive-Aware Active)')
+    let unlinkedCount = 0
+    let hiddenCandidates = 0
+
+    // Create a "Hidden Material" to neuter merged mesh primitives safely
+    if (!gltf.materials)
+      gltf.materials = []
+    const hiddenMatIdx = gltf.materials.length
+    gltf.materials.push({
+      name: 'VHACK_HIDDEN',
+      pbrMetallicRoughness: {
+        baseColorFactor: [0, 0, 0, 0], // Fully transparent
+        metallicFactor: 0,
+        roughnessFactor: 1,
+      },
+      alphaMode: 'BLEND',
+    })
+
     activeVrm.value.scene.traverse((node: any) => {
-      // Check if this node is hidden in the UI (Mesh or Bone)
-      if (node.visible === false) {
-        const nodeIdx = getGltfNodeIndex(node)
-        if (nodeIdx !== null && gltf.nodes[nodeIdx]) {
-          // By deleting the 'mesh' reference, the node still exists (important for bone hierarchy/transforms)
-          // but there is nothing to render, so the accessory/body part is effectively removed.
-          if (gltf.nodes[nodeIdx].mesh !== undefined) {
-            console.log(`[VHACK] Selective Export: Unlinking Mesh from Node [${nodeIdx}] (${node.name})`)
-            delete gltf.nodes[nodeIdx].mesh
+      const isRenderable = node.type === 'Mesh' || node.type === 'SkinnedMesh'
+      const isRuntimeProxy = node.name?.startsWith('VRMExpression')
+
+      if (node.visible === false && isRenderable && !isRuntimeProxy) {
+        hiddenCandidates++
+        const assoc = activeVrmParser.value.associations.get(node)
+        const nodeIdx = getGltfNodeIndex(node, gltf)
+
+        // CASE A: Merged Mesh Primitive (Gura Mode)
+        // If Three.js split the mesh, associations will point to a specific primitive
+        if (assoc && assoc.meshes !== undefined && assoc.primitives !== undefined) {
+          const meshIdx = assoc.meshes
+          const primIdx = assoc.primitives
+          if (gltf.meshes[meshIdx] && gltf.meshes[meshIdx].primitives[primIdx]) {
+            console.log(`[VHACK] Primitive Surgery: Neutering Mesh [${meshIdx}] Prim [${primIdx}] ("${node.name}")`)
+            gltf.meshes[meshIdx].primitives[primIdx].material = hiddenMatIdx
+            unlinkedCount++
           }
+        }
+        // CASE B: Isolated Node (Maika Mode)
+        // If it's a dedicated node for this part, use the scale trick
+        else if (nodeIdx !== null && gltf.nodes[nodeIdx]) {
+          console.log(`[VHACK] Node Surgery (Ghost Scale): Hiding Node [${nodeIdx}] ("${node.name}")`)
+          gltf.nodes[nodeIdx].scale = [0, 0, 0]
+          unlinkedCount++
         }
       }
     })
+
+    if (hiddenCandidates > 0 && unlinkedCount === 0) {
+      console.error('[VHACK] CRITICAL FAILURE: Found hidden meshes but could not resolve any GLTF indices.')
+    }
+    console.log(`[VHACK] Surgery Complete. Candidates: ${hiddenCandidates}, Unlinked: ${unlinkedCount}`)
+    console.groupEnd()
 
     // BIN Chunk Info
     const binOffset = 20 + jsonLen + 8

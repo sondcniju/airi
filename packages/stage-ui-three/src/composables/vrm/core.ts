@@ -1,6 +1,7 @@
 import type { VRM, VRMCore } from '@pixiv/three-vrm'
 import type { Mesh, Object3D, Scene } from 'three'
 
+import { VRMExpression, VRMExpressionMorphTargetBind } from '@pixiv/three-vrm'
 import { VRMLookAtQuaternionProxy } from '@pixiv/three-vrm-animation'
 import { Box3, Group, Quaternion, Vector3 } from 'three'
 
@@ -60,6 +61,17 @@ export async function loadVrm(model: string, options?: {
         Object.keys(mesh.morphTargetDictionary).forEach((name) => {
           if (!existingExpressions.has(name) && !unmappedExpressions.includes(name)) {
             unmappedExpressions.push(name)
+
+            // UNLOCK SURGERY: Register this "lost" morph target as a real VRM expression.
+            // This allows it to be controlled via the standard VRM extension API
+            // and discovered by AIRI's expression system.
+            const newExpression = new VRMExpression(name)
+            newExpression.addBind(new VRMExpressionMorphTargetBind({
+              primitives: [mesh],
+              index: mesh.morphTargetDictionary![name],
+              weight: 1.0,
+            }))
+            _vrm.expressionManager!.registerExpression(newExpression)
           }
         })
       }
