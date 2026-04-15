@@ -48,6 +48,7 @@ const liveSessionStore = useLiveSessionStore()
 const visionStore = useVisionStore()
 const { powerState } = storeToRefs(liveSessionStore)
 const { status: visionStatus } = storeToRefs(visionStore)
+const { interactionMode } = storeToRefs(modelStore)
 const activeExpressions = computed(() => (modelStore as any).activeExpressions)
 const vrmIdleAnimation = toRef(modelStore as any, 'vrmIdleAnimation')
 
@@ -77,7 +78,7 @@ const geminiExpanded = ref(false)
 const islandRef = ref<HTMLElement>()
 
 // === Sub-menu state ===
-const view = ref<'main' | 'emotions' | 'wardrobe' | 'profiles' | 'captions'>('main')
+const view = ref<'main' | 'emotions' | 'wardrobe' | 'profiles' | 'captions' | 'view-window'>('main')
 
 // Expose whether hearing dialog is open so parent can disable click-through
 const hearingDialogOpen = ref(false)
@@ -108,6 +109,11 @@ watch(alwaysOnTop, (val) => {
 function toggleAlwaysOnTop() {
   alwaysOnTop.value = !alwaysOnTop.value
   expanded.value = false
+}
+
+function toggleInteractionMode() {
+  interactionMode.value = interactionMode.value === 'orbit' ? 'tactile' : 'orbit'
+  toast.success(`Switched to ${interactionMode.value === 'orbit' ? 'Orbit (Camera)' : 'Tactile (Poke)'} Mode`, { id: 'interaction-mode' })
 }
 
 function handleOpenSettings() {
@@ -446,31 +452,32 @@ function triggerWardrobeItem(id: string) {
                 </template>
               </ControlButtonTooltip>
 
-              <!-- Row 4: Window/Stage Management -->
-              <ControlButtonTooltip>
-                <ControlButton :button-style="adjustStyleClasses.button" @click="toggleAlwaysOnTop()">
-                  <div v-if="alwaysOnTop" i-solar:pin-bold :class="adjustStyleClasses.icon" text="neutral-600 dark:text-neutral-300 shadow-xl" />
-                  <div v-else i-solar:pin-linear :class="adjustStyleClasses.icon" text="neutral-600 dark:neutral-400 opacity-50" />
+              <!-- Row 4: Window/Stage Management (Consolidated) -->
+              <ControlButtonTooltip key="view-window-toggle">
+                <ControlButton
+                  :button-style="adjustStyleClasses.button"
+                  @click="view = 'view-window'"
+                >
+                  <div
+                    i-solar:window-frame-linear
+                    :class="[
+                      adjustStyleClasses.icon,
+                      interactionMode === 'tactile' ? 'text-sky-500 drop-shadow-[0_0_8px_rgba(14,165,233,0.5)]' : 'text-neutral-600 dark:text-neutral-300',
+                    ]"
+                  />
                 </ControlButton>
                 <template #tooltip>
-                  {{ alwaysOnTop ? t('tamagotchi.stage.controls-island.unpin-from-top') : t('tamagotchi.stage.controls-island.pin-on-top') }}
+                  View & Window Settings
                 </template>
               </ControlButtonTooltip>
 
-              <ControlsIslandFadeOnHover
-                :icon-class="adjustStyleClasses.icon"
-                :button-style="adjustStyleClasses.button"
-                @click="expanded = false"
-              />
+              <div key="spacer-1" class="flex items-center justify-center opacity-20">
+                <div i-solar:add-circle-linear :class="adjustStyleClasses.icon" />
+              </div>
 
-              <ControlButtonTooltip>
-                <ControlButton :button-style="adjustStyleClasses.button" hover:bg-red-500 hover:text-white @click="hideWindow(); expanded = false">
-                  <div i-solar:close-circle-outline :class="adjustStyleClasses.icon" />
-                </ControlButton>
-                <template #tooltip>
-                  {{ t('tamagotchi.stage.controls-island.hide') }}
-                </template>
-              </ControlButtonTooltip>
+              <div key="spacer-2" class="flex items-center justify-center opacity-20">
+                <div i-solar:add-circle-linear :class="adjustStyleClasses.icon" />
+              </div>
             </div>
 
             <!-- Emotions Sub-menu -->
@@ -776,6 +783,57 @@ function triggerWardrobeItem(id: string) {
                   Future: Effects
                 </template>
               </ControlButtonTooltip>
+
+              <ControlButtonTooltip>
+                <ControlButton :button-style="adjustStyleClasses.button" @click="view = 'main'">
+                  <div i-solar:arrow-left-outline :class="adjustStyleClasses.icon" text="neutral-500" />
+                </ControlButton>
+                <template #tooltip>
+                  Back
+                </template>
+              </ControlButtonTooltip>
+            </div>
+
+            <!-- View & Window Sub-menu -->
+            <div v-else-if="view === 'view-window'" key="view-window" grid grid-cols-3 gap-2>
+              <ControlButtonTooltip>
+                <ControlButton :button-style="adjustStyleClasses.button" @click="toggleAlwaysOnTop()">
+                  <div v-if="alwaysOnTop" i-solar:pin-bold :class="adjustStyleClasses.icon" text="neutral-600 dark:text-neutral-300 shadow-xl" />
+                  <div v-else i-solar:pin-linear :class="adjustStyleClasses.icon" text="neutral-600 dark:neutral-400 opacity-50" />
+                </ControlButton>
+                <template #tooltip>
+                  {{ alwaysOnTop ? t('tamagotchi.stage.controls-island.unpin-from-top') : t('tamagotchi.stage.controls-island.pin-on-top') }}
+                </template>
+              </ControlButtonTooltip>
+
+              <ControlsIslandFadeOnHover
+                :icon-class="adjustStyleClasses.icon"
+                :button-style="adjustStyleClasses.button"
+                @click="expanded = false"
+              />
+
+              <ControlButtonTooltip>
+                <ControlButton :button-style="adjustStyleClasses.button" @click="toggleInteractionMode">
+                  <Transition name="fade" mode="out-in">
+                    <div v-if="interactionMode === 'orbit'" key="orbit" i-solar:camera-rotate-linear :class="adjustStyleClasses.icon" text="purple-600 dark:purple-400" />
+                    <div v-else key="tactile" i-ph:hand-pointing-duotone :class="adjustStyleClasses.icon" text="sky-600 dark:sky-400" />
+                  </Transition>
+                </ControlButton>
+                <template #tooltip>
+                  {{ interactionMode === 'orbit' ? 'Tactile Mode (Poke)' : 'Orbit Mode (Camera)' }}
+                </template>
+              </ControlButtonTooltip>
+
+              <ControlButtonTooltip>
+                <ControlButton :button-style="adjustStyleClasses.button" hover:bg-red-500 hover:text-white @click="hideWindow(); expanded = false">
+                  <div i-solar:close-circle-outline :class="adjustStyleClasses.icon" />
+                </ControlButton>
+                <template #tooltip>
+                  {{ t('tamagotchi.stage.controls-island.hide') }}
+                </template>
+              </ControlButtonTooltip>
+
+              <div class="opacity-10" />
 
               <ControlButtonTooltip>
                 <ControlButton :button-style="adjustStyleClasses.button" @click="view = 'main'">
