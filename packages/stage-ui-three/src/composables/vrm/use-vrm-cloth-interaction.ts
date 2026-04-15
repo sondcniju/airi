@@ -34,50 +34,14 @@ export function useVRMClothInteraction() {
   const raycaster = new Raycaster()
   const mouse = new Vector2()
   const intersectionPoint = new Vector3()
-  const mouthAnchorPoint = new Vector3()
 
-  /**
-   * Initialize or update the tether line geometry
-   */
-  function updateTether(vrm: VRM) {
-    if (!vrm)
-      return
-
-    // Find mouth anchor (Normalized Bone Node)
-    const jaw = vrm.humanoid?.getNormalizedBoneNode('jaw')
-    const head = vrm.humanoid?.getNormalizedBoneNode('head')
-
-    if (jaw) {
-      jaw.getWorldPosition(mouthAnchorPoint)
-    }
-    else if (head) {
-      head.getWorldPosition(mouthAnchorPoint)
-      mouthAnchorPoint.y -= 0.05 // Visual offset for mouth
-    }
-
-    if (isDragging.value && targetBone.value && tetherLine.value) {
-      const bonePos = new Vector3()
-      targetBone.value.getWorldPosition(bonePos)
-
-      const positions = new Float32Array([
-        mouthAnchorPoint.x,
-        mouthAnchorPoint.y,
-        mouthAnchorPoint.z,
-        bonePos.x,
-        bonePos.y,
-        bonePos.z,
-      ])
-
-      tetherLine.value.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-      tetherLine.value.geometry.attributes.position.needsUpdate = true
-      tetherLine.value.visible = true
-    }
-    else if (tetherLine.value) {
-      tetherLine.value.visible = false
-    }
-  }
+  const grabPoint = new Vector3() // Local point in vrm.scene where grab started
 
   function spawnPuff(point: Vector3, scene: THREE.Object3D) {
+    // Convert world point to local space of the scene
+    const localPoint = point.clone()
+    scene.worldToLocal(localPoint)
+
     const canvas = document.createElement('canvas')
     canvas.width = 64
     canvas.height = 64
@@ -100,8 +64,8 @@ export function useVRMClothInteraction() {
     material.color.setHSL(hue, 0.8, 0.6)
 
     const puff = new Sprite(material)
-    puff.position.copy(point)
-    puff.scale.set(0.02, 0.02, 0.02)
+    puff.position.copy(localPoint)
+    puff.scale.set(0.05, 0.05, 0.05)
     scene.add(puff)
     puffs.value.push(puff)
   }
@@ -158,7 +122,12 @@ export function useVRMClothInteraction() {
         isDragging.value = true
         targetBone.value = bone
         basePosition.copy(bone.position)
-        console.log(`[WIRED] Successfully Grabbed Bone: "${bone.name}"`)
+
+        // Calculate a stable local grab point for the tether
+        grabPoint.copy(intersectionPoint)
+        vrm.scene.worldToLocal(grabPoint)
+
+        console.log(`[WIRED] Successfully Grabbed Bone: "${bone.name}" at local ${grabPoint.x}, ${grabPoint.y}`)
         spawnPuff(intersectionPoint, vrm.scene)
       }
       else {
@@ -222,9 +191,9 @@ export function useVRMClothInteraction() {
 
     // Update Puffs (Fade and Scale)
     puffs.value = puffs.value.filter((puff) => {
-      puff.scale.multiplyScalar(1.05)
+      puff.scale.multiplyScalar(1.03) // Slower growth
       const mat = puff.material as SpriteMaterial
-      mat.opacity -= delta * 2.5
+      mat.opacity -= delta * 1.5 // Slower fade
       if (mat.opacity <= 0) {
         puff.removeFromParent()
         return false
@@ -255,6 +224,24 @@ export function useVRMClothInteraction() {
     }
 
     updateTether(vrm)
+  }
+
+  function updateTether(vrm: VRM) {
+    if (!tetherLine.value)
+      return
+
+    if (!isDragging.value || !targetBone.value) {
+      tetherLine.value.visible = false
+      return
+    }
+
+    tetherLine.value.visible = true
+    const geometry = tetherLine.value.geometry as THREE.BufferGeometry
+    const currentLocalPos = new Vector3()
+    targetBone.value.getWorldPosition(currentLocalPos)
+    vrm.scene.worldToLocal(currentLocalPos)
+
+    geometry.setFromPoints([currentLocalPos, grabPoint])
   }
 
   return {
