@@ -93,11 +93,10 @@ export function useVRMClothInteraction() {
       vrm.scene.traverse((obj) => {
         if ((obj.type === 'Mesh' || obj.type === 'SkinnedMesh') && obj.visible) {
           const name = obj.name.toLowerCase()
-          const isFace = name.includes('eye') || name.includes('tooth') || name.includes('teeth') || name.includes('tongue') || name.includes('mouth') || name.includes('mayu')
-          const isAccessory = name.includes('jewelry') || name.includes('piercing') || name.includes('hair')
+          const isOutline = name.includes('outline')
           const isInternal = name.includes('collider') || name.includes('proxy')
 
-          if (!isFace && !isAccessory && !isInternal) {
+          if (!isInternal && !isOutline) {
             meshes.push(obj)
           }
         }
@@ -198,16 +197,15 @@ export function useVRMClothInteraction() {
       }
     })
 
-    // Sort by distance to find the closest surface
-    candidates.sort((a, b) => a.distance - b.distance)
-
-    // [FAST-PICKING-STAGE-2] Surgical Raycast
-    // Only raycast against the top 2 closest candidates instead of the whole model.
-    // This reduces the 6s-11s intersectObjects hang to ~5ms.
-    const targetMeshes = candidates.slice(0, 2).map(c => c.mesh)
+    // [FAST-PICKING-V4] Surgical Raycast with Telemetry
+    // Limit to Top 3 candidates (Coat -> Shirt -> Body) for sub-10ms response.
+    const startRay = performance.now()
+    const targetMeshes = candidates.slice(0, 3).map(c => c.mesh)
     const intersects = raycaster.intersectObjects(targetMeshes, false)
+    const endRay = performance.now()
 
     if (intersects.length > 0) {
+      console.log(`[WIRED] Raycast hit in ${(endRay - startRay).toFixed(2)}ms across ${targetMeshes.length} candidates.`)
       const hit = intersects[0]
       intersectionPoint.copy(hit.point)
 
@@ -254,21 +252,34 @@ export function useVRMClothInteraction() {
           if (hitTexIndex !== null && wardrobeManifest.has(hitTexIndex)) {
             const entry = wardrobeManifest.get(hitTexIndex)!
             const activeOutfit = entry.siblings.find((s: any) => s.weight > 0.5)
-            const siblingNames = entry.siblings.map(s => formatName(s.name))
 
-            // Use active outfit or default to the base sibling for that slot
-            const activeName = activeOutfit ? formatName(activeOutfit.name) : (siblingNames[0] || 'Unknown')
-            const restSiblings = siblingNames.filter(n => n !== activeName)
+            // Build siblings as { display, raw } pairs for the UI
+            const seen = new Set<string>()
+            const siblingPairs = entry.siblings
+              .filter((s: any) => {
+                if (seen.has(s.name))
+                  return false
+                seen.add(s.name)
+                return true
+              })
+              .map((s: any) => ({ display: formatName(s.name), raw: s.name }))
+
+            // Determine the active outfit pair
+            const activePair = activeOutfit
+              ? { display: formatName(activeOutfit.name), raw: activeOutfit.name }
+              : (siblingPairs[0] || { display: 'Unknown', raw: '' })
+
+            const restSiblings = siblingPairs.filter(p => p.raw !== activePair.raw)
 
             // Update Global State for UI
             modelStore.detectedWardrobe = {
-              active: activeName,
+              active: activePair,
               siblings: restSiblings,
               texIndex: hitTexIndex,
             }
 
-            console.log(`[WIRED] Tactile Hit: ${activeName} (#${hitTexIndex})`)
-            console.log(` > Siblings: ${restSiblings.join(', ')}`)
+            console.log(`[WIRED] Tactile Hit: ${activePair.display} (#${hitTexIndex})`)
+            console.log(` > Siblings: ${restSiblings.map(s => s.display).join(', ')}`)
           }
         }
 

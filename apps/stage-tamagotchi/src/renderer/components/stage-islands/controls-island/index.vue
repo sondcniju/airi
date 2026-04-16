@@ -48,8 +48,7 @@ const liveSessionStore = useLiveSessionStore()
 const visionStore = useVisionStore()
 const { powerState } = storeToRefs(liveSessionStore)
 const { status: visionStatus } = storeToRefs(visionStore)
-const { interactionMode, detectedWardrobe } = storeToRefs(modelStore)
-const activeExpressions = computed(() => (modelStore as any).activeExpressions)
+const { interactionMode, detectedWardrobe, activeExpressions } = storeToRefs(modelStore)
 const vrmIdleAnimation = toRef(modelStore as any, 'vrmIdleAnimation')
 
 const hasGeminiKey = computed(() => {
@@ -87,6 +86,44 @@ watch(() => detectedWardrobe.value.siblings, (siblings) => {
     view.value = 'wardrobe-discovery'
   }
 })
+
+// Swap outfit by toggling VRM expression weights
+function swapOutfit(sibling: { display: string, raw: string }) {
+  // Deactivate all siblings for this slot (including current active)
+  const allSiblings = [...detectedWardrobe.value.siblings]
+  if (detectedWardrobe.value.active) {
+    allSiblings.push(detectedWardrobe.value.active)
+  }
+
+  // 1. Create a shallow copy of activeExpressions to ensure reference change triggers Vue watchers
+  const nextExpressions = { ...activeExpressions.value }
+
+  for (const s of allSiblings) {
+    nextExpressions[s.raw] = 0
+  }
+
+  // 2. Activate the target
+  nextExpressions[sibling.raw] = 1
+
+  // 3. Apply the updated object
+  activeExpressions.value = nextExpressions
+
+  // 4. Update the detection state so the UI reflects the swap (clicked item becomes active)
+  const newSiblings = allSiblings.filter(s => s.raw !== sibling.raw)
+  detectedWardrobe.value = {
+    active: sibling,
+    siblings: newSiblings,
+    texIndex: detectedWardrobe.value.texIndex,
+  }
+
+  // [WIRED] Ensure expressions are registered in modelStore so they are applied on next update
+  const rawNames = [sibling.raw, ...newSiblings.map(s => s.raw)]
+  rawNames.forEach((raw) => {
+    if (raw && !modelStore.availableExpressions.includes(raw)) {
+      modelStore.availableExpressions.push(raw)
+    }
+  })
+}
 
 // Expose whether hearing dialog is open so parent can disable click-through
 const hearingDialogOpen = ref(false)
@@ -607,20 +644,20 @@ function triggerWardrobeItem(id: string) {
               <div flex flex-col gap-1>
                 <div flex items-center gap-2 px-1 pb-1>
                   <div i-solar:stars-minimalistic-bold-duotone class="animate-pulse text-sm text-amber-500" />
-                  <span class="text-[10px] text-neutral-500 font-black tracking-widest uppercase">{{ detectedWardrobe.active || 'Wardrobe Discovery' }}</span>
+                  <span class="text-[10px] text-neutral-500 font-black tracking-widest uppercase">{{ detectedWardrobe.active?.display || 'Wardrobe Discovery' }}</span>
                 </div>
                 <div class="scrollbar-hide max-h-[200px] overflow-y-auto">
                   <div flex flex-col gap-1.5 pb-1>
                     <button
-                      v-for="name in detectedWardrobe.siblings"
-                      :key="name"
+                      v-for="sibling in detectedWardrobe.siblings"
+                      :key="sibling.raw"
                       :class="['group relative w-full cursor-pointer rounded-xl bg-white/5 px-3 py-2 text-left backdrop-blur-md transition-all duration-300']"
-                      @click="() => {}"
+                      @click="swapOutfit(sibling)"
                     >
                       <div flex items-center justify-between gap-2>
                         <div flex items-center gap-2>
                           <div i-solar:tag-bold-duotone class="size-3 text-sky-400 opacity-50 transition-colors" />
-                          <span class="text-[11px] text-neutral-300 font-bold transition-colors group-hover:text-white">{{ name }}</span>
+                          <span class="text-[11px] text-neutral-300 font-bold transition-colors group-hover:text-white">{{ sibling.display }}</span>
                         </div>
                         <div i-solar:arrow-right-linear class="size-3 text-transparent transition-all group-hover:text-white" />
                       </div>

@@ -143,8 +143,8 @@ export const useModelStore = defineStore('modelStore', () => {
 
   // === Tactile Interaction State ===
   const detectedWardrobe = ref<{
-    active: string | null
-    siblings: string[]
+    active: { display: string, raw: string } | null
+    siblings: { display: string, raw: string }[]
     texIndex: number | null
   }>({ active: null, siblings: [], texIndex: null })
 
