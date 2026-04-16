@@ -117,20 +117,20 @@ export function useVRMClothInteraction() {
   /**
    * Attempt to "grab" a piece of cloth
    */
-  function startTug(event: { x: number, y: number }, camera: THREE.Camera, vrm: VRM) {
+  function startTug(
+    event: { x: number, y: number },
+    camera: THREE.Camera,
+    vrm: VRM,
+    vrmEmote?: any, // Accept managed emote service
+  ) {
     if (!vrm || modelStore.interactionMode !== 'tactile')
       return
-
-    console.log('[WIRED] startTug entered', { mode: modelStore.interactionMode })
 
     mouse.x = (event.x / window.innerWidth) * 2 - 1
     mouse.y = -(event.y / window.innerHeight) * 2 + 1
     raycaster.setFromCamera(mouse, camera)
 
     resolveNodes(vrm)
-
-    // [RESTORATION] Removing boundary check temporarily to ensure zero blockers
-    // if (!raycaster.ray.intersectsBox(nodes.boundary)) return
 
     // Only check meshes from our inclusive cache
     const visibleMeshes = clothMeshCache.value.filter(m => m.visible)
@@ -173,6 +173,19 @@ export function useVRMClothInteraction() {
         vrm.scene.worldToLocal(grabPoint)
 
         console.log(`[WIRED] Discovery: "${hit.object.name}" (MeshID: ${hit.object.id}) -> Bone: "${bone.name}"`)
+
+        // [MANAGED-HEURISTIC] Direct 'Happy' emotion via official emote service
+        if (bone.name.toLowerCase().includes('chest')) {
+          console.log('[WIRED] activating happy emotion')
+          if (vrmEmote?.setEmotionWithResetAfter) {
+            vrmEmote.setEmotionWithResetAfter('happy', 2000, 1.0)
+          }
+          else {
+            // Fallback for standalone prototype testing
+            vrm.expressionManager?.setValue('happy', 1.0)
+          }
+        }
+
         spawnPuff(intersectionPoint, vrm.scene)
       }
     }
@@ -248,7 +261,7 @@ export function useVRMClothInteraction() {
       }
     }
 
-    // Emotional Coupling (Default reactive behavior)
+    // Emotional Coupling (Default reactive behavior for tugging)
     if (vrm.expressionManager && currentTension.value > 0) {
       const tension = currentTension.value
       vrm.expressionManager.setValue('surprised', Math.max(0, tension * (1.0 - tension) * 4) * 0.8)

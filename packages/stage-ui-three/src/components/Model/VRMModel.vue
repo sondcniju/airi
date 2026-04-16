@@ -175,8 +175,7 @@ const vrmClothTug = useVRMClothInteraction()
 // Setup Pointer Interaction (Moved below initialization to fix ReferenceError)
 useEventListener('mousedown', (e) => {
   if (modelStore.interactionMode === 'tactile' && vrm.value && camera.value) {
-    console.log('[WIRED] mousedown firing')
-    vrmClothTug.startTug({ x: e.clientX, y: e.clientY }, camera.value, vrm.value)
+    vrmClothTug.startTug({ x: e.clientX, y: e.clientY }, camera.value, vrm.value, vrmEmote.value)
   }
 })
 
