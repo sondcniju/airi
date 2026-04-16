@@ -48,7 +48,7 @@ const liveSessionStore = useLiveSessionStore()
 const visionStore = useVisionStore()
 const { powerState } = storeToRefs(liveSessionStore)
 const { status: visionStatus } = storeToRefs(visionStore)
-const { interactionMode } = storeToRefs(modelStore)
+const { interactionMode, detectedWardrobe } = storeToRefs(modelStore)
 const activeExpressions = computed(() => (modelStore as any).activeExpressions)
 const vrmIdleAnimation = toRef(modelStore as any, 'vrmIdleAnimation')
 
@@ -78,7 +78,15 @@ const geminiExpanded = ref(false)
 const islandRef = ref<HTMLElement>()
 
 // === Sub-menu state ===
-const view = ref<'main' | 'emotions' | 'wardrobe' | 'profiles' | 'captions' | 'view-window'>('main')
+const view = ref<'main' | 'emotions' | 'wardrobe' | 'profiles' | 'captions' | 'view-window' | 'wardrobe-discovery'>('main')
+
+// Auto-expand to wardrobe-discovery when a tactile hit detects sibling outfits
+watch(() => detectedWardrobe.value.siblings, (siblings) => {
+  if (siblings.length > 0) {
+    expanded.value = true
+    view.value = 'wardrobe-discovery'
+  }
+})
 
 // Expose whether hearing dialog is open so parent can disable click-through
 const hearingDialogOpen = ref(false)
@@ -585,6 +593,46 @@ function triggerWardrobeItem(id: string) {
 
                 <ControlButtonTooltip>
                   <ControlButton :button-style="adjustStyleClasses.button" @click="view = 'main'; wardrobeFilter = 'all'">
+                    <div i-solar:arrow-left-outline :class="adjustStyleClasses.icon" text="neutral-500" />
+                  </ControlButton>
+                  <template #tooltip>
+                    Back
+                  </template>
+                </ControlButtonTooltip>
+              </div>
+            </div>
+
+            <!-- Wardrobe Discovery Sub-menu -->
+            <div v-else-if="view === 'wardrobe-discovery'" key="wardrobe-discovery" w-48 flex flex-col gap-2>
+              <div flex flex-col gap-1>
+                <div flex items-center gap-2 px-1 pb-1>
+                  <div i-solar:stars-minimalistic-bold-duotone class="animate-pulse text-sm text-amber-500" />
+                  <span class="text-[10px] text-neutral-500 font-black tracking-widest uppercase">{{ detectedWardrobe.active || 'Wardrobe Discovery' }}</span>
+                </div>
+                <div class="scrollbar-hide max-h-[200px] overflow-y-auto">
+                  <div flex flex-col gap-1.5 pb-1>
+                    <button
+                      v-for="name in detectedWardrobe.siblings"
+                      :key="name"
+                      :class="['group relative w-full cursor-pointer rounded-xl bg-white/5 px-3 py-2 text-left backdrop-blur-md transition-all duration-300']"
+                      @click="() => {}"
+                    >
+                      <div flex items-center justify-between gap-2>
+                        <div flex items-center gap-2>
+                          <div i-solar:tag-bold-duotone class="size-3 text-sky-400 opacity-50 transition-colors" />
+                          <span class="text-[11px] text-neutral-300 font-bold transition-colors group-hover:text-white">{{ name }}</span>
+                        </div>
+                        <div i-solar:arrow-right-linear class="size-3 text-transparent transition-all group-hover:text-white" />
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div grid grid-cols-3 gap-2 border-t border-neutral-700 border-solid pt-2>
+                <div />
+                <div />
+                <ControlButtonTooltip>
+                  <ControlButton :button-style="adjustStyleClasses.button" @click="view = 'main'">
                     <div i-solar:arrow-left-outline :class="adjustStyleClasses.icon" text="neutral-500" />
                   </ControlButton>
                   <template #tooltip>
