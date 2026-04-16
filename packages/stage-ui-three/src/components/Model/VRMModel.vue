@@ -164,21 +164,31 @@ let stopCameraWatch: WatchStopHandle | undefined
 let isUnmounted = false
 let currentLoadId = 0
 
-// Setup Pointer Interaction
+// Expressions
+const blink = useBlink()
+const idleEyeSaccades = useIdleEyeSaccades()
+const vrmEmote = ref<ReturnType<typeof useVRMEmote>>()
+const modelStore = useModelStore()
+const vrmLipSync = useVRMLipSync(currentAudioSource)
+const vrmClothTug = useVRMClothInteraction()
+
+// Setup Pointer Interaction (Moved below initialization to fix ReferenceError)
 useEventListener('mousedown', (e) => {
-  if (vrm.value && camera.value) {
+  if (modelStore.interactionMode === 'tactile' && vrm.value && camera.value) {
     vrmClothTug.startTug({ x: e.clientX, y: e.clientY }, camera.value, vrm.value)
   }
 })
 
 useEventListener('mousemove', (e) => {
-  if (vrm.value && camera.value) {
+  if (modelStore.interactionMode === 'tactile' && camera.value) {
     vrmClothTug.handleTug({ x: e.clientX, y: e.clientY }, camera.value)
   }
 })
 
 useEventListener('mouseup', () => {
-  vrmClothTug.endTug()
+  if (modelStore.interactionMode === 'tactile') {
+    vrmClothTug.endTug()
+  }
 })
 
 // Animation related ref
@@ -188,14 +198,6 @@ const { onBeforeRender, stop, start } = useLoop()
 type VrmFrameHook = (vrm: VRM, delta: number) => void
 const vrmFrameHook = shallowRef<VrmFrameHook>()
 let disposeBeforeRenderLoop: (() => void | undefined)
-
-// Expressions
-const blink = useBlink()
-const idleEyeSaccades = useIdleEyeSaccades()
-const vrmEmote = ref<ReturnType<typeof useVRMEmote>>()
-const modelStore = useModelStore()
-const vrmLipSync = useVRMLipSync(currentAudioSource)
-const vrmClothTug = useVRMClothInteraction()
 
 // For sky box update
 const nprProgramVersion = ref(0)

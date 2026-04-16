@@ -17,30 +17,38 @@ export function useVRMClothInteraction() {
   const isDragging = ref(false)
   const targetBone = shallowRef<Object3D | null>(null)
 
-  // Initialize Tether Line Mesh
-  const lineGeom = new THREE.BufferGeometry()
-  lineGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3))
-  const lineMat = new THREE.LineBasicMaterial({ color: 0x00FFFF, transparent: true, opacity: 0.4 })
-  const tetherLine = shallowRef<Line>(new Line(lineGeom, lineMat))
+  // Cache for performance-heavy lookups
+  const nodes = {
+    jaw: null as Object3D | null,
+    head: null as Object3D | null,
+    boundary: new THREE.Box3(), // Persistent hit-aura
+    hasBoundary: false,
+  }
 
   // Interaction State
   const modelStore = useModelStore()
-  const puffs = shallowRef<Sprite[]>([])
+  const activePuffs: Sprite[] = []
+  const clothMeshCache = shallowRef<Object3D[]>([])
+
+  // Persistent Rest-Position Memory (Stops Drift)
+  const boneBaseCache = new Map<string, Vector3>()
+
+  // Initialize Tether Line Mesh
+  const lineGeom = new THREE.BufferGeometry()
+  const tetherPosBuffer = new Float32Array(6) // Reuse this buffer
+  lineGeom.setAttribute('position', new THREE.BufferAttribute(tetherPosBuffer, 3))
+  const lineMat = new THREE.LineBasicMaterial({ color: 0x00FFFF, transparent: true, opacity: 0.4 })
+  const tetherLine = shallowRef<Line>(new Line(lineGeom, lineMat))
   const basePosition = new Vector3()
   const currentTension = ref(0)
   const maxStretch = 0.15 // 15cm max pull
 
-  // Interaction Helpers
-  const raycaster = new Raycaster()
-  const mouse = new Vector2()
-  const intersectionPoint = new Vector3()
+  // Texture Cache
+  let puffTexture: THREE.Texture | null = null
 
-  const grabPoint = new Vector3() // Local point in vrm.scene where grab started
-
-  function spawnPuff(point: Vector3, scene: THREE.Object3D) {
-    // Convert world point to local space of the scene
-    const localPoint = point.clone()
-    scene.worldToLocal(localPoint)
+  function getPuffTexture() {
+    if (puffTexture)
+      return puffTexture
 
     const canvas = document.createElement('canvas')
     canvas.width = 64
@@ -51,23 +59,60 @@ export function useVRMClothInteraction() {
     ctx.fillStyle = '#ffffff'
     ctx.fill()
 
-    const texture = new CanvasTexture(canvas)
+    puffTexture = new CanvasTexture(canvas)
+    return puffTexture
+  }
+
+  // Interaction Helpers
+  const raycaster = new Raycaster()
+  const mouse = new Vector2()
+  const intersectionPoint = new Vector3()
+  const grabPoint = new Vector3() // Local point in vrm.scene where grab started
+
+  function resolveNodes(vrm: VRM) {
+    if (!vrm)
+      return
+    if (!nodes.jaw || !nodes.head) {
+      nodes.jaw = vrm.humanoid?.getNormalizedBoneNode('jaw') || null
+      nodes.head = vrm.humanoid?.getNormalizedBoneNode('head') || null
+    }
+
+    // [SPEED-FIX] Calculate boundary strictly ONCE per model load
+    if (!nodes.hasBoundary) {
+      nodes.boundary.setFromObject(vrm.scene)
+      nodes.hasBoundary = true
+
+      // [SPEED-FIX] Cache cloth meshes strict once to avoid 12s traversal lag
+      const cloth: Object3D[] = []
+      vrm.scene.traverse((obj) => {
+        const name = obj.name.toLowerCase()
+        if (name.includes('cloth') || name.includes('skirt') || name.includes('shirt') || name.includes('sleeve') || name.includes('ribbon') || name.includes('body') || name.includes('dress') || name.includes('acc')) {
+          cloth.push(obj)
+        }
+      })
+      clothMeshCache.value = cloth
+      console.log(`[WIRED] Logic Caches Ready. Cloth candidates: ${cloth.length}`)
+    }
+  }
+
+  function spawnPuff(point: Vector3, scene: THREE.Object3D) {
+    const localPoint = point.clone()
+    scene.worldToLocal(localPoint)
+
     const material = new SpriteMaterial({
-      map: texture,
+      map: getPuffTexture(),
       transparent: true,
       opacity: 0.8,
       depthTest: false,
     })
 
-    // Randomized Color
-    const hue = Math.random()
-    material.color.setHSL(hue, 0.8, 0.6)
+    material.color.setHSL(Math.random(), 0.8, 0.6)
 
     const puff = new Sprite(material)
     puff.position.copy(localPoint)
     puff.scale.set(0.05, 0.05, 0.05)
     scene.add(puff)
-    puffs.value.push(puff)
+    activePuffs.push(puff)
   }
 
   /**
@@ -77,29 +122,23 @@ export function useVRMClothInteraction() {
     if (!vrm || modelStore.interactionMode !== 'tactile')
       return
 
-    // Diagnostic: Mouse Coords
     mouse.x = (event.x / window.innerWidth) * 2 - 1
     mouse.y = -(event.y / window.innerHeight) * 2 + 1
-    console.log(`[WIRED] Grab Start. Mouse: ${mouse.x.toFixed(2)}, ${mouse.y.toFixed(2)}`)
-
     raycaster.setFromCamera(mouse, camera)
 
-    const clothMeshes: Object3D[] = []
-    vrm.scene.traverse((obj) => {
-      const name = obj.name.toLowerCase()
-      // Broadened keywords for R&D
-      if (name.includes('cloth') || name.includes('skirt') || name.includes('shirt') || name.includes('sleeve') || name.includes('ribbon') || name.includes('body') || name.includes('dress') || name.includes('acc')) {
-        clothMeshes.push(obj)
-      }
-    })
+    resolveNodes(vrm)
 
-    console.log(`[WIRED] Potential Cloth Meshes Scanned: ${clothMeshes.length}`)
+    // [SPEED-FIX] Use CACHED boundary to skip the 22s raycast instantly
+    if (!raycaster.ray.intersectsBox(nodes.boundary))
+      return
 
-    const intersects = raycaster.intersectObjects(clothMeshes, true)
+    // [SPEED-FIX] Only check VISIBLE meshes and use the cached list to avoid traversal
+    const visibleCloth = clothMeshCache.value.filter(m => m.visible)
+    const intersects = raycaster.intersectObjects(visibleCloth, false)
+
     if (intersects.length > 0) {
       const hit = intersects[0]
       intersectionPoint.copy(hit.point)
-      console.log(`[WIRED] Hit Found on: "${hit.object.name}" at ${hit.point.x.toFixed(2)}, ${hit.point.y.toFixed(2)}`)
 
       // Find the best bone to tug
       let nearestBone: Object3D | null = null
@@ -121,22 +160,21 @@ export function useVRMClothInteraction() {
         const bone = nearestBone as Object3D
         isDragging.value = true
         targetBone.value = bone
-        basePosition.copy(bone.position)
+
+        // [DRIFT-FIX] Populate and use a Neutral-Rest Cache to prevent cumulative drift
+        if (!boneBaseCache.has(bone.name)) {
+          console.log(`[WIRED] Neutralizing Bone Home: "${bone.name}"`)
+          boneBaseCache.set(bone.name, bone.position.clone())
+        }
+        basePosition.copy(boneBaseCache.get(bone.name)!)
 
         // Calculate a stable local grab point for the tether
         grabPoint.copy(intersectionPoint)
         vrm.scene.worldToLocal(grabPoint)
 
-        console.log(`[WIRED] Successfully Grabbed Bone: "${bone.name}" at local ${grabPoint.x}, ${grabPoint.y}`)
+        console.log(`[WIRED] Discovery: "${hit.object.name}" (MeshID: ${hit.object.id}) -> Bone: "${bone.name}"`)
         spawnPuff(intersectionPoint, vrm.scene)
       }
-      else {
-        console.warn('[WIRED] Hit mesh but found no proximal bones!')
-        spawnPuff(intersectionPoint, vrm.scene)
-      }
-    }
-    else {
-      console.log('[WIRED] Raycast missed all cloth meshes.')
     }
   }
 
@@ -144,12 +182,10 @@ export function useVRMClothInteraction() {
     if (!isDragging.value || !targetBone.value || modelStore.interactionMode !== 'tactile')
       return
 
-    // Calculate pull vector based on mouse movement in 3D space
     mouse.x = (event.x / window.innerWidth) * 2 - 1
     mouse.y = -(event.y / window.innerHeight) * 2 + 1
     raycaster.setFromCamera(mouse, camera)
 
-    // Project mouse onto a plane at the bone's depth
     const plane = new THREE.Plane()
     const boneWorldPos = new Vector3()
     targetBone.value.getWorldPosition(boneWorldPos)
@@ -158,28 +194,20 @@ export function useVRMClothInteraction() {
     const dragTarget = new Vector3()
     raycaster.ray.intersectPlane(plane, dragTarget)
 
-    // Calculate local offset
     const parent = targetBone.value.parent
     if (parent) {
       const localTarget = parent.worldToLocal(dragTarget.clone())
       const pullDir = localTarget.sub(basePosition)
-
-      // Constraint: Fabric tension
       const dist = pullDir.length()
       currentTension.value = Math.min(dist / maxStretch, 1.0)
-
-      if (dist > maxStretch) {
+      if (dist > maxStretch)
         pullDir.normalize().multiplyScalar(maxStretch)
-      }
-
       targetBone.value.position.copy(basePosition.clone().add(pullDir))
     }
   }
 
   function endTug() {
     isDragging.value = false
-    // Spring back is handled in update loop for smoothness
-    console.log('[WIRED] Released Fabric')
   }
 
   /**
@@ -189,59 +217,67 @@ export function useVRMClothInteraction() {
     if (!vrm)
       return
 
-    // Update Puffs (Fade and Scale)
-    puffs.value = puffs.value.filter((puff) => {
-      puff.scale.multiplyScalar(1.03) // Slower growth
+    // [PRODUCTION-HOT-PATH] Early return STRICTLY if nothing is moving/interacting
+    if (!isDragging.value && activePuffs.length === 0 && currentTension.value === 0 && !targetBone.value)
+      return
+
+    resolveNodes(vrm)
+
+    // Update Puffs (Fade and Scale) - Optimized loop
+    for (let i = activePuffs.length - 1; i >= 0; i--) {
+      const puff = activePuffs[i]
+      puff.scale.multiplyScalar(1.03)
       const mat = puff.material as SpriteMaterial
-      mat.opacity -= delta * 1.5 // Slower fade
+      mat.opacity -= delta * 1.5
       if (mat.opacity <= 0) {
         puff.removeFromParent()
-        return false
+        mat.dispose()
+        activePuffs.splice(i, 1)
       }
-      return true
-    })
+    }
 
     // Spring Back Logic
     if (!isDragging.value && targetBone.value) {
-      targetBone.value.position.lerp(basePosition, 0.1) // Spring back speed
-      currentTension.value = Math.max(0, currentTension.value - 0.1)
+      targetBone.value.position.lerp(basePosition, 0.15) // Slightly snappier
+      currentTension.value = Math.max(0, currentTension.value - 0.2) // Faster tension decay
 
-      if (targetBone.value.position.distanceTo(basePosition) < 0.001) {
+      // [SNAPPING-FIX] Ensure precise restoration before setting target to null
+      if (targetBone.value.position.distanceTo(basePosition) < 0.0001) {
         targetBone.value.position.copy(basePosition)
         targetBone.value = null
       }
     }
 
-    // Emotional Coupling (Genius Layer)
+    // Emotional Coupling
     if (vrm.expressionManager && currentTension.value > 0) {
       const tension = currentTension.value
-      // High tension blends Angry, low tension Surprised
-      const surprisedWeight = Math.max(0, tension * (1.0 - tension) * 4) // Peaks in the middle
-      const angryWeight = tension ** 2 // Peaks at the end
-
-      vrm.expressionManager.setValue('surprised', surprisedWeight * 0.8)
-      vrm.expressionManager.setValue('angry', angryWeight * 0.7)
+      vrm.expressionManager.setValue('surprised', Math.max(0, tension * (1.0 - tension) * 4) * 0.8)
+      vrm.expressionManager.setValue('angry', (tension ** 2) * 0.7)
     }
 
     updateTether(vrm)
   }
 
   function updateTether(vrm: VRM) {
-    if (!tetherLine.value)
-      return
-
-    if (!isDragging.value || !targetBone.value) {
-      tetherLine.value.visible = false
+    if (!tetherLine.value || !isDragging.value || !targetBone.value) {
+      if (tetherLine.value)
+        tetherLine.value.visible = false
       return
     }
 
+    const mouthPoint = new Vector3()
+    const anchor = nodes.jaw || nodes.head
+    if (anchor)
+      anchor.getWorldPosition(mouthPoint)
+    else vrm.scene.getWorldPosition(mouthPoint)
+
+    const bonePos = new Vector3()
+    targetBone.value.getWorldPosition(bonePos)
+
+    // Note: Line geometry setFromPoints is fine for prototype
     tetherLine.value.visible = true
     const geometry = tetherLine.value.geometry as THREE.BufferGeometry
-    const currentLocalPos = new Vector3()
-    targetBone.value.getWorldPosition(currentLocalPos)
-    vrm.scene.worldToLocal(currentLocalPos)
-
-    geometry.setFromPoints([currentLocalPos, grabPoint])
+    geometry.setFromPoints([mouthPoint, bonePos])
   }
 
   return {
