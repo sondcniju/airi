@@ -138,7 +138,15 @@ export const useModelStore = defineStore('modelStore', () => {
     activeVrm.value = null
     activeVrmParser.value = null
     activeVrmIdentity.value = ''
+    detectedWardrobe.value = { active: null, siblings: [], texIndex: null }
   }
+
+  // === Tactile Interaction State ===
+  const detectedWardrobe = ref<{
+    active: string | null
+    siblings: string[]
+    texIndex: number | null
+  }>({ active: null, siblings: [], texIndex: null })
 
   // === Lighting ===
   const directionalLightPosition = useLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/position', { x: 0, y: 0, z: -1 })
@@ -224,6 +232,7 @@ export const useModelStore = defineStore('modelStore', () => {
     activeVrm,
     activeVrmParser,
     activeVrmIdentity,
+    detectedWardrobe,
 
     onShouldUpdateView,
     shouldUpdateView,

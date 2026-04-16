@@ -1,6 +1,6 @@
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { defineStore } from 'pinia'
-import { computed } from 'vue'
+import { computed, isRef } from 'vue'
 
 export interface ComfyUIWorkflowTemplate {
   id: string
@@ -94,8 +94,22 @@ export const useArtistryStore = defineStore('artistry', () => {
     return true
   })
 
+  const artistryGlobals = computed(() => ({
+    comfyuiServerUrl: comfyuiServerUrl.value,
+    comfyuiSavedWorkflows: comfyuiSavedWorkflows.value,
+    comfyuiActiveWorkflow: comfyuiActiveWorkflow.value,
+    replicateApiKey: replicateApiKey.value,
+    replicateDefaultModel: replicateDefaultModel.value,
+    replicateAspectRatio: replicateAspectRatio.value,
+    replicateInferenceSteps: replicateInferenceSteps.value,
+    nanobananaApiKey: nanobananaApiKey.value,
+    nanobananaModel: nanobananaModel.value,
+    nanobananaResolution: nanobananaResolution.value,
+  }))
+
   return {
     configured,
+    artistryGlobals,
     // Active settings (resolved per card)
     activeProvider,
     activeModel,
@@ -121,3 +135,29 @@ export const useArtistryStore = defineStore('artistry', () => {
     resetState,
   }
 })
+
+export type ArtistryStoreSnapshot = ReturnType<typeof useArtistryStore>
+
+export interface ResolvedArtistryConfig {
+  provider?: string
+  model?: string
+  promptPrefix?: string
+  options?: Record<string, any>
+  Globals?: any
+}
+
+/**
+ * Resolves the artistry configuration from a store snapshot.
+ * Handles both ref-wrapped and unwrapped properties to safely work across component and non-component contexts.
+ */
+export function resolveArtistryConfigFromStore(store: ArtistryStoreSnapshot): ResolvedArtistryConfig {
+  const unwrap = <T>(val: T | import('vue').Ref<T>): T => (isRef(val) ? val.value : val)
+
+  return {
+    provider: unwrap(store.activeProvider),
+    model: unwrap(store.activeModel),
+    promptPrefix: unwrap(store.defaultPromptPrefix),
+    options: unwrap(store.providerOptions),
+    Globals: unwrap(store.artistryGlobals),
+  }
+}

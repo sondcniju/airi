@@ -29,6 +29,7 @@ export function useVRMClothInteraction() {
   const modelStore = useModelStore()
   const activePuffs: Sprite[] = []
   const clothMeshCache = shallowRef<Object3D[]>([])
+  const boneCache = shallowRef<Object3D[]>([])
 
   // Persistent Rest-Position Memory (Stops Drift)
   const boneBaseCache = new Map<string, Vector3>()
@@ -88,6 +89,7 @@ export function useVRMClothInteraction() {
 
       // [PERFORMANCE-RESTORATION] Only cache primary renderable meshes
       const meshes: Object3D[] = []
+      const bones: Object3D[] = []
       vrm.scene.traverse((obj) => {
         if ((obj.type === 'Mesh' || obj.type === 'SkinnedMesh') && obj.visible) {
           const name = obj.name.toLowerCase()
@@ -99,8 +101,12 @@ export function useVRMClothInteraction() {
             meshes.push(obj)
           }
         }
+        if (obj.type === 'Bone') {
+          bones.push(obj)
+        }
       })
       clothMeshCache.value = meshes
+      boneCache.value = bones
 
       // [WIRED-PRECOMPUTATION] Build the Wardrobe Manifest once
       // This eliminates the 10s "discovery" period on first click.
@@ -209,15 +215,14 @@ export function useVRMClothInteraction() {
       let nearestBone: Object3D | null = null
       let minDist = Infinity
 
-      vrm.scene.traverse((obj) => {
-        if (obj.type === 'Bone') {
-          const boneWorldPos = new Vector3()
-          obj.getWorldPosition(boneWorldPos)
-          const d = boneWorldPos.distanceTo(intersectionPoint)
-          if (d < minDist) {
-            minDist = d
-            nearestBone = obj
-          }
+      // [PERFORMANCE-FIX] Use cached bones to avoid slow scene traversal
+      boneCache.value.forEach((obj) => {
+        const boneWorldPos = new Vector3()
+        obj.getWorldPosition(boneWorldPos)
+        const d = boneWorldPos.distanceTo(intersectionPoint)
+        if (d < minDist) {
+          minDist = d
+          nearestBone = obj
         }
       })
 
@@ -249,11 +254,21 @@ export function useVRMClothInteraction() {
           if (hitTexIndex !== null && wardrobeManifest.has(hitTexIndex)) {
             const entry = wardrobeManifest.get(hitTexIndex)!
             const activeOutfit = entry.siblings.find((s: any) => s.weight > 0.5)
-            const siblingNames = entry.siblings.filter(s => s !== activeOutfit).map(s => formatName(s.name))
+            const siblingNames = entry.siblings.map(s => formatName(s.name))
 
-            console.log(`[WIRED] Tactile Hit on Texture #${hitTexIndex}`)
-            console.log(` > Detected Outfit:  %c${activeOutfit ? formatName(activeOutfit.name) : 'None'}`, 'color: #00ffff; font-weight: bold;')
-            console.log(` > Sibling Outfits: ${siblingNames.join(', ')}`)
+            // Use active outfit or default to the base sibling for that slot
+            const activeName = activeOutfit ? formatName(activeOutfit.name) : (siblingNames[0] || 'Unknown')
+            const restSiblings = siblingNames.filter(n => n !== activeName)
+
+            // Update Global State for UI
+            modelStore.detectedWardrobe = {
+              active: activeName,
+              siblings: restSiblings,
+              texIndex: hitTexIndex,
+            }
+
+            console.log(`[WIRED] Tactile Hit: ${activeName} (#${hitTexIndex})`)
+            console.log(` > Siblings: ${restSiblings.join(', ')}`)
           }
         }
 

@@ -1,32 +1,23 @@
+import type { ResolvedArtistryConfig } from '@proj-airi/stage-ui/stores'
 import type { Tool } from '@xsai/shared-chat'
 
 import { defineInvoke } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/renderer'
-import { useAiriCardStore, useArtistryStore, useBackgroundStore } from '@proj-airi/stage-ui/stores'
+import {
+  resolveArtistryConfigFromStore,
+  useAiriCardStore,
+  useArtistryStore,
+  useBackgroundStore,
+} from '@proj-airi/stage-ui/stores'
 import { tool } from '@xsai/tool'
 import { z } from 'zod'
 
 import { artistryGenerateHeadless, widgetsAdd } from '../../../../shared/eventa'
 import { getIpcRenderer } from '../../../utils/electron'
 
-function getArtistryConfig() {
+export function getArtistryConfig(): ResolvedArtistryConfig {
   try {
-    const store = useArtistryStore()
-    return {
-      provider: store.activeProvider,
-      model: store.activeModel,
-      promptPrefix: store.defaultPromptPrefix,
-      options: store.providerOptions,
-      Globals: {
-        comfyuiServerUrl: store.comfyuiServerUrl,
-        comfyuiSavedWorkflows: store.comfyuiSavedWorkflows,
-        comfyuiActiveWorkflow: store.comfyuiActiveWorkflow,
-        replicateApiKey: store.replicateApiKey,
-        replicateDefaultModel: store.replicateDefaultModel,
-        replicateAspectRatio: store.replicateAspectRatio,
-        replicateInferenceSteps: store.replicateInferenceSteps,
-      },
-    }
+    return resolveArtistryConfigFromStore(useArtistryStore())
   }
   catch (e) {
     return {}
