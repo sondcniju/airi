@@ -82,16 +82,15 @@ export function useVRMClothInteraction() {
       nodes.boundary.setFromObject(vrm.scene)
       nodes.hasBoundary = true
 
-      // [SPEED-FIX] Cache cloth meshes strict once to avoid 12s traversal lag
-      const cloth: Object3D[] = []
+      // [RESTORATION- inclusive] Cache ALL meshes to ensure nothing is missed
+      const meshes: Object3D[] = []
       vrm.scene.traverse((obj) => {
-        const name = obj.name.toLowerCase()
-        if (name.includes('cloth') || name.includes('skirt') || name.includes('shirt') || name.includes('sleeve') || name.includes('ribbon') || name.includes('body') || name.includes('dress') || name.includes('acc')) {
-          cloth.push(obj)
+        if (obj.type === 'Mesh' || obj.type === 'SkinnedMesh') {
+          meshes.push(obj)
         }
       })
-      clothMeshCache.value = cloth
-      console.log(`[WIRED] Logic Caches Ready. Cloth candidates: ${cloth.length}`)
+      clothMeshCache.value = meshes
+      console.log(`[WIRED] Logic Caches Ready. Mesh candidates: ${meshes.length}`)
     }
   }
 
@@ -122,19 +121,20 @@ export function useVRMClothInteraction() {
     if (!vrm || modelStore.interactionMode !== 'tactile')
       return
 
+    console.log('[WIRED] startTug entered', { mode: modelStore.interactionMode })
+
     mouse.x = (event.x / window.innerWidth) * 2 - 1
     mouse.y = -(event.y / window.innerHeight) * 2 + 1
     raycaster.setFromCamera(mouse, camera)
 
     resolveNodes(vrm)
 
-    // [SPEED-FIX] Use CACHED boundary to skip the 22s raycast instantly
-    if (!raycaster.ray.intersectsBox(nodes.boundary))
-      return
+    // [RESTORATION] Removing boundary check temporarily to ensure zero blockers
+    // if (!raycaster.ray.intersectsBox(nodes.boundary)) return
 
-    // [SPEED-FIX] Only check VISIBLE meshes and use the cached list to avoid traversal
-    const visibleCloth = clothMeshCache.value.filter(m => m.visible)
-    const intersects = raycaster.intersectObjects(visibleCloth, false)
+    // Only check meshes from our inclusive cache
+    const visibleMeshes = clothMeshCache.value.filter(m => m.visible)
+    const intersects = raycaster.intersectObjects(visibleMeshes, false)
 
     if (intersects.length > 0) {
       const hit = intersects[0]
@@ -248,7 +248,7 @@ export function useVRMClothInteraction() {
       }
     }
 
-    // Emotional Coupling
+    // Emotional Coupling (Default reactive behavior)
     if (vrm.expressionManager && currentTension.value > 0) {
       const tension = currentTension.value
       vrm.expressionManager.setValue('surprised', Math.max(0, tension * (1.0 - tension) * 4) * 0.8)
