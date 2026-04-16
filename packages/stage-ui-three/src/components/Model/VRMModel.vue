@@ -507,7 +507,7 @@ async function loadModel() {
           vrmFrameHook.value?.(vrm.value, delta)
 
           // Loop: Cloth Interaction (Wired R&D)
-          vrmClothTug.update(vrm.value, delta)
+          vrmClothTug.update(vrm.value, delta, vrmEmote.value)
 
           // Update mixer
           vrmAnimationMixer.value?.update(delta)
