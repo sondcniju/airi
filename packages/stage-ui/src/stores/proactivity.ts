@@ -24,6 +24,7 @@ import { useBackgroundStore } from './background'
 import { useChatOrchestratorStore } from './chat'
 import { useChatContextStore } from './chat/context-store'
 import { useChatSessionStore } from './chat/session-store'
+import { useEchoesStore } from './echo-chips'
 import { useLLM } from './llm'
 import { useTextJournalStore } from './memory-text-journal'
 import { useAiriCardStore } from './modules/airi-card'
@@ -45,6 +46,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
   const backgroundStore = useBackgroundStore()
   const liveSessionStore = useLiveSessionStore()
   const visionStore = useVisionStore()
+  const echoesStore = useEchoesStore()
 
   // eslint-disable-next-line no-console
   console.log('[Proactivity] Proactivity Store initialized.')
@@ -61,6 +63,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
   }
 
   const lastHeartbeatTime = ref<number>(Date.now())
+  const isDreamStateEvaluating = ref(false)
   const isHeartbeatEvaluating = ref(false)
   let heartbeatInterval: any = null
 
@@ -192,6 +195,20 @@ export const useProactivityStore = defineStore('proactivity', () => {
     }
   }
 
+  async function refreshIdleTimeOnly() {
+    if (!isElectron || !getIdleTimeInvoke)
+      return
+
+    try {
+      const idleMs = await getIdleTimeInvoke()
+      if (idleMs !== undefined)
+        idleTimeSec.value = Math.floor(idleMs / 1000)
+    }
+    catch (err) {
+      console.warn('[Proactivity] Failed to poll idle time:', err)
+    }
+  }
+
   const isProactivityLoopNeeded = computed(() => {
     const config = activeCard.value?.extensions?.airi?.heartbeats
     const grounding = activeCard.value?.extensions?.airi?.groundingEnabled
@@ -293,6 +310,89 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
     return payload
   })
+
+  function getTodayKey() {
+    return new Date().toISOString().slice(0, 10)
+  }
+
+  async function evaluateDreamState(options?: { force?: boolean }) {
+    if (isDreamStateEvaluating.value && !options?.force)
+      return
+
+    const card = activeCard.value
+    const characterId = activeCardId.value
+    const config = card?.extensions?.airi?.dreamState
+
+    if (!card || !characterId || !config?.enabled)
+      return
+
+    const sessionId = chatSession.activeSessionId
+    if (!sessionId)
+      return
+
+    const sessionMessages = chatSession.sessionMessages[sessionId] || []
+    const conversationalMessages = sessionMessages.filter((msg) => {
+      return (msg.role === 'user' || msg.role === 'assistant') && typeof msg.createdAt === 'number'
+    })
+
+    if (conversationalMessages.length < (config.minConversationTurns || 4))
+      return
+
+    const lastProcessedAt = config.lastProcessedAt ?? 0
+    const unprocessedMessages = conversationalMessages.filter(msg => (msg.createdAt || 0) > lastProcessedAt)
+    if (unprocessedMessages.length < (config.minConversationTurns || 4))
+      return
+
+    const lastTurnAt = Math.max(...unprocessedMessages.map(msg => msg.createdAt || 0))
+    const quietWindowMs = (config.sessionTimeoutMinutes || 60) * 60 * 1000
+    const now = Date.now()
+
+    if (!options?.force && now - lastTurnAt < quietWindowMs)
+      return
+
+    if (config.strictAfkGating) {
+      if (idleTimeSec.value === undefined)
+        await refreshIdleTimeOnly()
+      else
+        await refreshIdleTimeOnly()
+
+      const afkThresholdSec = (config.afkThresholdMinutes || 5) * 60
+      if (!options?.force && (idleTimeSec.value ?? 0) < afkThresholdSec)
+        return
+    }
+
+    const todayKey = getTodayKey()
+    const dailyRunCount = config.dailyRunDate === todayKey ? (config.dailyRunCount ?? 0) : 0
+    if (!options?.force && dailyRunCount >= (config.maxSessionsPerDay || 4))
+      return
+
+    isDreamStateEvaluating.value = true
+    try {
+      await echoesStore.load()
+      await echoesStore.synthesizeForCharacter(characterId)
+
+      airiCardStore.updateCard(characterId, {
+        extensions: {
+          ...card.extensions,
+          airi: {
+            ...card.extensions?.airi,
+            dreamState: {
+              ...card.extensions?.airi?.dreamState,
+              lastProcessedAt: lastTurnAt,
+              dailyRunDate: todayKey,
+              dailyRunCount: dailyRunCount + 1,
+            },
+          },
+        },
+      } as any)
+    }
+    catch (err) {
+      console.error('[Proactivity] Dream State evaluation failed:', err)
+    }
+    finally {
+      isDreamStateEvaluating.value = false
+    }
+  }
 
   async function evaluateHeartbeat(options?: { force?: boolean }) {
     console.time('[Proactivity] evaluateHeartbeat')
@@ -625,9 +725,10 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
     // eslint-disable-next-line no-console
     console.log('[Proactivity] Starting global heartbeat loop (60s tick)...')
-    // heartbeatInterval = setInterval(() => {
-    //   void evaluateHeartbeat()
-    // }, 60 * 1000)
+    heartbeatInterval = setInterval(() => {
+      void evaluateHeartbeat()
+      void evaluateDreamState()
+    }, 60 * 1000)
   }
 
   function stopHeartbeatLoop() {
@@ -739,10 +840,12 @@ export const useProactivityStore = defineStore('proactivity', () => {
     locTime,
     lastHeartbeatTime,
     isHeartbeatEvaluating,
+    isDreamStateEvaluating,
     registeredTools,
     registerTools,
     resolveRegisteredTools,
     evaluateHeartbeat,
+    evaluateDreamState,
     startHeartbeatLoop,
     stopHeartbeatLoop,
     heartbeatIntervalMinutes,

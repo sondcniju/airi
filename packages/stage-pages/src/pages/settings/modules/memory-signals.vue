@@ -1,25 +1,69 @@
 <script setup lang="ts">
+import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { FieldInput } from '@proj-airi/ui'
-import { ref } from 'vue'
+import { storeToRefs } from 'pinia'
+import { computed } from 'vue'
 
-// --- Mock State (UI only) ---
-const lushness = ref('balanced')
-const maxSessions = ref(4)
-const timeoutThreshold = ref(60)
-const afkGating = ref(true)
+const airiCardStore = useAiriCardStore()
+const { activeCard, activeCardId } = storeToRefs(airiCardStore)
 
-const lushnessOptions = [
+function updateDreamState(patch: Record<string, any>) {
+  const cardId = activeCardId.value
+  const card = activeCard.value
+  if (!cardId || !card)
+    return
+
+  airiCardStore.updateCard(cardId, {
+    extensions: {
+      ...card.extensions,
+      airi: {
+        ...card.extensions?.airi,
+        dreamState: {
+          ...card.extensions?.airi?.dreamState,
+          ...patch,
+        },
+      },
+    },
+  } as any)
+}
+
+const dreamStateEnabled = computed({
+  get: () => activeCard.value?.extensions?.airi?.dreamState?.enabled ?? false,
+  set: value => updateDreamState({ enabled: value }),
+})
+
+const lushness = computed({
+  get: () => activeCard.value?.extensions?.airi?.dreamState?.journalingThreshold ?? 'balanced',
+  set: value => updateDreamState({ journalingThreshold: value as 'minimal' | 'balanced' | 'lush' }),
+})
+
+const maxSessions = computed({
+  get: () => activeCard.value?.extensions?.airi?.dreamState?.maxSessionsPerDay ?? 4,
+  set: value => updateDreamState({ maxSessionsPerDay: Number(value) || 4 }),
+})
+
+const timeoutThreshold = computed({
+  get: () => activeCard.value?.extensions?.airi?.dreamState?.sessionTimeoutMinutes ?? 60,
+  set: value => updateDreamState({ sessionTimeoutMinutes: Number(value) || 60 }),
+})
+
+const afkGating = computed({
+  get: () => activeCard.value?.extensions?.airi?.dreamState?.strictAfkGating ?? true,
+  set: value => updateDreamState({ strictAfkGating: value }),
+})
+
+const lushnessOptions: Array<{ value: 'minimal' | 'balanced' | 'lush', label: string, description: string }> = [
   { value: 'minimal', label: 'Minimal', description: 'Tags only. No journals are recorded.' },
   { value: 'balanced', label: 'Balanced', description: 'Tags + Journals for highly significant moments.' },
   { value: 'lush', label: 'Lush', description: 'Tags + Journals for most sessions (Lower Threshold).' },
 ]
 
-const statusChips = [
-  { label: 'AFK Gated', icon: 'i-solar:ghost-bold-duotone', active: true },
-  { label: 'Max 4 Sessions/Day', icon: 'i-solar:calendar-limit-bold-duotone', active: true },
-  { label: 'Idle Consolidation', icon: 'i-solar:moon-stars-bold-duotone', active: true },
+const statusChips = computed(() => [
+  { label: afkGating.value ? 'AFK Gated' : 'AFK Optional', icon: 'i-solar:ghost-bold-duotone', active: afkGating.value },
+  { label: `Max ${maxSessions.value} Sessions/Day`, icon: 'i-solar:calendar-limit-bold-duotone', active: true },
+  { label: dreamStateEnabled.value ? 'Idle Consolidation' : 'Dream State Disabled', icon: 'i-solar:moon-stars-bold-duotone', active: dreamStateEnabled.value },
   { label: 'Flavor Output', icon: 'i-solar:magic-stick-3-bold-duotone', active: true },
-]
+])
 </script>
 
 <template>
@@ -138,6 +182,14 @@ const statusChips = [
       <div class="grid gap-10 lg:grid-cols-2">
         <!-- Lushness Selector -->
         <div class="flex flex-col gap-6">
+          <div class="flex items-center gap-3 border border-neutral-200 rounded-2xl bg-neutral-50/50 px-6 py-4 dark:border-neutral-700 dark:bg-neutral-800/40">
+            <input id="dream-state-enabled" v-model="dreamStateEnabled" type="checkbox" class="h-5 w-5 border-neutral-300 rounded text-primary-500">
+            <label for="dream-state-enabled" class="flex flex-col cursor-pointer">
+              <span class="text-sm text-neutral-700 font-bold dark:text-neutral-200">Enable Dream State</span>
+              <span class="text-[10px] text-neutral-500 tracking-tighter uppercase">Allow idle-time chips generation for the active character</span>
+            </label>
+          </div>
+
           <div>
             <span class="text-sm text-neutral-500 font-bold tracking-widest uppercase dark:text-neutral-400">Journaling Threshold</span>
             <p class="text-xs text-neutral-400 dark:text-neutral-500">

@@ -124,6 +124,25 @@ interface DistilledPack {
   compression_notes: string[]
 }
 
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : []
+}
+
+function normalizeDistilledPack(value: unknown): DistilledPack {
+  const pack = (value && typeof value === 'object') ? value as Record<string, unknown> : {}
+  return {
+    relationship_core: asStringArray(pack.relationship_core),
+    user_patterns: asStringArray(pack.user_patterns),
+    shared_rituals: asStringArray(pack.shared_rituals),
+    stable_topics: asStringArray(pack.stable_topics),
+    meaningful_old_moments: asStringArray(pack.meaningful_old_moments),
+    inside_jokes_or_motifs: asStringArray(pack.inside_jokes_or_motifs),
+    compression_notes: asStringArray(pack.compression_notes),
+  }
+}
+
 function buildBaseArchivePrompt(characterName: string, docs: SourceDoc[], chunkSummaries: any[]) {
   const flattened = {
     durableFacts: [...new Set(chunkSummaries.flatMap((c: any) => c.durable_facts || []))],
@@ -209,7 +228,8 @@ function renderLifetimeArchiveMd(characterName: string, archive: LifetimeArchive
   ].join('\n')
 }
 
-function renderPackForReview(pack: DistilledPack) {
+function renderPackForReview(rawPack: DistilledPack | Record<string, unknown> | undefined) {
+  const pack = normalizeDistilledPack(rawPack)
   return [
     'relationship_core:',
     ...pack.relationship_core.map(line => `- ${line}`),
@@ -234,7 +254,8 @@ function renderPackForReview(pack: DistilledPack) {
   ].join('\n')
 }
 
-function renderDistilledArtifactMd(characterName: string, pack: DistilledPack) {
+function renderDistilledArtifactMd(characterName: string, rawPack: DistilledPack | Record<string, unknown> | undefined) {
+  const pack = normalizeDistilledPack(rawPack)
   return [
     `# Distilled Lifetime Context Pack: ${characterName}`,
     '',
@@ -552,7 +573,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
           session.baseContent!,
         ].join('\n')
 
-        session.distillPass1Pack = await withRetry(() => callJsonMode<DistilledPack>(
+        session.distillPass1Pack = normalizeDistilledPack(await withRetry(() => callJsonMode<DistilledPack>(
           distillPass1Prompt,
           DistillPass1Schema,
           provider,
@@ -585,7 +606,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
             '- meaningful_old_moments: concrete past events still worth remembering',
             '- inside_jokes_or_motifs: recurring phrases, symbols, jokes, prompt quirks',
           ],
-        ))
+        )))
         session.phase = 'distill_pass_2'
         session.updatedAt = Date.now()
         await provisioningSessionRepo.save(session)
@@ -597,6 +618,12 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
         progress.value.phase = 'distill_pass_2'
         progress.value.completedCalls = chunks.length + 2
         progress.value.message = 'Performing Caveman Refinement (Pass 2/2)...'
+
+        const pass1Pack = normalizeDistilledPack(session.distillPass1Pack)
+        const hasPass1Content = Object.values(pass1Pack).some(section => section.length > 0)
+        if (!hasPass1Content) {
+          throw new Error('Cannot resume distill pass 2 because the cached pass 1 pack is missing or invalid. Re-run provisioning from the beginning.')
+        }
 
         const distillPass2Prompt = [
           'Refine this lifetime context pack into a cleaner final version.',
@@ -616,10 +643,10 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
           '- keep total output around 1000 tokens or less',
           '',
           'Current pack to refine:',
-          renderPackForReview(session.distillPass1Pack as DistilledPack),
+          renderPackForReview(pass1Pack),
         ].join('\n')
 
-        const finalDistilledPack = await withRetry(() => callJsonMode<DistilledPack>(
+        const finalDistilledPack = normalizeDistilledPack(await withRetry(() => callJsonMode<DistilledPack>(
           distillPass2Prompt,
           DistillPass1Schema,
           provider,
@@ -641,7 +668,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
             '- prefer dense and memorable phrasing',
             '- target a compressed reload pack around 1000 tokens or less',
           ],
-        ))
+        )))
 
         // Final Persistence
         const artifact: LifetimeMemoryArtifact = {
@@ -651,7 +678,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
           chunkSummaries: session.chunkSummaries,
           baseArchive: session.baseArchive,
           baseContent: session.baseContent!,
-          distillPass1Pack: session.distillPass1Pack,
+          distillPass1Pack: pass1Pack,
           distilledContent: renderDistilledArtifactMd(card.name, finalDistilledPack),
           sourceManifest: {
             rawTurnCount: docs.filter(d => d.layer === 'raw').length,
