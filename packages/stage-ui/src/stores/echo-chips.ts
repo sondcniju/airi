@@ -149,6 +149,15 @@ export const useEchoesStore = defineStore('echo-chips', () => {
     await echoChipsRepo.saveAll(currentUserId, serialized)
     chips.value = nextChips
     initializedForUserId.value = currentUserId
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('echo-chips-updated', {
+        detail: {
+          userId: currentUserId,
+          count: nextChips.length,
+        },
+      }))
+    }
   }
 
   function getCharacterChips(characterId: string) {
@@ -279,8 +288,7 @@ Output a JSON object with a "pills" array.
         createdAt: now,
       }))
 
-      const existing = chips.value.filter(c => c.characterId !== characterId || c.date !== anchorDate)
-      await persist([...newChips, ...existing])
+      await persist([...newChips, ...chips.value])
 
       return newChips
     }
