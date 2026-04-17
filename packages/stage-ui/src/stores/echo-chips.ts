@@ -1,5 +1,6 @@
 import type { ChatProvider } from '@xsai-ext/providers/utils'
 
+import type { ChatHistoryItem } from '../types/chat'
 import type { EchoChip, EchoChipType } from '../types/echo-chip'
 
 import { nanoid } from 'nanoid'
@@ -8,10 +9,10 @@ import { computed, ref } from 'vue'
 
 import * as v from 'valibot'
 
+import { chatSessionsRepo } from '../database/repos/chat-sessions.repo'
 import { echoChipsRepo } from '../database/repos/echo-chips.repo'
 import { useAuthStore } from './auth'
 import { useLLM } from './llm'
-import { useShortTermMemoryStore } from './memory-short-term'
 import { useAiriCardStore } from './modules/airi-card'
 import { useConsciousnessStore } from './modules/consciousness'
 import { useProvidersStore } from './providers'
@@ -27,11 +28,80 @@ const ArtifactsSchema = v.object({
   pills: v.array(ChipSchema),
 })
 
+const DEFAULT_FIRST_DREAM_LOOKBACK_MS = 24 * 60 * 60 * 1000
+const DEFAULT_MAX_WINDOW_MESSAGES = 80
+
+interface SynthesizeEchoOptions {
+  fromTimestamp?: number | null
+  toTimestamp?: number
+  maxMessages?: number
+  fallbackLookbackMs?: number
+}
+
+interface WindowMessage {
+  role: 'user' | 'assistant'
+  content: string
+  createdAt: number
+}
+
+function sanitizeChatContent(text: string) {
+  return text
+    .replace(/<\|ACT:[^>]*\|>/g, ' ')
+    .replace(/<\|[^>]+\|>/g, ' ')
+    .replace(/\[[^\]]+\]/g, ' ')
+    .replace(/\r/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function extractPartText(part: any): string {
+  if (!part)
+    return ''
+  if (typeof part === 'string')
+    return part
+  if (typeof part.text === 'string')
+    return part.text
+  if (typeof part.input === 'string')
+    return part.input
+  if (typeof part.output === 'string')
+    return part.output
+  return ''
+}
+
+function extractMessageText(message: ChatHistoryItem): string {
+  if (message.role === 'assistant' && Array.isArray((message as any).slices)) {
+    const sliceText = (message as any).slices.filter((slice: any) => slice?.type === 'text' && typeof slice.text === 'string').map((slice: any) => slice.text).join(' ')
+
+    if (sliceText.trim())
+      return sanitizeChatContent(sliceText)
+  }
+
+  const content = (message as any).content
+  if (typeof content === 'string')
+    return sanitizeChatContent(content)
+
+  if (Array.isArray(content)) {
+    return sanitizeChatContent(content.map(extractPartText).join(' '))
+  }
+
+  return ''
+}
+
+function normalizeChipType(input: any): EchoChipType {
+  const raw = String(input || '').toLowerCase().trim()
+  if (!raw)
+    return 'flavor'
+  if (raw.includes('mood'))
+    return 'mood'
+  if (raw.includes('journal') || raw.includes('event'))
+    return 'journal_candidate'
+  return 'flavor'
+}
+
 export const useEchoesStore = defineStore('echo-chips', () => {
   const { userId } = storeToRefs(useAuthStore())
   const { cards } = storeToRefs(useAiriCardStore())
   const { activeProvider: globalProviderId, activeModel: globalModelId } = storeToRefs(useConsciousnessStore())
-  const shortTermMemory = useShortTermMemoryStore()
   const providersStore = useProvidersStore()
   const llmStore = useLLM()
 
@@ -55,7 +125,6 @@ export const useEchoesStore = defineStore('echo-chips', () => {
     loading.value = true
     try {
       const raw = await echoChipsRepo.getAll(currentUserId) ?? []
-      // Defensive sanitization for loaded data
       chips.value = raw.map(c => ({
         id: c.id,
         userId: c.userId || currentUserId,
@@ -76,7 +145,6 @@ export const useEchoesStore = defineStore('echo-chips', () => {
 
   async function persist(nextChips: EchoChip[]) {
     const currentUserId = getCurrentUserId()
-    // Clean serialization to strip reactive proxies
     const serialized = JSON.parse(JSON.stringify(nextChips))
     await echoChipsRepo.saveAll(currentUserId, serialized)
     chips.value = nextChips
@@ -87,32 +155,82 @@ export const useEchoesStore = defineStore('echo-chips', () => {
     return sortedChips.value.filter(chip => chip.characterId === characterId)
   }
 
-  async function synthesizeForCharacter(characterId: string, date?: string) {
+  async function collectWindowMessages(characterId: string, options?: SynthesizeEchoOptions) {
+    const currentUserId = getCurrentUserId()
+    const index = await chatSessionsRepo.getIndex(currentUserId)
+    const characterSessions = index?.characters?.[characterId]
+    if (!characterSessions)
+      return [] as WindowMessage[]
+
+    const toTimestamp = options?.toTimestamp ?? Date.now()
+    const fromTimestamp = options?.fromTimestamp ?? Math.max(0, toTimestamp - (options?.fallbackLookbackMs ?? DEFAULT_FIRST_DREAM_LOOKBACK_MS))
+    const maxMessages = options?.maxMessages ?? DEFAULT_MAX_WINDOW_MESSAGES
+
+    const sessionMetas = Object.values(characterSessions.sessions || {})
+    const sessionRecords = await Promise.all(sessionMetas.map(meta => chatSessionsRepo.getSession(meta.sessionId)))
+
+    const messages: WindowMessage[] = []
+    for (const session of sessionRecords) {
+      if (!session?.messages)
+        continue
+
+      for (const message of session.messages) {
+        if (message.role !== 'user' && message.role !== 'assistant')
+          continue
+
+        const createdAt = typeof message.createdAt === 'number' ? message.createdAt : session.meta.updatedAt
+        if (createdAt <= fromTimestamp || createdAt > toTimestamp)
+          continue
+
+        const content = extractMessageText(message)
+        if (!content)
+          continue
+
+        messages.push({
+          role: message.role,
+          content,
+          createdAt,
+        })
+      }
+    }
+
+    return messages
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .slice(-maxMessages)
+  }
+
+  async function synthesizeForCharacter(characterId: string, options?: SynthesizeEchoOptions) {
     const card = cards.value.get(characterId)
     if (!card)
       throw new Error(`Character ${characterId} not found for echo synthesis.`)
 
-    const stmBlocks = shortTermMemory.getCharacterBlocks(characterId)
-    const targetBlock = date
-      ? stmBlocks.find(b => b.date === date)
-      : stmBlocks[0] // Default to most recent
-
-    if (!targetBlock)
-      throw new Error(`No STMM block found for character ${characterId} on ${date || 'recent date'}.`)
+    const windowMessages = await collectWindowMessages(characterId, options)
+    if (windowMessages.length === 0)
+      throw new Error(`No raw chat window found for character ${characterId} in the requested dream range.`)
 
     loading.value = true
     try {
+      const evidenceWindow = windowMessages
+        .map((message, index) => {
+          const iso = new Date(message.createdAt).toISOString()
+          const speaker = message.role === 'user' ? 'User' : card.name
+          return `${index}: [${iso}] ${speaker}: ${message.content}`
+        })
+        .join('\n')
+
       const prompt = `
-Extract 3-5 semantic Echo Chips from the following situational awareness block.
-These are for a character memory-stream; avoid clinical labels.
+Extract 3-5 semantic Echo Chips from the following raw conversation evidence window.
+These are for a character memory-stream; avoid clinical labels and generic chatter.
 
 Requirements:
 1. CONTENT: Use 2-5 word evocative bursts (e.g. "Dogs know tricks", "Gaming as stress relief").
-2. TYPE: Identify if the chip represents a "mood", "flavor" (trait/fact), or "journal_candidate" (noteworthy event).
+2. TYPE: Identify whether each chip is a "mood", "flavor" (trait/fact), or "journal_candidate" (noteworthy moment worth preserving).
 3. RELEVANCE: Provide a relevanceScore from 0.0 to 1.0.
+4. EVIDENCE: Use evidence_indices to point at the most relevant lines from the evidence window.
+5. FOCUS: Prefer durable motifs, emotional shifts, distinctive rituals, or memorable turns. Ignore pure greetings, microphone tests, or generic filler.
 
-Situational Awareness Block:
-${targetBlock.summary}
+Evidence Window:
+${evidenceWindow}
 
 Output a JSON object with a "pills" array.
 `
@@ -131,19 +249,15 @@ Output a JSON object with a "pills" array.
         schema: ArtifactsSchema,
         normalize: (parsed: any) => {
           if (Array.isArray(parsed.pills)) {
-            parsed.pills = parsed.pills.map((p: any) => {
-              // Handle object-alias drift
-              const content = p.content || p.pill || p.text || 'Untitled'
-              const type = (p.type || p.category || (p.mood ? 'mood' : 'flavor')).toLowerCase()
-              const finalType = ['mood', 'flavor', 'journal_candidate'].includes(type) ? type : 'flavor'
-
-              return {
-                ...p,
-                content,
-                type: finalType,
-                relevanceScore: typeof p.relevanceScore === 'number' ? p.relevanceScore : 0.8,
-              }
-            })
+            parsed.pills = parsed.pills.map((p: any) => ({
+              ...p,
+              content: p.content || p.pill || p.text || 'Untitled',
+              type: normalizeChipType(p.type || p.category || (p.mood ? 'mood' : 'flavor')),
+              relevanceScore: typeof p.relevanceScore === 'number' ? p.relevanceScore : 0.8,
+              evidence_indices: Array.isArray(p.evidence_indices)
+                ? p.evidence_indices.filter((value: unknown) => typeof value === 'number')
+                : [],
+            }))
           }
           return parsed
         },
@@ -151,20 +265,21 @@ Output a JSON object with a "pills" array.
 
       await load()
       const now = Date.now()
+      const anchorTimestamp = options?.toTimestamp ?? windowMessages[windowMessages.length - 1]?.createdAt ?? now
+      const anchorDate = new Date(anchorTimestamp).toISOString().slice(0, 10)
       const newChips: EchoChip[] = res.pills.map((p: any) => ({
         id: nanoid(),
         userId: getCurrentUserId(),
         characterId,
-        date: targetBlock.date,
+        date: anchorDate,
         content: p.content,
-        type: p.type as EchoChipType,
+        type: normalizeChipType(p.type),
         relevanceScore: p.relevanceScore,
         evidenceIndices: p.evidence_indices || [],
         createdAt: now,
       }))
 
-      // Filtering out duplicates for the same date/label
-      const existing = chips.value.filter(c => c.characterId !== characterId || c.date !== targetBlock.date)
+      const existing = chips.value.filter(c => c.characterId !== characterId || c.date !== anchorDate)
       await persist([...newChips, ...existing])
 
       return newChips

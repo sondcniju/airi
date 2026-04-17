@@ -50,6 +50,8 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
   // eslint-disable-next-line no-console
   console.log('[Proactivity] Proactivity Store initialized.')
+  // eslint-disable-next-line no-console
+  console.log('[Dream State] Debug hooks loaded.')
 
   const registeredTools = ref<(any | (() => Promise<any[] | undefined>))[]>([])
 
@@ -65,6 +67,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
   const lastHeartbeatTime = ref<number>(Date.now())
   const isDreamStateEvaluating = ref(false)
   const isHeartbeatEvaluating = ref(false)
+  const lastDreamStateGateLog = ref<string | null>(null)
   let heartbeatInterval: any = null
 
   const isElectron = typeof window !== 'undefined' && !!(window as any).electron
@@ -209,6 +212,15 @@ export const useProactivityStore = defineStore('proactivity', () => {
     }
   }
 
+  function logDreamStateGateOnce(key: string, message: string) {
+    if (lastDreamStateGateLog.value === key)
+      return
+
+    lastDreamStateGateLog.value = key
+    // eslint-disable-next-line no-console
+    console.log(message)
+  }
+
   const isProactivityLoopNeeded = computed(() => {
     const config = activeCard.value?.extensions?.airi?.heartbeats
     const grounding = activeCard.value?.extensions?.airi?.groundingEnabled
@@ -323,32 +335,63 @@ export const useProactivityStore = defineStore('proactivity', () => {
     const characterId = activeCardId.value
     const config = card?.extensions?.airi?.dreamState
 
+    // eslint-disable-next-line no-console
+    console.log('[Dream State] evaluateDreamState tick', {
+      force: !!options?.force,
+      activeCardId: characterId,
+      enabled: !!config?.enabled,
+      hasCard: !!card,
+      activeSessionId: chatSession.activeSessionId,
+    })
+
     if (!card || !characterId || !config?.enabled)
       return
 
     const sessionId = chatSession.activeSessionId
-    if (!sessionId)
+    if (!sessionId) {
+      logDreamStateGateOnce(
+        `no-session:${characterId || 'none'}`,
+        '[Dream State] Waiting: no active chat session is selected for this character.',
+      )
       return
+    }
 
     const sessionMessages = chatSession.sessionMessages[sessionId] || []
     const conversationalMessages = sessionMessages.filter((msg) => {
       return (msg.role === 'user' || msg.role === 'assistant') && typeof msg.createdAt === 'number'
     })
 
-    if (conversationalMessages.length < (config.minConversationTurns || 4))
+    if (conversationalMessages.length < (config.minConversationTurns || 4)) {
+      logDreamStateGateOnce(
+        `min-turns:${characterId}:${sessionId}`,
+        `[Dream State] Phase 1: waiting for more turns before monitoring can begin. Have ${conversationalMessages.length}, need ${config.minConversationTurns || 4}.`,
+      )
       return
+    }
 
-    const lastProcessedAt = config.lastProcessedAt ?? 0
-    const unprocessedMessages = conversationalMessages.filter(msg => (msg.createdAt || 0) > lastProcessedAt)
-    if (unprocessedMessages.length < (config.minConversationTurns || 4))
+    const now = Date.now()
+    const firstDreamFallbackMs = 24 * 60 * 60 * 1000
+    const effectiveFromTimestamp = config.lastProcessedAt ?? Math.max(0, now - firstDreamFallbackMs)
+    const unprocessedMessages = conversationalMessages.filter(msg => (msg.createdAt || 0) > effectiveFromTimestamp)
+    if (unprocessedMessages.length < (config.minConversationTurns || 4)) {
+      logDreamStateGateOnce(
+        `no-unprocessed:${characterId}:${sessionId}:${effectiveFromTimestamp}`,
+        `[Dream State] Waiting: no qualifying unprocessed conversation window yet. Found ${unprocessedMessages.length} turn(s) newer than the last dream cursor, need ${config.minConversationTurns || 4}.`,
+      )
       return
+    }
 
     const lastTurnAt = Math.max(...unprocessedMessages.map(msg => msg.createdAt || 0))
     const quietWindowMs = (config.sessionTimeoutMinutes || 60) * 60 * 1000
-    const now = Date.now()
 
-    if (!options?.force && now - lastTurnAt < quietWindowMs)
+    if (!options?.force && now - lastTurnAt < quietWindowMs) {
+      const minutesRemaining = Math.max(1, Math.ceil((quietWindowMs - (now - lastTurnAt)) / (60 * 1000)))
+      logDreamStateGateOnce(
+        `quiet:${characterId}:${lastTurnAt}`,
+        `[Dream State] Phase 2: waiting ${minutesRemaining} more minute(s) for the 1-hour conversation-finished gate before synthesis.`,
+      )
       return
+    }
 
     if (config.strictAfkGating) {
       if (idleTimeSec.value === undefined)
@@ -357,8 +400,14 @@ export const useProactivityStore = defineStore('proactivity', () => {
         await refreshIdleTimeOnly()
 
       const afkThresholdSec = (config.afkThresholdMinutes || 5) * 60
-      if (!options?.force && (idleTimeSec.value ?? 0) < afkThresholdSec)
+      if (!options?.force && (idleTimeSec.value ?? 0) < afkThresholdSec) {
+        const minutesRemaining = Math.max(1, Math.ceil((afkThresholdSec - (idleTimeSec.value ?? 0)) / 60))
+        logDreamStateGateOnce(
+          `afk:${characterId}:${lastTurnAt}`,
+          `[Dream State] Phase 3: waiting ${minutesRemaining} more minute(s) of AFK time before synthesis is allowed.`,
+        )
         return
+      }
     }
 
     const todayKey = getTodayKey()
@@ -368,8 +417,15 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
     isDreamStateEvaluating.value = true
     try {
+      logDreamStateGateOnce(
+        `ready:${characterId}:${lastTurnAt}`,
+        '[Dream State] Gates satisfied. Synthesizing chips from the pending raw chat window.',
+      )
       await echoesStore.load()
-      await echoesStore.synthesizeForCharacter(characterId)
+      await echoesStore.synthesizeForCharacter(characterId, {
+        fromTimestamp: config.lastProcessedAt ?? null,
+        toTimestamp: lastTurnAt,
+      })
 
       airiCardStore.updateCard(characterId, {
         extensions: {
@@ -716,6 +772,11 @@ export const useProactivityStore = defineStore('proactivity', () => {
       // eslint-disable-next-line no-console
       console.log('[Proactivity] Manual trigger initiated via window.triggerHeartbeat')
       return evaluateHeartbeat({ force })
+    }
+    ;(window as any).triggerDreamState = (force = true) => {
+      // eslint-disable-next-line no-console
+      console.log('[Dream State] Manual trigger initiated via window.triggerDreamState')
+      return evaluateDreamState({ force })
     }
   }
 
