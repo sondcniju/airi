@@ -99,7 +99,8 @@ function swapOutfit(sibling: { display: string, raw: string }) {
   const nextExpressions = { ...activeExpressions.value }
 
   for (const s of allSiblings) {
-    nextExpressions[s.raw] = 0
+    if (s.raw)
+      nextExpressions[s.raw] = 0
   }
 
   // 2. Activate the target
@@ -358,6 +359,7 @@ function isOutfitActive(outfitId: string) {
 }
 
 function triggerWardrobeItem(id: string) {
+  console.log(`[WIRED] CUSTOM OUTFIT CLICKED: ${id}`)
   cardStore.applyOutfit(id)
 }
 </script>

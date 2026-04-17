@@ -199,13 +199,10 @@ export function useVRMClothInteraction() {
 
     // [FAST-PICKING-V4] Surgical Raycast with Telemetry
     // Limit to Top 3 candidates (Coat -> Shirt -> Body) for sub-10ms response.
-    const startRay = performance.now()
     const targetMeshes = candidates.slice(0, 3).map(c => c.mesh)
     const intersects = raycaster.intersectObjects(targetMeshes, false)
-    const endRay = performance.now()
 
     if (intersects.length > 0) {
-      console.log(`[WIRED] Raycast hit in ${(endRay - startRay).toFixed(2)}ms across ${targetMeshes.length} candidates.`)
       const hit = intersects[0]
       intersectionPoint.copy(hit.point)
 
@@ -243,7 +240,8 @@ export function useVRMClothInteraction() {
         // [WIRED-OUTFIT-DISCOVERY]
         // O(1) Lookup using the precomputed Manifest.
         if (vrm.expressionManager && modelStore.activeVrmParser) {
-          const formatName = (name: string) => name.replace(/^VRMExpression_/, '').split('_').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
+          const normalizeRaw = (name: string) => name.replace(/^VRMExpression_/, '')
+          const formatName = (name: string) => normalizeRaw(name).split('_').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
 
           const tex = mat?.map || mat?.shadeMultiplyTexture
           const assoc = modelStore.activeVrmParser.associations.get(tex)
@@ -262,11 +260,11 @@ export function useVRMClothInteraction() {
                 seen.add(s.name)
                 return true
               })
-              .map((s: any) => ({ display: formatName(s.name), raw: s.name }))
+              .map((s: any) => ({ display: formatName(s.name), raw: normalizeRaw(s.name) }))
 
             // Determine the active outfit pair
             const activePair = activeOutfit
-              ? { display: formatName(activeOutfit.name), raw: activeOutfit.name }
+              ? { display: formatName(activeOutfit.name), raw: normalizeRaw(activeOutfit.name) }
               : (siblingPairs[0] || { display: 'Unknown', raw: '' })
 
             const restSiblings = siblingPairs.filter(p => p.raw !== activePair.raw)
@@ -277,9 +275,6 @@ export function useVRMClothInteraction() {
               siblings: restSiblings,
               texIndex: hitTexIndex,
             }
-
-            console.log(`[WIRED] Tactile Hit: ${activePair.display} (#${hitTexIndex})`)
-            console.log(` > Siblings: ${restSiblings.map(s => s.display).join(', ')}`)
           }
         }
 
