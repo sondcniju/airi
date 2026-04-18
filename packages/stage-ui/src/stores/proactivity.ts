@@ -21,6 +21,7 @@ import { computed, onUnmounted, ref, toRaw, watch } from 'vue'
 import { useLlmmarkerParser } from '../composables/llm-marker-parser'
 import { categorizeResponse, createStreamingCategorizer } from '../composables/response-categoriser'
 import { chatSessionsRepo } from '../database/repos/chat-sessions.repo'
+import { useAuthStore } from './auth'
 import { useBackgroundStore } from './background'
 import { useChatOrchestratorStore } from './chat'
 import { useChatContextStore } from './chat/context-store'
@@ -38,6 +39,7 @@ import { useProvidersStore } from './providers'
 export const useProactivityStore = defineStore('proactivity', () => {
   const airiCardStore = useAiriCardStore()
   const { activeCard, activeCardId } = storeToRefs(airiCardStore)
+  const { userId } = storeToRefs(useAuthStore())
   const chatSession = useChatSessionStore()
   const chatOrchestrator = useChatOrchestratorStore()
   const chatContext = useChatContextStore()
@@ -52,8 +54,6 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
   // eslint-disable-next-line no-console
   console.log('[Proactivity] Proactivity Store initialized.')
-  // eslint-disable-next-line no-console
-  console.log('[Dream State] Debug hooks loaded.')
 
   const registeredTools = ref<(any | (() => Promise<any[] | undefined>))[]>([])
 
@@ -319,45 +319,47 @@ export const useProactivityStore = defineStore('proactivity', () => {
     return new Date().toISOString().slice(0, 10)
   }
 
+  async function collectCharacterConversationMessages(characterId: string) {
+    const currentUserId = userId.value || 'local'
+    const index = await chatSessionsRepo.getIndex(currentUserId)
+    const characterSessions = index?.characters?.[characterId]
+    if (!characterSessions)
+      return []
+
+    const inMemorySessions = chatSession.getAllSessions()
+    const sessionMetas = Object.values(characterSessions.sessions || {})
+    const sessionRecords = await Promise.all(sessionMetas.map(meta => chatSessionsRepo.getSession(meta.sessionId)))
+
+    const mergedMessages = sessionRecords.flatMap((session, index) => {
+      const sessionId = sessionMetas[index]?.sessionId
+      const currentMessages = inMemorySessions[sessionId] ?? []
+      const storedMessages = session?.messages ?? []
+      return mergeLoadedSessionMessages(storedMessages, currentMessages)
+    })
+
+    return mergedMessages
+      .filter((msg) => {
+        return (msg.role === 'user' || msg.role === 'assistant') && typeof msg.createdAt === 'number'
+      })
+      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+  }
+
   async function evaluateDreamState(options?: { force?: boolean }) {
-    if (isDreamStateEvaluating.value && !options?.force)
+    if (isDreamStateEvaluating.value && !options?.force) {
       return
+    }
 
     const card = activeCard.value
     const characterId = activeCardId.value
     const config = card?.extensions?.airi?.dreamState
 
-    // eslint-disable-next-line no-console
-    console.log('[Dream State] evaluateDreamState tick', {
-      force: !!options?.force,
-      activeCardId: characterId,
-      enabled: !!config?.enabled,
-      hasCard: !!card,
-      activeSessionId: chatSession.activeSessionId,
-    })
-
-    if (!card || !characterId || !config?.enabled)
-      return
-
-    const sessionId = chatSession.activeSessionId
-    if (!sessionId) {
-      // eslint-disable-next-line no-console
-      console.log('[Dream State] Waiting: no active chat session is selected for this character.')
+    if (!card || !characterId || !config?.enabled) {
       return
     }
 
-    const sessionMessages = chatSession.sessionMessages[sessionId] || []
-    const persistedSession = await chatSessionsRepo.getSession(sessionId)
-    const mergedSessionMessages = persistedSession?.messages
-      ? mergeLoadedSessionMessages(persistedSession.messages, sessionMessages)
-      : sessionMessages
-    const conversationalMessages = mergedSessionMessages.filter((msg) => {
-      return (msg.role === 'user' || msg.role === 'assistant') && typeof msg.createdAt === 'number'
-    })
+    const conversationalMessages = await collectCharacterConversationMessages(characterId)
 
     if (conversationalMessages.length < (config.minConversationTurns || 4)) {
-      // eslint-disable-next-line no-console
-      console.log(`[Dream State] Phase 1: waiting for more turns before monitoring can begin. Have ${conversationalMessages.length}, need ${config.minConversationTurns || 4}.`)
       return
     }
 
@@ -366,19 +368,14 @@ export const useProactivityStore = defineStore('proactivity', () => {
     const effectiveFromTimestamp = config.lastProcessedAt ?? Math.max(0, now - firstDreamFallbackMs)
     const unprocessedMessages = conversationalMessages.filter(msg => (msg.createdAt || 0) > effectiveFromTimestamp)
     if (unprocessedMessages.length < (config.minConversationTurns || 4)) {
-      // eslint-disable-next-line no-console
-      console.log(`[Dream State] Waiting: no qualifying unprocessed conversation window yet. Found ${unprocessedMessages.length} turn(s) newer than the last dream cursor, need ${config.minConversationTurns || 4}.`)
       return
     }
 
     const lastTurnAt = Math.max(...unprocessedMessages.map(msg => msg.createdAt || 0))
-    const quietWindowMinutes = Math.min(config.sessionTimeoutMinutes || 60, 10)
+    const quietWindowMinutes = config.sessionTimeoutMinutes || 60
     const quietWindowMs = quietWindowMinutes * 60 * 1000
 
     if (!options?.force && now - lastTurnAt < quietWindowMs) {
-      const minutesRemaining = Math.max(1, Math.ceil((quietWindowMs - (now - lastTurnAt)) / (60 * 1000)))
-      // eslint-disable-next-line no-console
-      console.log(`[Dream State] Phase 2: waiting ${minutesRemaining} more minute(s) for the ${quietWindowMinutes}-minute conversation-finished gate before synthesis.`)
       return
     }
 
@@ -390,32 +387,21 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
       const afkThresholdSec = (config.afkThresholdMinutes || 5) * 60
       if (!options?.force && (idleTimeSec.value ?? 0) < afkThresholdSec) {
-        const minutesRemaining = Math.max(1, Math.ceil((afkThresholdSec - (idleTimeSec.value ?? 0)) / 60))
-        // eslint-disable-next-line no-console
-        console.log(`[Dream State] Phase 3: waiting ${minutesRemaining} more minute(s) of AFK time before synthesis is allowed.`)
         return
       }
     }
 
     const todayKey = getTodayKey()
     const dailyRunCount = config.dailyRunDate === todayKey ? (config.dailyRunCount ?? 0) : 0
-    if (!options?.force && dailyRunCount >= (config.maxSessionsPerDay || 4))
+    const maxSessionsPerDay = config.maxSessionsPerDay || 4
+    if (!options?.force && dailyRunCount >= maxSessionsPerDay) {
       return
+    }
 
     isDreamStateEvaluating.value = true
     try {
-      // eslint-disable-next-line no-console
-      console.log('[Dream State] Gates satisfied. Synthesizing chips from the pending raw chat window.')
       await echoesStore.load()
-      const generatedChips = await echoesStore.synthesizeForCharacter(characterId, {
-        fromTimestamp: config.lastProcessedAt ?? null,
-        toTimestamp: lastTurnAt,
-      })
-
-      // eslint-disable-next-line no-console
-      console.log('[Dream State] Synthesis complete.', {
-        characterId,
-        generatedChipCount: generatedChips.length,
+      await echoesStore.synthesizeForCharacter(characterId, {
         fromTimestamp: config.lastProcessedAt ?? null,
         toTimestamp: lastTurnAt,
       })
@@ -770,8 +756,6 @@ export const useProactivityStore = defineStore('proactivity', () => {
       return evaluateHeartbeat({ force })
     }
     ;(window as any).triggerDreamState = (force = true) => {
-      // eslint-disable-next-line no-console
-      console.log('[Dream State] Manual trigger initiated via window.triggerDreamState')
       return evaluateDreamState({ force })
     }
   }
@@ -781,11 +765,11 @@ export const useProactivityStore = defineStore('proactivity', () => {
       stopHeartbeatLoop()
 
     // eslint-disable-next-line no-console
-    console.log('[Proactivity] Starting global heartbeat loop (60s tick)...')
+    console.log('[Proactivity] Starting global heartbeat loop (10s tick)...')
     heartbeatInterval = setInterval(() => {
       void evaluateHeartbeat()
       void evaluateDreamState()
-    }, 60 * 1000)
+    }, 10 * 1000)
   }
 
   function stopHeartbeatLoop() {
