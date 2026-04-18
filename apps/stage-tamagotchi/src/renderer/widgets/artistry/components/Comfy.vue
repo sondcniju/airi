@@ -32,26 +32,33 @@ const backgroundStore = useBackgroundStore()
 const history = computed(() => backgroundStore.getCharacterJournalEntries(cardStore.activeCardId))
 const currentIndex = ref(0)
 
-// When entryId prop matches a new generation, jump to it in the gallery
-watch([() => props.entryId, history], ([newId, newHistory]) => {
+// Snap to a specific entry if the prop is explicitly changed (e.g. from the tool)
+watch(() => props.entryId, (newId) => {
   if (newId) {
-    const index = newHistory.findIndex(e => e.id === newId)
+    const index = history.value.findIndex(e => e.id === newId)
     if (index >= 0) {
       currentIndex.value = index
     }
   }
 }, { immediate: true })
 
+// Auto-snap to the newest generation (Index 0) when it finishes, 
+// unless the user has manually started browsing away.
+watch(() => props.status, (newStatus) => {
+  if (newStatus === 'generating') {
+    isBrowsingGallery.value = false
+  }
+  else if (newStatus === 'done' && !isBrowsingGallery.value) {
+    currentIndex.value = 0
+  }
+})
+
 const isFlipped = ref(false)
 const errorOccurred = ref(false)
 const isSettingBackground = ref(false)
 const isBrowsingGallery = ref(false)
 
-watch(() => props.status, (newStatus) => {
-  if (newStatus === 'generating') {
-    isBrowsingGallery.value = false
-  }
-})
+// (Removed legacy status watcher as it's merged into the entryId/status logic above)
 
 const hideWindow = useElectronEventaInvoke(widgetsHideWindow)
 const removeWidget = useElectronEventaInvoke(widgetsRemove)
@@ -78,6 +85,7 @@ function handleImageError() {
 function nextImage() {
   if (history.value.length === 0)
     return
+  isBrowsingGallery.value = true
   errorOccurred.value = false
   currentIndex.value = (currentIndex.value + 1) % history.value.length
 }
@@ -85,6 +93,7 @@ function nextImage() {
 function prevImage() {
   if (history.value.length === 0)
     return
+  isBrowsingGallery.value = true
   errorOccurred.value = false
   currentIndex.value = (currentIndex.value - 1 + history.value.length) % history.value.length
 }
