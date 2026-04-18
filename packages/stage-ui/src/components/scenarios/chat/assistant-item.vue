@@ -271,6 +271,9 @@ function handleDelete() {
             </template>
           </div>
           <div v-else-if="showLoader" i-eos-icons:three-dots-loading />
+          <div v-else-if="message.categorization?.reasoning" mt-1 text-xs text-neutral-500 font-normal italic dark:text-neutral-400>
+            {{ t('stage.chat.reasoning_only') }}
+          </div>
 
           <ChatResponsePart
             v-if="message.categorization"
