@@ -22,6 +22,7 @@ import { useChatSessionStore } from './chat/session-store'
 import { useChatStreamStore } from './chat/stream-store'
 import { useLLM } from './llm'
 import { useAiriCardStore } from './modules/airi-card'
+import { useAutonomousArtistryStore } from './modules/artistry-autonomous'
 import { useConsciousnessStore } from './modules/consciousness'
 import { useLiveSessionStore } from './modules/live-session'
 import { useVisionStore } from './modules/vision'
@@ -79,6 +80,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
   const consciousnessStore = useConsciousnessStore()
   const visionStore = useVisionStore()
   const airiCardStore = useAiriCardStore()
+  const artistryAutonomousStore = useAutonomousArtistryStore()
   const settingsChat = useSettingsChat()
   const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
   const { activeCard } = storeToRefs(airiCardStore)
@@ -257,6 +259,11 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         chatLog('skipAssistant is true, ending ingest.')
         return
       }
+
+      // --- AUTONOMOUS ARTISTRY HOOK ---
+      // We run this in parallel without awaiting to avoid stalling the main response.
+      void artistryAutonomousStore.runArtistTask(sendingMessage, sessionMessagesForSend)
+      // --------------------------------
 
       let inferenceMessages = [...sessionMessagesForSend, inferenceUserMessage]
 

@@ -17,6 +17,7 @@ import { useChatSessionStore } from '../chat/session-store'
 import { useProactivityStore } from '../proactivity'
 import { useProvidersStore } from '../providers'
 import { useAiriCardStore } from './airi-card'
+import { useAutonomousArtistryStore } from './artistry-autonomous'
 import { useVisionStore } from './vision'
 
 const MODEL = 'models/gemini-3.1-flash-live-preview'
@@ -73,6 +74,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
   const chatContext = useChatContextStore()
   const proactivityStore = useProactivityStore()
   const airiCard = useAiriCardStore()
+  const artistryAutonomousStore = useAutonomousArtistryStore()
 
   const audioCtxStore = useAudioContext()
 
@@ -794,6 +796,12 @@ export const useLiveSessionStore = defineStore('live-session', () => {
       slices: [],
       tool_results: [],
     } as any)
+
+    // --- AUTONOMOUS ARTISTRY HOOK ---
+    // Trigger the parallel artist task for Gemini Live text inputs.
+    // We use chatSession.messages to provide history for context.
+    void artistryAutonomousStore.runArtistTask(text, chatSession.messages as any)
+    // --------------------------------
   }
 
   function sendRealtimeAudio(base64Pcm: string) {

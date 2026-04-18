@@ -86,6 +86,8 @@ const selectedArtistryProvider = ref<string>('')
 const selectedArtistryModel = ref<string>('')
 const selectedArtistryPromptPrefix = ref<string>('')
 const selectedArtistryWidgetInstruction = ref<string>('')
+const selectedArtistryAutonomousEnabled = ref<boolean>(false)
+const selectedArtistryAutonomousThreshold = ref<number>(70)
 const selectedArtistryConfigStr = ref<string>('{\n  \n}')
 const generationEnabled = ref<boolean>(false)
 const generationProvider = ref<string>('')
@@ -570,6 +572,8 @@ async function saveCard(card: Card): Promise<boolean> {
     model: selectedArtistryModel.value,
     promptPrefix: selectedArtistryPromptPrefix.value,
     widgetInstruction: selectedArtistryWidgetInstruction.value,
+    autonomousEnabled: selectedArtistryAutonomousEnabled.value,
+    autonomousThreshold: selectedArtistryAutonomousThreshold.value,
     options: (() => {
       try {
         return selectedArtistryConfigStr.value.trim() ? JSON.parse(selectedArtistryConfigStr.value) : undefined
@@ -614,6 +618,8 @@ function initializeCard(): Card {
   selectedArtistryModel.value = airiExt?.artistry?.model || ''
   selectedArtistryPromptPrefix.value = airiExt?.artistry?.promptPrefix || ''
   selectedArtistryWidgetInstruction.value = airiExt?.artistry?.widgetInstruction || DEFAULT_ARTISTRY_WIDGET_INSTRUCTION
+  selectedArtistryAutonomousEnabled.value = airiExt?.artistry?.autonomousEnabled ?? false
+  selectedArtistryAutonomousThreshold.value = airiExt?.artistry?.autonomousThreshold ?? 70
   generationEnabled.value = airiExt?.generation?.enabled ?? false
   generationProvider.value = airiExt?.generation?.provider || airiExt?.modules?.consciousness?.provider || consciousnessProvider.value
   generationModel.value = airiExt?.generation?.model || airiExt?.modules?.consciousness?.model || defaultConsciousnessModel.value
@@ -862,6 +868,8 @@ function getDefaultPlaceholder(defaultValue: string | undefined): string {
             v-model:selected-artistry-model="selectedArtistryModel"
             v-model:selected-artistry-prompt-prefix="selectedArtistryPromptPrefix"
             v-model:selected-artistry-widget-instruction="selectedArtistryWidgetInstruction"
+            v-model:selected-artistry-autonomous-enabled="selectedArtistryAutonomousEnabled"
+            v-model:selected-artistry-autonomous-threshold="selectedArtistryAutonomousThreshold"
             v-model:selected-artistry-config-str="selectedArtistryConfigStr"
             :artistry-provider-options="artistryProviderOptions"
             :default-artistry-provider-placeholder="getDefaultPlaceholder(defaultArtistryProvider)"

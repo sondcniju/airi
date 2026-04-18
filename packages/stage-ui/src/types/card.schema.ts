@@ -125,6 +125,8 @@ const AiriExtensionSchema = object({
     promptPrefix: optional(string()),
     widgetInstruction: optional(string()),
     options: optional(record(string(), unknown())),
+    autonomousEnabled: optional(boolean()),
+    autonomousThreshold: optional(number()),
   })),
   agents: optional(record(string(), object({
     prompt: string(),

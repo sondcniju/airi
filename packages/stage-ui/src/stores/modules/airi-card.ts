@@ -129,6 +129,8 @@ export interface AiriExtension {
     promptPrefix?: string
     widgetInstruction?: string
     options?: Record<string, any>
+    autonomousEnabled?: boolean
+    autonomousThreshold?: number
   }
 
   generation?: CharacterGenerationConfig
@@ -490,6 +492,8 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       artistry: {
         ...existingExtension.artistry,
         widgetInstruction: existingExtension.artistry?.widgetInstruction ?? defaultArtistry.widgetInstruction,
+        autonomousEnabled: existingExtension.artistry?.autonomousEnabled ?? false,
+        autonomousThreshold: existingExtension.artistry?.autonomousThreshold ?? 70,
       },
       generation: {
         enabled: existingExtension.generation?.enabled ?? defaultGeneration.enabled,
@@ -907,7 +911,7 @@ export function buildSystemPrompt(card: AiriCard | undefined) {
   }
 
   const artistry = card.extensions?.airi?.artistry
-  if (artistry?.provider && artistry.provider !== 'none' && artistry.widgetInstruction) {
+  if (artistry?.provider && artistry.provider !== 'none' && artistry.widgetInstruction && !artistry.autonomousEnabled) {
     components.push(artistry.widgetInstruction)
   }
 

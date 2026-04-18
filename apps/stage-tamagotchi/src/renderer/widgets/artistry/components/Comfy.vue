@@ -236,14 +236,6 @@ async function handleClose() {
           </button>
         </div>
 
-        <!-- Close Button -->
-        <button
-          class="absolute right-3 top-3 z-30 size-8 flex items-center justify-center border border-white/20 rounded-full bg-black/40 text-white/70 backdrop-blur-md transition-all active:scale-95 hover:bg-black/70 hover:text-white"
-          @click.stop="handleClose"
-        >
-          <div class="i-iconify-material-symbols:close text-lg" />
-        </button>
-
         <!-- Counter & Flip Toggle -->
         <div class="absolute inset-x-0 bottom-2 z-10 flex items-center justify-between px-3">
           <div v-if="history.length > 0" class="rounded-full bg-black/40 px-2 py-0.5 text-[10px] text-white/70 font-mono backdrop-blur-sm">
