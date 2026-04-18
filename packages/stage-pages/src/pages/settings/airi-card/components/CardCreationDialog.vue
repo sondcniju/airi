@@ -137,6 +137,8 @@ const heartbeatsContextWindowHistory = ref<boolean>(true)
 const heartbeatsContextSystemLoad = ref<boolean>(true)
 const heartbeatsContextUsageMetrics = ref<boolean>(true)
 const heartbeatsRespectSchedule = ref<boolean>(true)
+const dreamStateEnabled = ref<boolean>(false)
+const dreamStateStrictAfkGating = ref<boolean>(true)
 const groundingEnabled = ref<boolean>(false)
 
 const staticSamplePayload = `[Sensor Data]
@@ -428,6 +430,9 @@ const errorMessage = ref<string>('')
 async function saveCard(card: Card): Promise<boolean> {
   // Before saving, let's validate what the user entered :
   const rawCard: Card = toRaw(card)
+  const existingAiriExt = (isEditMode.value && props.cardId)
+    ? cardStore.getCard(props.cardId)?.extensions?.airi as AiriExtension | undefined
+    : undefined
 
   if (!((rawCard.name?.length ?? 0) > 0)) {
     // No name
@@ -529,6 +534,18 @@ async function saveCard(card: Card): Promise<boolean> {
           },
           respectSchedule: heartbeatsRespectSchedule.value,
         },
+        dreamState: {
+          enabled: dreamStateEnabled.value,
+          strictAfkGating: dreamStateStrictAfkGating.value,
+          journalingThreshold: 'balanced',
+          maxSessionsPerDay: 4,
+          sessionTimeoutMinutes: 60,
+          afkThresholdMinutes: 5,
+          minConversationTurns: 4,
+          lastProcessedAt: existingAiriExt?.dreamState?.lastProcessedAt,
+          dailyRunDate: existingAiriExt?.dreamState?.dailyRunDate,
+          dailyRunCount: existingAiriExt?.dreamState?.dailyRunCount ?? 0,
+        },
         acting: {
           modelExpressionPrompt: selectedActingModelExpressionPrompt.value,
           speechExpressionPrompt: selectedActingSpeechExpressionPrompt.value,
@@ -627,6 +644,8 @@ function initializeCard(): Card {
   heartbeatsContextSystemLoad.value = airiExt?.heartbeats?.contextOptions?.systemLoad ?? true
   heartbeatsContextUsageMetrics.value = airiExt?.heartbeats?.contextOptions?.usageMetrics ?? true
   heartbeatsRespectSchedule.value = airiExt?.heartbeats?.respectSchedule ?? true
+  dreamStateEnabled.value = airiExt?.dreamState?.enabled ?? false
+  dreamStateStrictAfkGating.value = airiExt?.dreamState?.strictAfkGating ?? true
   groundingEnabled.value = airiExt?.groundingEnabled ?? false
 
   loadActingSpeechCapabilities(selectedSpeechProvider.value || speechProvider.value)
@@ -860,6 +879,8 @@ function getDefaultPlaceholder(defaultValue: string | undefined): string {
             v-model:heartbeats-context-system-load="heartbeatsContextSystemLoad"
             v-model:heartbeats-context-usage-metrics="heartbeatsContextUsageMetrics"
             v-model:heartbeats-respect-schedule="heartbeatsRespectSchedule"
+            v-model:dream-state-enabled="dreamStateEnabled"
+            v-model:dream-state-strict-afk-gating="dreamStateStrictAfkGating"
             v-model:grounding-enabled="groundingEnabled"
             :sensor-payload="sensorPayload"
             :static-sample-payload="staticSamplePayload"

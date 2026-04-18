@@ -28,9 +28,15 @@
   },
   "dependencies": {
     "@moeru/eventa": "catalog:",
+    "@valibot/to-json-schema": "1.0.0-rc.0",
     "@vueuse/core": "catalog:",
+    "@xsai/generate-text": "catalog:",
+    "@xsai/shared-chat": "catalog:",
+    "@xsai/utils-chat": "catalog:",
     "pinia": "catalog:",
-    "vue": "catalog:"
+    "valibot": "catalog:",
+    "vue": "catalog:",
+    "xsschema": "catalog:"
   },
   "devDependencies": {
     "@electron-toolkit/preload": "^3.0.2",

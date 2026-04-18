@@ -10,7 +10,8 @@ export const chatSessionsRepo = {
 
   async saveIndex(index: ChatSessionsIndex) {
     const key = `local:chat/index/${index.userId}`
-    await storage.setItemRaw(key, index)
+    const cleanIndex = JSON.parse(JSON.stringify(index))
+    await storage.setItemRaw(key, cleanIndex)
   },
 
   async getSession(sessionId: string) {
@@ -20,7 +21,8 @@ export const chatSessionsRepo = {
 
   async saveSession(sessionId: string, record: ChatSessionRecord) {
     const key = `local:chat/sessions/${sessionId}`
-    await storage.setItemRaw(key, record)
+    const cleanRecord = JSON.parse(JSON.stringify(record))
+    await storage.setItemRaw(key, cleanRecord)
   },
 
   // Cleanup

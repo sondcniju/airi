@@ -19,6 +19,7 @@ interface TextJournalArgs {
   action?: string
   title?: string
   content?: string
+  query?: string
 }
 
 interface ImageJournalArgs {
@@ -28,9 +29,9 @@ interface ImageJournalArgs {
   mode?: 'inline' | 'widget' | 'bg'
 }
 
-const parsedArgs = computed<TextJournalArgs | null>(() => {
+const parsedArgs = computed<TextJournalArgs | any | null>(() => {
   try {
-    return JSON.parse(props.args) as TextJournalArgs
+    return JSON.parse(props.args)
   }
   catch {
     return null
@@ -41,6 +42,11 @@ const isTextJournalCreate = computed(() => {
   return props.toolName === 'text_journal'
     && parsedArgs.value?.action === 'create'
     && !!parsedArgs.value?.content?.trim()
+})
+
+const isTextJournalSearch = computed(() => {
+  return props.toolName === 'text_journal'
+    && parsedArgs.value?.action === 'search'
 })
 
 const isImageJournalCreate = computed(() => {
@@ -151,6 +157,36 @@ const formattedArgs = computed(() => {
         </div>
         <MarkdownRenderer :content="textJournalMarkdown" />
       </template>
+
+      <template v-else-if="isTextJournalSearch">
+        <div class="mb-2 flex items-center gap-2">
+          <div class="i-solar:magnifer-bold-duotone text-base text-primary-500" />
+          <div class="rounded-full bg-primary-500/12 px-2.5 py-1 text-xs text-primary-700 dark:text-primary-300">
+            Semantic Search: "{{ parsedArgs?.query }}"
+          </div>
+        </div>
+
+        <div v-if="state === 'executing'" class="flex items-center gap-2 py-2 op-50">
+          <div i-eos-icons:loading class="text-xs" />
+          <span class="text-xs italic">Probing memory layers...</span>
+        </div>
+
+        <div v-else-if="result && Array.isArray(result)" class="mt-2 flex flex-col gap-2">
+          <div v-for="entry in result" :key="entry.id" class="border-l-2 border-primary-500/30 rounded-r-md bg-primary-500/5 px-2 py-1.5">
+            <div class="mb-0.5 flex items-center justify-between">
+              <span class="text-[10px] font-bold tracking-tight uppercase op-50">{{ entry.title || 'Memory' }}</span>
+              <span v-if="entry.createdAt" class="text-[9px] op-40">{{ new Date(entry.createdAt).toLocaleDateString() }}</span>
+            </div>
+            <div class="line-clamp-3 text-[13px] leading-relaxed italic op-90">
+              "{{ entry.content }}"
+            </div>
+          </div>
+          <div v-if="result.length === 0" class="py-2 text-center text-xs italic op-40">
+            No semantic matches found for this query.
+          </div>
+        </div>
+      </template>
+
       <template v-else-if="isImageJournalCreate">
         <div class="mb-2 flex items-center gap-2">
           <div :class="[(parsedArgs as ImageJournalArgs)?.mode === 'bg' ? 'i-solar:gallery-wide-bold-duotone text-emerald-500' : 'i-solar:camera-bold-duotone text-violet-500']" class="text-base" />
@@ -176,7 +212,8 @@ const formattedArgs = computed(() => {
           >
         </div>
       </template>
-      <div v-else class="whitespace-pre-wrap break-words font-mono">
+
+      <div v-else class="whitespace-pre-wrap break-words text-[10px] font-mono op-80">
         {{ formattedArgs }}
       </div>
     </div>

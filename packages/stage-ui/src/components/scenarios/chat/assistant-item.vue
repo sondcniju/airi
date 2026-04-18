@@ -2,6 +2,7 @@
 import type { ChatAssistantMessage, ChatHistoryItem, ChatSlices, ChatSlicesText } from '../../../types/chat'
 
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import ChatResponsePart from './response-part.vue'
 import ChatToolCallBlock from './tool-call-block.vue'
@@ -27,6 +28,7 @@ const emit = defineEmits<{
 }>()
 
 const chatSession = useChatSessionStore()
+const { t } = useI18n()
 
 const formattedTime = computed(() => {
   if (!props.message.createdAt)
@@ -39,185 +41,47 @@ interface DisplaySegment {
   content: string
 }
 
-const ACT_MARKER_RE = /<\|[\w-]+:[\s\S]*?(?:\|>|>)/g
-
-function parseAssistantDisplayText(text: string): DisplaySegment[] {
+function processContent(content: string): DisplaySegment[] {
+  const markerRegex = /<\|ACT:([^|>]+)\|>/g
   const segments: DisplaySegment[] = []
   let lastIndex = 0
+  let match
 
-  for (const match of text.matchAll(ACT_MARKER_RE)) {
-    const start = match.index ?? 0
-    const raw = match[0]
-
-    if (start > lastIndex) {
+  while ((match = markerRegex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
       segments.push({
         type: 'text',
-        content: text.slice(lastIndex, start),
+        content: content.slice(lastIndex, match.index),
       })
     }
 
+    const command = match[1].trim()
     segments.push({
       type: 'act',
-      content: raw,
+      content: command,
     })
 
-    lastIndex = start + raw.length
+    lastIndex = markerRegex.lastIndex
   }
 
-  if (lastIndex < text.length) {
+  if (lastIndex < content.length) {
     segments.push({
       type: 'text',
-      content: text.slice(lastIndex),
+      content: content.slice(lastIndex),
     })
   }
 
   return segments
 }
 
-function sanitizeAssistantTextForDisplay(text: string) {
-  return parseAssistantDisplayText(text)
-    .filter(segment => segment.type === 'text')
-    .map(segment => segment.content)
-    .join('')
-    .replace(/^\s*\n/, '')
-}
+const slices = computed(() => props.message.slices || [])
+const toolResults = computed(() => props.message.tool_results || [])
 
-const resolvedSlices = computed<ChatSlices[]>(() => {
-  if (props.message.slices?.length) {
-    return props.message.slices.reduce<ChatSlices[]>((acc, slice) => {
-      if (slice.type !== 'text')
-        return [...acc, slice]
-
-      const cleaned = sanitizeAssistantTextForDisplay(slice.text)
-      if (!cleaned.trim())
-        return acc
-
-      return [...acc, { ...slice, text: cleaned } satisfies ChatSlicesText]
-    }, [])
-  }
-
-  if (typeof props.message.content === 'string' && props.message.content.trim()) {
-    const cleaned = sanitizeAssistantTextForDisplay(props.message.content)
-    if (cleaned.trim())
-      return [{ type: 'text', text: cleaned } satisfies ChatSlicesText]
-  }
-
-  if (Array.isArray(props.message.content)) {
-    const textPart = props.message.content.find(part => 'type' in part && part.type === 'text') as { text?: string } | undefined
-    if (textPart?.text) {
-      const cleaned = sanitizeAssistantTextForDisplay(textPart.text)
-      if (cleaned.trim())
-        return [{ type: 'text', text: cleaned } satisfies ChatSlicesText]
-    }
-  }
-
-  return []
-})
-
-function getMoodArchetype(text: string): string | null {
-  if (!text || typeof text !== 'string')
-    return null
-
-  // Pattern to find both ACT tags and Bracket tokens [mood]
-  const matches = Array.from(text.matchAll(/<\|ACT:([\s\S]*?)\|>|\[([\w-]+)\]/gi))
-
-  for (const match of matches) {
-    let name = ''
-    if (match[1]) { // ACT tag fallback
-      const nameMatch = match[1].match(/"name":\s*"([^"]+)"/i)
-      if (nameMatch)
-        name = nameMatch[1].toLowerCase()
-    }
-    else if (match[2]) { // Bracket token [mood] - Priority!
-      name = match[2].toLowerCase()
-    }
-
-    if (!name)
-      continue
-
-    let result = null
-    // Map keywords to our 7 core visual archetypes
-    if (/happy|joy|laugh|grin|chuckle|smile|beam|cheer/.test(name))
-      result = 'happy'
-    else if (/sad|cry|sorrow|pout|sniff|sigh|whimper|mourn/.test(name))
-      result = 'sad'
-    else if (/angry|mad|annoy|frustrate|growl|hiss|glare|stomp/.test(name))
-      result = 'angry'
-    else if (/surprise|shock|wonder|gasp|eep|awe|blink/.test(name))
-      result = 'surprised'
-    else if (/think|ponder|curious|hmm|mmm|doubt|question/.test(name))
-      result = 'thinking'
-    else if (/blush|shy|embarrassed|rose|bashful|stutter|awkward/.test(name))
-      result = 'flustered'
-    else if (/relax|whisper|sleepy|soft|calm|peace|yawn|purr/.test(name))
-      result = 'relaxed'
-
-    if (result)
-      return result
-  }
-
-  return null
-}
-
-const mood = computed(() => {
-  if (props.message.slices?.length) {
-    for (const slice of props.message.slices) {
-      if (slice.type === 'text') {
-        const m = getMoodArchetype(slice.text)
-        if (m)
-          return m
-      }
-    }
-  }
-
-  if (typeof props.message.content === 'string') {
-    return getMoodArchetype(props.message.content)
-  }
-
-  if (Array.isArray(props.message.content)) {
-    const textPart = props.message.content.find(part => 'type' in part && part.type === 'text') as { text?: string } | undefined
-    if (textPart?.text)
-      return getMoodArchetype(textPart.text)
-  }
-
-  return null
-})
-
-const MOOD_ARCHETYPE_COLORS: Record<string, { border: string, bg: string, glow: string }> = {
-  happy: { border: '#10b98180', bg: '#10b98115', glow: '#10b98130' }, // emerald
-  sad: { border: '#3b82f680', bg: '#3b82f615', glow: '#3b82f630' }, // blue
-  angry: { border: '#f43f5e80', bg: '#f43f5e15', glow: '#f43f5e30' }, // rose
-  surprised: { border: '#a855f790', bg: '#a855f720', glow: '#a855f740' }, // vibrant purple
-  thinking: { border: '#f59e0b80', bg: '#f59e0b10', glow: '#f59e0b20' }, // amber
-  flustered: { border: '#f472b680', bg: '#f472b615', glow: '#f472b630' }, // pink
-  relaxed: { border: '#14b8a680', bg: '#14b8a615', glow: '#14b8a630' }, // teal
-}
-
-const moodClasses = computed(() => {
-  if (!mood.value)
-    return ''
-  return `mood-${mood.value}`
-})
-
-const showLoader = computed(() => props.showPlaceholder && resolvedSlices.value.length === 0)
-const containerClass = computed(() => props.variant === 'mobile' ? 'mr-0' : 'mr-12')
-const boxClasses = computed(() => [
-  props.variant === 'mobile' ? 'px-2 py-2 text-sm bg-primary-50/90 dark:bg-primary-950/90' : 'px-3 py-3 bg-primary-50/80 dark:bg-primary-950/80',
-  moodClasses.value,
+// The shrink-wrap visual container constraints
+const containerClasses = computed(() => [
+  'flex',
+  props.variant === 'mobile' ? 'mr-0' : 'mr-12',
 ])
-
-const boxStyle = computed(() => {
-  if (!mood.value || !MOOD_ARCHETYPE_COLORS[mood.value])
-    return { border: '1px solid transparent' }
-  const colors = MOOD_ARCHETYPE_COLORS[mood.value]
-  return {
-    borderColor: colors.border,
-    borderWidth: '2px', // Increase for visibility
-    borderStyle: 'solid',
-    backgroundColor: colors.bg, // Tint the background directly!
-    boxShadow: `0 0 15px ${colors.glow}`, // Add outer glow
-  }
-})
 
 const copyText = computed(() => getChatHistoryItemCopyText(props.message as ChatHistoryItem))
 
@@ -230,74 +94,192 @@ function handleDelete() {
     chatSession.deleteMessage(props.message.id)
   emit('delete')
 }
+
+// Visual FX state parsing (re-injected from main)
+const showLoader = computed(() => props.showPlaceholder)
+
+const mood = computed(() => {
+  if (!(props.message.categorization as any)?.mood)
+    return null
+  const m = String((props.message.categorization as any).mood).toLowerCase().trim()
+  if (m === 'null' || m === '')
+    return null
+  return m
+})
+
+const moodBaseColor = computed(() => {
+  switch (mood.value) {
+    case 'happy':
+    case 'joy': return 'emerald'
+    case 'sad':
+    case 'sorrow': return 'blue'
+    case 'angry':
+    case 'mad': return 'rose'
+    case 'scared':
+    case 'fear': return 'amber'
+    case 'surprised':
+    case 'shock': return 'violet'
+    case 'disgusted':
+    case 'disgust': return 'lime'
+    case 'relaxed':
+    case 'calm': return 'teal'
+    default: return 'primary'
+  }
+})
+
+// Box constraints combining feature layout with main's dynamic border FX
+const boxClasses = computed(() => {
+  const baseClasses = props.variant === 'mobile' ? 'px-2 py-2 text-sm' : 'px-3 py-3'
+  const isDark = typeof document !== 'undefined' ? document.documentElement.classList.contains('dark') : true
+
+  if (!mood.value) {
+    return [
+      baseClasses,
+      isDark ? 'bg-primary-900/50 text-white' : 'bg-primary-100 text-black',
+    ]
+  }
+
+  const c = moodBaseColor.value
+  return [
+    baseClasses,
+    `border-${c}-500/50 shadow-[0_0_15px_rgba(var(--un-colors-${c}-500),0.2)]`,
+    isDark ? `bg-${c}-900/40 text-${c}-100` : `bg-${c}-100 text-${c}-900`,
+  ]
+})
+
+const boxStyle = computed(() => {
+  if (!mood.value)
+    return {}
+  return {
+    border: '1px solid',
+  }
+})
+
+const resolvedSlices = computed(() => {
+  const rs: (ChatSlices | (ChatSlicesText & { displaySegments?: DisplaySegment[] }))[] = []
+
+  let textBuffer = ''
+
+  const processBuffer = () => {
+    if (textBuffer.trim()) {
+      rs.push({
+        type: 'text',
+        text: textBuffer,
+        displaySegments: processContent(textBuffer),
+      })
+      textBuffer = ''
+    }
+  }
+
+  for (const slice of slices.value) {
+    if (slice.type === 'text') {
+      textBuffer += slice.text
+      continue
+    }
+
+    if (slice.type === 'tool-call') {
+      processBuffer()
+      const toolCallId = (slice.toolCall as any)?.id || (slice.toolCall as any)?.toolCallId
+      if (toolCallId) {
+        const result = toolResults.value.find((tr: any) => tr.toolCallId === toolCallId || tr.id === toolCallId)
+        if (result) {
+          rs.push({
+            type: 'tool-call',
+            toolCall: slice.toolCall,
+            state: 'done',
+            result: typeof result.result === 'string' ? result.result : JSON.stringify(result.result),
+          })
+          continue
+        }
+      }
+      rs.push({
+        type: 'tool-call',
+        toolCall: slice.toolCall,
+        state: slice.state || 'executing',
+      })
+    }
+
+    if (slice.type === 'tool-call-result') {
+      processBuffer()
+      continue
+    }
+
+    if ((slice as any).type === 'reasoning') {
+      // Typically skipped, reasoning can be styled separately or omitted
+    }
+  }
+
+  processBuffer()
+  return rs
+})
 </script>
 
 <template>
-  <div w-full flex :class="containerClass" class="ph-no-capture group">
+  <div v-if="message.role === 'assistant'" class="group ph-no-capture w-full !max-w-full" :class="containerClasses">
     <ChatActionMenu
       :copy-text="copyText"
       placement="right"
-      full-width
       @copy="handleCopy"
       @delete="handleDelete"
     >
       <template #default="{ setMeasuredElement }">
-        <div
-          :ref="setMeasuredElement"
-          flex="~ col" shadow="sm primary-200/50 dark:none"
-          h="unset <sm:fit"
-          relative min-w-20 w-full rounded-xl
-          transition="all duration-300"
-          :class="boxClasses"
-          :style="boxStyle"
-        >
-          <div>
-            <span text-sm text="black/60 dark:white/65" font-normal class="inline <sm:hidden">{{ label }}</span>
-          </div>
-          <div v-if="resolvedSlices.length > 0" class="break-words" text="primary-700 dark:primary-100">
-            <template v-for="(slice, sliceIndex) in resolvedSlices" :key="sliceIndex">
-              <ChatToolCallBlock
-                v-if="slice.type === 'tool-call'"
-                :tool-name="(slice.toolCall as any).function?.name || (slice.toolCall as any).toolName"
-                :args="(slice.toolCall as any).function?.arguments || (slice.toolCall as any).args"
-                :state="slice.state"
-                :result="slice.result"
-                class="mb-2"
-              />
-              <template v-else-if="slice.type === 'tool-call-result'" />
-              <template v-else-if="slice.type === 'text'">
-                <MarkdownRenderer :content="slice.text" />
-              </template>
-            </template>
-          </div>
-          <div v-else-if="showLoader" i-eos-icons:three-dots-loading />
-          <div v-else-if="message.categorization?.reasoning" mt-1 text-xs text-neutral-500 font-normal italic dark:text-neutral-400>
-            {{ t('stage.chat.reasoning_only') }}
-          </div>
-
-          <ChatResponsePart
-            v-if="message.categorization"
-            :message="message"
-            :variant="variant"
-          />
-
+        <div class="w-full flex flex-row gap-2">
+          <!-- Avatar space holding -->
+          <!-- A static avatar can go here, leaving space on the left -->
+          <!-- We rely on layout styling for this -->
           <div
-            v-if="variant === 'desktop' && formattedTime"
-            class="absolute left-full top-1/2 ml-4 opacity-0 transition-opacity -translate-y-1/2 group-hover:opacity-100"
+            :ref="setMeasuredElement"
+            flex="~ col" shadow="sm neutral-200/50 dark:none"
+            h="unset <sm:fit" relative rounded-xl
+            class="max-w-[calc(100%-4rem)] min-w-20 w-fit"
+            :class="boxClasses"
+            :style="boxStyle"
           >
-            <span class="whitespace-nowrap text-xs text-neutral-400 font-medium tabular-nums dark:text-neutral-500">
-              {{ formattedTime }}
-            </span>
+            <!-- Render Label -->
+            <div>
+              <span text-sm text="black/60 dark:white/65" font-normal class="inline <sm:hidden">{{ label }}</span>
+            </div>
+
+            <div v-if="resolvedSlices.length > 0" class="break-words" :class="mood ? 'text-neutral-800 dark:text-neutral-200' : 'text-primary-700 dark:primary-100'">
+              <template v-for="(slice, sliceIndex) in resolvedSlices" :key="sliceIndex">
+                <ChatToolCallBlock
+                  v-if="slice.type === 'tool-call'"
+                  :tool-name="(slice.toolCall as any).function?.name || (slice.toolCall as any).toolName"
+                  :args="(slice.toolCall as any).function?.arguments || (slice.toolCall as any).args"
+                  :state="slice.state"
+                  :result="slice.result"
+                  class="mb-2"
+                />
+                <template v-else-if="slice.type === 'tool-call-result'" />
+                <template v-else-if="slice.type === 'text'">
+                  <MarkdownRenderer :content="slice.text" />
+                </template>
+              </template>
+            </div>
+            <div v-else-if="showLoader" i-eos-icons:three-dots-loading />
+
+            <div v-if="message.categorization?.reasoning" mt-1 text-xs text-neutral-500 font-normal italic dark:text-neutral-400>
+              {{ t('stage.chat.reasoning_only') }}
+            </div>
+
+            <ChatResponsePart
+              v-if="message.categorization"
+              :message="message"
+              :variant="variant"
+            />
+
+            <!-- Formatted Timestamp -->
+            <div
+              v-if="variant === 'desktop' && formattedTime"
+              class="absolute left-full top-1/2 ml-4 opacity-0 transition-opacity -translate-y-1/2 group-hover:opacity-100"
+            >
+              <span class="whitespace-nowrap text-xs text-neutral-400 font-medium tabular-nums dark:text-neutral-500">
+                {{ formattedTime }}
+              </span>
+            </div>
           </div>
         </div>
       </template>
     </ChatActionMenu>
   </div>
 </template>
-
-<style scoped>
-/* Scoped styles kept here for transitions and complex selectors only */
-.rounded-xl {
-  transition: all 0.3s ease;
-}
-</style>

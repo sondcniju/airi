@@ -263,6 +263,95 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     }
   }
 
+  /**
+   * Evaluates a special marker string to see if it qualifies as a bridged tool call.
+   * If matched, it executes the tool and sends the result back to Gemini Bidi
+   * to trigger a trajectory adjustment (follow-up response).
+   */
+  async function tryBridgeMarker(ws: WebSocket, marker: string): Promise<boolean> {
+    const match = marker.match(/^<\|([\w-]+):([^|]*?)(?:\|>|<\/tool_call>|$)/)
+      || marker.match(/^\[call_tool:([\w-]+),\s*([^\]]*?)(?:\]|<\/tool_call>|$)/)
+      || marker.match(/<tool_call>([\w-]+)\((.*?)\)<\/tool_call>/s)
+      || marker.match(/<tool_call>(\{.*?\})<\/tool_call>/s)
+
+    if (!match)
+      return false
+
+    let toolName: string
+    let argsRaw: string
+
+    // check if it's the JSON flavor: <tool_call>{"name": "...", "arguments": "..."}</tool_call>
+    const potentialJson = match[1] || ''
+    if (potentialJson.trim().startsWith('{')) {
+      try {
+        const parsed = JSON.parse(potentialJson)
+        toolName = parsed.name
+        argsRaw = typeof parsed.arguments === 'string' ? parsed.arguments : JSON.stringify(parsed.arguments)
+      }
+      catch (e) {
+        console.error('[LiveSession] Failed to parse JSON tool call tag:', e)
+        return false
+      }
+    }
+    else {
+      toolName = match[1]
+      argsRaw = match[2] || ''
+    }
+
+    // Attempt to parse pseudo-arguments (KV pairs)
+    const args: Record<string, any> = {}
+    const kvRegex = /(?:^|[, \n\t]+)\s*([\w-]+)\s*[:=]\s*(?:"([^"]*)"|'([^']*)'|(\d+(?:\.\d+)?)|(true|false)|(\{.*\}|\[.*\]))/g
+    let kvMatch
+    while ((kvMatch = kvRegex.exec(argsRaw)) !== null) {
+      const [, key, valDouble, valSingle, valNum, valBool, valComplex] = kvMatch
+      if (valDouble !== undefined) {
+        args[key] = valDouble
+      }
+      else if (valSingle !== undefined) {
+        args[key] = valSingle
+      }
+      else if (valNum !== undefined) {
+        args[key] = Number.parseFloat(valNum)
+      }
+      else if (valBool !== undefined) {
+        args[key] = valBool === 'true'
+      }
+      else if (valComplex !== undefined) {
+        try {
+          args[key] = JSON.parse(valComplex.replace(/'/g, '"'))
+        }
+        catch {
+          args[key] = valComplex
+        }
+      }
+    }
+
+    if (Object.keys(args).length === 0) {
+      try {
+        const cleaned = argsRaw.trim().replace(/^\{/, '').replace(/\}$/, '').replace(/(\w+):/g, '"$1":').replace(/'/g, '"')
+        Object.assign(args, JSON.parse(`{${cleaned}}`))
+      }
+      catch {}
+    }
+
+    if (Object.keys(args).length === 0 && argsRaw.trim()) {
+      // Fallback for tools that take a single string argument (like some search markers)
+      args.query = argsRaw.trim()
+    }
+
+    console.log(`[LiveSession] 🌉 Bridging marker to tool call: ${toolName}`, args)
+
+    // Execute via our standard Bidi-compatible tool runner
+    // This handles UI slices, proactivity registry lookup, and result feedback.
+    await executeToolCall(ws, {
+      name: toolName,
+      args: Object.keys(args).length > 0 ? args : undefined,
+      id: `bridge-${nanoid()}`,
+    })
+
+    return true
+  }
+
   // Streaming State for hooking into the Chat Orchestrator's TTS
   let currentStreamingMessage: StreamingAssistantMessage | null = null
   let currentStreamContext: ChatStreamEventContext | null = null
@@ -470,11 +559,17 @@ export const useLiveSessionStore = defineStore('live-session', () => {
                 }
               },
               onSpecial: async (special) => {
-                // ACT/DELAY markers are handled here — emit as special tokens
+                // ACT/DELAY/TOOL markers are handled here — emit as special tokens
                 // so the stage orchestrator can process expressions/animations.
                 // These fire in BOTH modes so expressions always work.
                 if (currentStreamContext) {
                   await chatOrchestrator.emitTokenSpecialHooks(special, currentStreamContext)
+                }
+
+                // Check for bridged tool markers (pseudo-token tool calls)
+                // This allows markers to trigger trajectory adjustments in Live mode.
+                if (ws.readyState === WebSocket.OPEN) {
+                  await tryBridgeMarker(ws, special)
                 }
               },
             })

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ChatAssistantMessage, ChatHistoryItem, ContextMessage } from '../../../types/chat'
 
-import { computed, onMounted, provide, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, provide, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import ChatAssistantItem from './assistant-item.vue'
@@ -25,29 +25,71 @@ const props = withDefaults(defineProps<{
 })
 
 const chatHistoryRef = ref<HTMLDivElement>()
+const isAtBottom = ref(true)
+
 provide(chatScrollContainerKey, chatHistoryRef)
 
 const { t } = useI18n()
+
+function checkScrollPosition() {
+  if (!chatHistoryRef.value)
+    return
+  const { scrollTop, scrollHeight, clientHeight } = chatHistoryRef.value
+  // Allowing a small threshold (10px) to consider 'at bottom'
+  isAtBottom.value = scrollTop + clientHeight >= scrollHeight - 10
+}
+
+function scrollToBottom(force = false) {
+  if (!chatHistoryRef.value)
+    return
+  if (force || isAtBottom.value) {
+    chatHistoryRef.value.scrollTo({
+      top: chatHistoryRef.value.scrollHeight,
+      behavior: force ? 'auto' : 'smooth',
+    })
+  }
+}
+
+// Watch for manual scroll events to track bottom state
+function handleScroll() {
+  checkScrollPosition()
+}
+
+// Use a ResizeObserver to catch changes even during v-auto-animate transitions
+onMounted(() => {
+  if (!chatHistoryRef.value)
+    return
+
+  const observer = new ResizeObserver(() => {
+    if (isAtBottom.value) {
+      scrollToBottom(true)
+    }
+  })
+
+  // We observe the container itself; as it animates/resizes, we keep pinned
+  observer.observe(chatHistoryRef.value)
+  // Also observe children if they are the ones causing scrollHeight changes
+  // But usually observing the div with overflow-y-auto is sufficient for ResizeObserver
+  // because its scrollHeight changes trigger the callback if we track content.
+
+  scrollToBottom(true)
+
+  onUnmounted(() => observer.disconnect())
+})
+
+watch([() => props.messages, () => props.streamingMessage], () => scrollToBottom(), { deep: true, flush: 'post' })
+watch(() => props.sending, (val) => {
+  if (!val) {
+    // When sending finishes, ensure we are at the bottom
+    scrollToBottom(true)
+  }
+}, { flush: 'post' })
+
 const labels = computed(() => ({
   assistant: props.assistantLabel ?? t('stage.chat.message.character-name.airi'),
   user: props.userLabel ?? t('stage.chat.message.character-name.you'),
   error: props.errorLabel ?? t('stage.chat.message.character-name.core-system'),
 }))
-
-function scrollToBottom() {
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      if (!chatHistoryRef.value)
-        return
-
-      chatHistoryRef.value.scrollTop = chatHistoryRef.value.scrollHeight
-    })
-  })
-}
-
-watch([() => props.messages, () => props.streamingMessage], scrollToBottom, { deep: true, flush: 'post' })
-watch(() => props.sending, scrollToBottom, { flush: 'post' })
-onMounted(scrollToBottom)
 
 const streaming = computed<ChatAssistantMessage & { context?: ContextMessage } & { createdAt?: number }>(() => props.streamingMessage ?? { role: 'assistant', content: '', slices: [], tool_results: [], createdAt: Date.now() })
 const showStreamingPlaceholder = computed(() => (streaming.value.slices?.length ?? 0) === 0 && !streaming.value.content)
@@ -76,7 +118,15 @@ const renderMessages = computed<ChatHistoryItem[]>(() => {
 </script>
 
 <template>
-  <div ref="chatHistoryRef" v-auto-animate flex="~ col" relative h-full w-full overflow-y-auto rounded-xl px="<sm:2" py="<sm:2" :class="variant === 'mobile' ? 'gap-1' : 'gap-2'">
+  <div
+    ref="chatHistoryRef"
+    v-auto-animate
+    flex="~ col"
+    relative h-full w-full
+    class="gap-2 overflow-x-hidden overflow-y-auto rounded-xl px-2 py-2"
+    :class="[variant === 'mobile' ? 'gap-1' : 'gap-2']"
+    @scroll="handleScroll"
+  >
     <template v-for="(message, index) in renderMessages" :key="getChatHistoryItemKey(message, index)">
       <div v-if="message.role === 'error'">
         <ChatErrorItem

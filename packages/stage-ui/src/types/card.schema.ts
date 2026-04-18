@@ -70,6 +70,19 @@ const AiriHeartbeatSchema = object({
   }),
 })
 
+const AiriDreamStateSchema = object({
+  enabled: boolean(),
+  strictAfkGating: boolean(),
+  journalingThreshold: union([literal('minimal'), literal('balanced'), literal('lush')]),
+  maxSessionsPerDay: number(),
+  sessionTimeoutMinutes: number(),
+  afkThresholdMinutes: number(),
+  minConversationTurns: number(),
+  lastProcessedAt: optional(number()),
+  dailyRunDate: optional(string()),
+  dailyRunCount: optional(number()),
+})
+
 const AiriOutfitSchema = object({
   id: string(),
   name: string(),
@@ -81,6 +94,7 @@ const AiriOutfitSchema = object({
 const AiriExtensionSchema = object({
   modules: optional(AiriModulesSchema),
   heartbeats: optional(AiriHeartbeatSchema),
+  dreamState: optional(AiriDreamStateSchema),
   groundingEnabled: optional(boolean()),
   generation: optional(object({
     enabled: boolean(),

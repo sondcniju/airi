@@ -63,12 +63,19 @@ export function clearMcpToolBridge() {
 }
 
 /**
+ * Safely tries to retrieve the MCP tool bridge without throwing an error.
+ * Returns undefined if the bridge is not initialized.
+ */
+export function tryGetMcpToolBridge(): McpToolBridge | undefined {
+  return bridge || (typeof window !== 'undefined' ? (window as any).__AIRI_MCP_BRIDGE__ : undefined)
+}
+
+/**
  * Retrieves the MCP tool bridge.
- * Checks the module-level variable first, then falls back to the global
- * `window.__AIRI_MCP_BRIDGE__` to survive module duplication or window isolation.
+ * Throws an error if the bridge is not available.
  */
 export function getMcpToolBridge(): McpToolBridge {
-  const resolvedBridge = bridge || (typeof window !== 'undefined' ? (window as any).__AIRI_MCP_BRIDGE__ : undefined)
+  const resolvedBridge = tryGetMcpToolBridge()
 
   if (!resolvedBridge) {
     throw new Error('MCP tool bridge is not available in this runtime.')
@@ -76,3 +83,4 @@ export function getMcpToolBridge(): McpToolBridge {
 
   return resolvedBridge
 }
+// FORCE CACHE REFRESH: Refined non-fatal bridge export confirmed.
