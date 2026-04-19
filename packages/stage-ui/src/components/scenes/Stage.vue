@@ -17,7 +17,7 @@ import { Live2DScene, useLive2d } from '@proj-airi/stage-ui-live2d'
 import { ThreeScene, useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { animations } from '@proj-airi/stage-ui-three/assets/vrm'
 import { createQueue } from '@proj-airi/stream-kit'
-import { useBroadcastChannel } from '@vueuse/core'
+import { useBroadcastChannel, useEventListener } from '@vueuse/core'
 // import { createTransformers } from '@xsai-transformers/embed'
 // import embedWorkerURL from '@xsai-transformers/embed/worker?worker&url'
 // import { embed } from '@xsai/embed'
@@ -147,6 +147,11 @@ function handleResizeStateChange(event: Event) {
   const customEvent = event as CustomEvent<{ active?: boolean }>
   isWindowResizing.value = !!customEvent.detail?.active
 }
+
+useEventListener(typeof window !== 'undefined' ? window : null, 'vrm-node-visibility-toggle', (e: Event) => {
+  const customEvent = e as CustomEvent<{ uuid: string, node: any }>
+  vhackStore.toggleNodeVisibility(customEvent.detail.uuid, customEvent.detail.node)
+})
 
 const { currentMotion } = storeToRefs(live2dStore)
 

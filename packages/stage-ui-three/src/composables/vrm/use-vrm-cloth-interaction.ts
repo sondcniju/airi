@@ -158,7 +158,7 @@ export function useVRMClothInteraction() {
    * Attempt to "grab" a piece of cloth
    */
   function startTug(
-    event: { x: number, y: number },
+    event: { x: number, y: number, isCtrlPressed?: boolean, isDoubleClick?: boolean },
     camera: THREE.Camera,
     vrm: VRM,
     vrmEmote?: any, // Accept managed emote service
@@ -166,23 +166,17 @@ export function useVRMClothInteraction() {
     if (!vrm || modelStore.interactionMode !== 'tactile')
       return
 
-    // [STAGING-FAST-TRACK]
-    // Synchronous execution is now safe because we've optimized the picking pipeline
-    // from O(Geometry) to O(BoundingSpheres + 1 Mesh).
     mouse.x = (event.x / window.innerWidth) * 2 - 1
     mouse.y = -(event.y / window.innerHeight) * 2 + 1
     raycaster.setFromCamera(mouse, camera)
 
     resolveNodes(vrm)
 
-    // [FAST-PICKING-STAGE-0] Aura check remains the fastest mathematical bail-out
     if (!raycaster.ray.intersectsBox(nodes.boundary))
       return
 
     const visibleMeshes = clothMeshCache.value.filter(m => m.visible)
 
-    // [FAST-PICKING-STAGE-1] Bounding Sphere Pre-Filter
-    // Identify candidate meshes whose world-space spheres are hit by the ray.
     const candidates: { mesh: THREE.Mesh, distance: number }[] = []
     const sphere = new THREE.Sphere()
 
@@ -197,20 +191,47 @@ export function useVRMClothInteraction() {
       }
     })
 
-    // [FAST-PICKING-V4] Surgical Raycast with Telemetry
-    // Limit to Top 3 candidates (Coat -> Shirt -> Body) for sub-10ms response.
-    const targetMeshes = candidates.slice(0, 3).map(c => c.mesh)
-    const intersects = raycaster.intersectObjects(targetMeshes, false)
+    const targetMeshes = candidates.sort((a, b) => a.distance - b.distance).slice(0, 3).map(c => c.mesh)
+    let intersects = raycaster.intersectObjects(targetMeshes, false)
+
+    // Ghost Picking: If Ctrl is pressed and we missed, fallback to testing hidden meshes
+    if (intersects.length === 0 && event.isCtrlPressed) {
+      const hiddenMeshes = clothMeshCache.value.filter(m => !m.visible)
+      const hiddenCandidates: { mesh: THREE.Mesh, distance: number }[] = []
+      hiddenMeshes.forEach((obj: any) => {
+        if (!obj.geometry.boundingSphere)
+          obj.geometry.computeBoundingSphere()
+        sphere.copy(obj.geometry.boundingSphere).applyMatrix4(obj.matrixWorld)
+
+        if (raycaster.ray.intersectsSphere(sphere)) {
+          const dist = raycaster.ray.origin.distanceTo(sphere.center)
+          hiddenCandidates.push({ mesh: obj, distance: dist })
+        }
+      })
+      const hiddenTargetMeshes = hiddenCandidates.sort((a, b) => a.distance - b.distance).slice(0, 3).map(c => c.mesh)
+      intersects = raycaster.intersectObjects(hiddenTargetMeshes, false)
+    }
 
     if (intersects.length > 0) {
       const hit = intersects[0]
+
+      // MUX: Ctrl+Click (Visibility Toggle)
+      if (event.isCtrlPressed) {
+        window.dispatchEvent(new CustomEvent('vrm-node-visibility-toggle', { detail: { uuid: hit.object.uuid, node: hit.object } }))
+        return // Abort drag and emotions
+      }
+
+      // MUX: Double Click (Wardrobe Discovery)
+      if (event.isDoubleClick) {
+        triggerDiscovery(vrm, hit.object)
+        return // Abort drag and emotions
+      }
+
       intersectionPoint.copy(hit.point)
 
-      // Find the best bone to tug
       let nearestBone: Object3D | null = null
       let minDist = Infinity
 
-      // [PERFORMANCE-FIX] Use cached bones to avoid slow scene traversal
       boneCache.value.forEach((obj) => {
         const boneWorldPos = new Vector3()
         obj.getWorldPosition(boneWorldPos)
@@ -234,50 +255,6 @@ export function useVRMClothInteraction() {
         grabPoint.copy(intersectionPoint)
         vrm.scene.worldToLocal(grabPoint)
 
-        const material = (hit.object as any).material
-        const mat = Array.isArray(material) ? material[0] : material
-
-        // [WIRED-OUTFIT-DISCOVERY]
-        // O(1) Lookup using the precomputed Manifest.
-        if (vrm.expressionManager && modelStore.activeVrmParser) {
-          const normalizeRaw = (name: string) => name.replace(/^VRMExpression_/, '')
-          const formatName = (name: string) => normalizeRaw(name).split('_').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
-
-          const tex = mat?.map || mat?.shadeMultiplyTexture
-          const assoc = modelStore.activeVrmParser.associations.get(tex)
-          const hitTexIndex = (assoc && assoc.textures !== undefined) ? modelStore.activeVrmParser.json.textures[assoc.textures]?.source : null
-
-          if (hitTexIndex !== null && wardrobeManifest.has(hitTexIndex)) {
-            const entry = wardrobeManifest.get(hitTexIndex)!
-            const activeOutfit = entry.siblings.find((s: any) => s.weight > 0.5)
-
-            // Build siblings as { display, raw } pairs for the UI
-            const seen = new Set<string>()
-            const siblingPairs = entry.siblings
-              .filter((s: any) => {
-                if (seen.has(s.name))
-                  return false
-                seen.add(s.name)
-                return true
-              })
-              .map((s: any) => ({ display: formatName(s.name), raw: normalizeRaw(s.name) }))
-
-            // Determine the active outfit pair
-            const activePair = activeOutfit
-              ? { display: formatName(activeOutfit.name), raw: normalizeRaw(activeOutfit.name) }
-              : (siblingPairs[0] || { display: 'Unknown', raw: '' })
-
-            const restSiblings = siblingPairs.filter(p => p.raw !== activePair.raw)
-
-            // Update Global State for UI
-            modelStore.detectedWardrobe = {
-              active: activePair,
-              siblings: restSiblings,
-              texIndex: hitTexIndex,
-            }
-          }
-        }
-
         const boneName = bone.name.toLowerCase()
         if (boneName.includes('bust') || boneName.includes('chest') || (boneName.includes('upper') && boneName.includes('leg'))) {
           if (vrmEmote?.setEmotionWithResetAfter) {
@@ -286,6 +263,50 @@ export function useVRMClothInteraction() {
         }
 
         spawnPuff(intersectionPoint, vrm.scene)
+      }
+    }
+  }
+
+  function triggerDiscovery(vrm: VRM, hitObject: Object3D) {
+    const material = (hitObject as any).material
+    const mat = Array.isArray(material) ? material[0] : material
+
+    if (vrm.expressionManager && modelStore.activeVrmParser) {
+      const normalizeRaw = (name: string) => name.replace(/^VRMExpression_/, '')
+      const formatName = (name: string) => normalizeRaw(name).split('_').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
+
+      const tex = mat?.map || mat?.shadeMultiplyTexture
+      const assoc = modelStore.activeVrmParser.associations.get(tex)
+      const hitTexIndex = (assoc && assoc.textures !== undefined) ? modelStore.activeVrmParser.json.textures[assoc.textures]?.source : null
+
+      if (hitTexIndex !== null && wardrobeManifest.has(hitTexIndex)) {
+        const entry = wardrobeManifest.get(hitTexIndex)!
+        const activeOutfit = entry.siblings.find((s: any) => s.weight > 0.5)
+
+        // Build siblings as { display, raw } pairs for the UI
+        const seen = new Set<string>()
+        const siblingPairs = entry.siblings
+          .filter((s: any) => {
+            if (seen.has(s.name))
+              return false
+            seen.add(s.name)
+            return true
+          })
+          .map((s: any) => ({ display: formatName(s.name), raw: normalizeRaw(s.name) }))
+
+        // Determine the active outfit pair
+        const activePair = activeOutfit
+          ? { display: formatName(activeOutfit.name), raw: normalizeRaw(activeOutfit.name) }
+          : (siblingPairs[0] || { display: 'Unknown', raw: '' })
+
+        const restSiblings = siblingPairs.filter(p => p.raw !== activePair.raw)
+
+        // Update Global State for UI
+        modelStore.detectedWardrobe = {
+          active: activePair,
+          siblings: restSiblings,
+          texIndex: hitTexIndex,
+        }
       }
     }
   }
