@@ -1,10 +1,11 @@
 import type { Message } from '@xsai/shared-chat'
 
-import { artistryGenerateHeadless } from '@proj-airi/stage-shared'
-import { createContext } from '@moeru/eventa/adapters/electron/renderer'
 import { defineInvoke, defineInvokeEventa } from '@moeru/eventa'
+import { createContext } from '@moeru/eventa/adapters/electron/renderer'
+import { artistryGenerateHeadless } from '@proj-airi/stage-shared'
 import { defineStore } from 'pinia'
 import { ref, toRaw } from 'vue'
+import { toast } from 'vue-sonner'
 
 import { useBackgroundStore } from '../background'
 import { useLLM } from '../llm'
@@ -31,8 +32,9 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
   const widgetsAdd = defineInvokeEventa<string | undefined, any>('eventa:invoke:electron:windows:widgets:add')
 
   const getGenerateHeadless = () => {
-    if (typeof window !== 'undefined' && window.electron?.ipcRenderer) {
-      const { context } = createContext(window.electron.ipcRenderer as any)
+    const win = window as any
+    if (typeof window !== 'undefined' && win.electron?.ipcRenderer) {
+      const { context } = createContext(win.electron.ipcRenderer as any)
       return {
         generate: defineInvoke(context, artistryGenerateHeadless),
         addWidget: defineInvoke(context, widgetsAdd),
@@ -53,11 +55,15 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       autonomousEnabled,
     })
 
-    if (!activeCard || !autonomousEnabled) {
+    if (!activeCard) {
       return
     }
 
-    const artistry = activeCard.extensions.airi.artistry
+    const artistry = activeCard.extensions?.airi?.artistry
+    if (!autonomousEnabled || !artistry) {
+      return
+    }
+
     const threshold = artistry.autonomousThreshold ?? 70
     const cardId = cardStore.activeCardId
 
@@ -112,9 +118,7 @@ Output EXACTLY this JSON format and nothing else:
       }
 
       // 2. Call LLM (Non-streaming for structured data)
-      const response = await llmStore.generate(modelId, chatProvider, messages, {
-        json: true,
-      })
+      const response = await llmStore.generate(modelId, chatProvider, messages)
 
       const rawContent = (response.text || '').trim()
       artistLog('Received raw response from Director LLM:', rawContent)
@@ -140,10 +144,16 @@ Output EXACTLY this JSON format and nothing else:
         prompt: analysis.prompt,
       })
 
+      const thresholdMet = (analysis.intensity ?? 0) >= threshold
+      toast('Director\'s Decision', {
+        description: `${thresholdMet ? '✅' : '❌'} Grade: ${analysis.intensity}/${threshold}\nReason: ${analysis.reasoning?.substring(0, 130)}${analysis.reasoning?.length > 130 ? '...' : ''}`,
+        duration: 7000,
+      })
+
       // 3. Evaluate Threshold
       if (analysis.intensity >= threshold) {
         artistLog(`Threshold met (${analysis.intensity} >= ${threshold}). Triggering generation...`)
-        
+
         const invoker = getGenerateHeadless()
         if (!invoker) {
           artistLog('IPC Invoker not available (non-electron environment). Skipping generation.')
@@ -201,6 +211,20 @@ Output EXACTLY this JSON format and nothing else:
           const entryId = await backgroundStore.addBackground('journal', blob, analysis.title || 'Autonomous Scene', analysis.prompt, cardId)
           artistLog('Generation complete and added to journal.', { entryId })
 
+          // Update character's active background to the new entry
+          cardStore.updateCard(cardId, {
+            extensions: {
+              ...activeCard.extensions,
+              airi: {
+                ...activeCard.extensions.airi,
+                modules: {
+                  ...activeCard.extensions.airi.modules,
+                  activeBackgroundId: entryId,
+                },
+              },
+            },
+          } as any)
+
           // 5. Trigger widget for visibility
           try {
             await invokers.addWidget({
@@ -221,7 +245,8 @@ Output EXACTLY this JSON format and nothing else:
             console.warn('[AutonomousArtist] Failed to spawn Result widget', widgetErr)
           }
         }
-      } else {
+      }
+      else {
         artistLog(`Intensity (${analysis.intensity}) below threshold (${threshold}). No action taken.`)
       }
     }

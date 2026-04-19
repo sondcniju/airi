@@ -248,7 +248,7 @@ export function setupWidgetsWindowManager(params: {
     pendingRoute = undefined
     if (currentRoute !== route)
       await loadWithRoute(window, route)
-    window.show()
+    window.showInactive()
     if (context)
       context.window = window
     return window

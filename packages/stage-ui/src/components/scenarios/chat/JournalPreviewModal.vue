@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useJournalPreviewStore } from '../../../stores/journal-preview'
 import { MarkdownRenderer } from '../../markdown'
 
+defineEmits(['attach'])
 const store = useJournalPreviewStore()
 const { previewModal } = storeToRefs(store)
 const { closePreview, downloadImage } = store
@@ -38,6 +39,14 @@ const { closePreview, downloadImage } = store
                 @click="downloadImage(previewModal.content, previewModal.title)"
               >
                 <div i-solar:download-minimalistic-bold-duotone class="text-lg" />
+              </button>
+              <button
+                v-if="previewModal.type === 'image'"
+                :class="['rounded-full p-1 text-primary-500 transition-colors', 'hover:bg-primary-50 hover:text-primary-600', 'dark:hover:bg-primary-900/30 dark:hover:text-primary-400']"
+                title="Attach to chat"
+                @click="$emit('attach', { url: previewModal.content, title: previewModal.title })"
+              >
+                <div i-solar:gallery-send-bold-duotone class="text-lg" />
               </button>
               <button
                 :class="['rounded-full p-1 text-neutral-400 transition-colors', 'hover:bg-neutral-100 hover:text-neutral-600', 'dark:hover:bg-neutral-800 dark:hover:text-neutral-200']"

@@ -321,6 +321,26 @@ async function handleScreenshotClick() {
   }
 }
 
+async function handleInternalImageAttach({ url, title }: { url: string, title: string }) {
+  try {
+    const response = await fetch(url)
+    const blob = await response.blob()
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const base64Data = (e.target?.result as string)?.split(',')[1]
+      if (base64Data) {
+        addImageAttachmentFromBase64(base64Data, blob.type, title)
+        toast.success('Image attached to chat!')
+      }
+    }
+    reader.readAsDataURL(blob)
+  }
+  catch (err) {
+    console.error('[InteractiveArea] Failed to attach internal image:', err)
+    toast.error('Failed to attach image.')
+  }
+}
+
 async function captureAndSendScreenshot() {
   console.log('[InteractiveArea] Auto-send screenshot requested (shortcut) via visionStore...')
   try {
@@ -808,7 +828,7 @@ watch(messageInput, () => {
     </Teleport>
 
     <!-- Journal Preview Modal -->
-    <JournalPreviewModal />
+    <JournalPreviewModal @attach="handleInternalImageAttach" />
   </div>
 </template>
 

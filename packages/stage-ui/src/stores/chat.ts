@@ -260,9 +260,8 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         return
       }
 
-      // --- AUTONOMOUS ARTISTRY HOOK ---
       // We run this in parallel without awaiting to avoid stalling the main response.
-      void artistryAutonomousStore.runArtistTask(sendingMessage, sessionMessagesForSend)
+      void artistryAutonomousStore.runArtistTask(sendingMessage, sessionMessagesForSend as any)
       // --------------------------------
 
       let inferenceMessages = [...sessionMessagesForSend, inferenceUserMessage]

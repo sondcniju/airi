@@ -304,7 +304,7 @@ onUnmounted(() => {
 
 <template>
   <ToasterRoot @close="id => toast.dismiss(id)">
-    <Toaster />
+    <Toaster position="top-right" />
   </ToasterRoot>
   <ResizeHandler />
   <RouterView />
