@@ -17,5 +17,7 @@ export default {
   ru,
   vi,
   'zh-Hans': zhHans,
+  'zh-CN': zhHans,
   'zh-Hant': zhHant,
+  'zh-TW': zhHant,
 }
