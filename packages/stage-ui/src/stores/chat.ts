@@ -260,6 +260,10 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         return
       }
 
+      // NOTICE: Emit before-message-composed so Stage.vue can flush the speech pipeline,
+      // cancel stale intents, reset lip sync, and clear captions before the new turn starts.
+      await hooks.emitBeforeMessageComposedHooks(sendingMessage, streamingMessageContext)
+
       // We run this in parallel without awaiting to avoid stalling the main response.
       void artistryAutonomousStore.runArtistTask(sendingMessage, sessionMessagesForSend as any)
       // --------------------------------
