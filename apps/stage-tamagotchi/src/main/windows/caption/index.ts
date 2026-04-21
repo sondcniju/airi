@@ -208,6 +208,27 @@ export function setupCaptionWindowManager(params: {
     return b
   }
 
+  function syncGlobalConfig() {
+    const currentEnabled = isVisible()
+    const appConfig = params.appConfig.get()
+    const windows = appConfig?.windows ?? []
+    const index = windows.findIndex((w: any) => w.tag === 'caption')
+
+    const captionEntry = {
+      tag: 'caption',
+      enabled: currentEnabled,
+    }
+
+    if (index !== -1) {
+      windows[index] = { ...windows[index], ...captionEntry }
+    }
+    else {
+      windows.push(captionEntry)
+    }
+
+    params.appConfig.update({ ...appConfig, windows })
+  }
+
   function applyBounds(win: BrowserWindow, bounds: Rectangle, options: { programmatic?: boolean, resizable?: boolean } = {}) {
     if (win.isDestroyed())
       return
@@ -371,8 +392,14 @@ export function setupCaptionWindowManager(params: {
 
     window.on('resize', persistBounds)
     window.on('move', persistBounds)
-    window.on('show', emitVisibilityChanged)
-    window.on('hide', emitVisibilityChanged)
+    window.on('show', () => {
+      emitVisibilityChanged()
+      syncGlobalConfig()
+    })
+    window.on('hide', () => {
+      emitVisibilityChanged()
+      syncGlobalConfig()
+    })
 
     await load(window, withHashRoute(baseUrl(resolve(getElectronMainDirname(), '..', 'renderer')), '/caption'))
 
@@ -430,6 +457,8 @@ export function setupCaptionWindowManager(params: {
       eventaContext?.emit(captionIsFollowingWindowChanged, isFollowing)
     }
     catch {}
+
+    syncGlobalConfig()
   }
 
   async function toggleFollowWindow() {

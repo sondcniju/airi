@@ -33,10 +33,10 @@ const imageJournalParams = z.object({
   prompt: z.string().optional().describe('Description for the image (required for "create").'),
   title: z.string().optional().describe('Label for the entry (optional).'),
   query: z.string().optional().describe('Search term for existing images (required for "apply").'),
-  mode: z.enum(['inline', 'widget', 'bg']).optional().default('inline').describe('Display mode: "inline" (in chat), "widget" (overlay), or "bg" (environment).'),
+  mode: z.enum(['inline', 'widget', 'bg', 'bg_widget']).optional().describe('Display mode: "inline" (in chat), "widget" (overlay), "bg" (environment), or "bg_widget" (both). Defaults to character preference.'),
 })
 
-async function executeCreateImageJournalEntry(params: { prompt?: string, title?: string, mode?: 'inline' | 'widget' | 'bg' }) {
+async function executeCreateImageJournalEntry(params: { prompt?: string, title?: string, mode?: 'inline' | 'widget' | 'bg' | 'bg_widget' }) {
   if (!params.prompt?.trim())
     throw new Error('prompt is required for image_journal.create')
 
@@ -55,7 +55,10 @@ async function executeCreateImageJournalEntry(params: { prompt?: string, title?:
   }
 
   const title = params.title || `Generation ${new Date().toLocaleString()}`
-  const mode = params.mode || 'inline'
+
+  // Resolve mode: explicit param > character fallback > global default (inline)
+  const spawnMode = activeCard?.extensions?.airi?.artistry?.spawnMode
+  const mode = params.mode || spawnMode || 'inline'
 
   try {
     const artistryResult = await generateHeadless({
@@ -93,7 +96,7 @@ async function executeCreateImageJournalEntry(params: { prompt?: string, title?:
     const entryId = await backgroundStore.addBackground('journal', blob, title, params.prompt, cardStore.activeCardId)
 
     // Handle Application Logic based on Mode
-    if (mode === 'bg') {
+    if (mode === 'bg' || mode === 'bg_widget') {
       const cardId = cardStore.activeCardId
       if (cardId) {
         const card = cardStore.cards.get(cardId)
@@ -108,7 +111,8 @@ async function executeCreateImageJournalEntry(params: { prompt?: string, title?:
         }
       }
     }
-    else if (mode === 'widget') {
+
+    if (mode === 'widget' || mode === 'bg_widget') {
       try {
         await addWidget({
           componentName: 'artistry',
@@ -199,7 +203,7 @@ async function executeImageJournalAction(params: any) {
 const tools: Promise<Tool>[] = [
   tool({
     name: 'image_journal',
-    description: 'Manage AI-generated images. Use "create" with a "mode" (inline, widget, bg) to generate and display images. Use "apply" to switch to an existing image from the journal.',
+    description: 'Manage AI-generated images. Use "create" to generate and display images. An optional "mode" (inline, widget, bg, bg_widget) can override the default character routing preference. Use "apply" to switch to an existing image from the journal.',
     execute: params => executeImageJournalAction(params),
     parameters: imageJournalParams,
   }),

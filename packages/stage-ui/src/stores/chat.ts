@@ -268,7 +268,33 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       void artistryAutonomousStore.runArtistTask(sendingMessage, sessionMessagesForSend as any)
       // --------------------------------
 
-      let inferenceMessages = [...sessionMessagesForSend, inferenceUserMessage]
+      let inferenceMessages: any[] = []
+
+      // --- Grounding Injection ---
+      // If grounding is enabled, we sync sensors and inject the current environmental payload
+      // as a system message right before the user's latest input.
+      if (activeCard.value?.extensions?.airi?.groundingEnabled) {
+        chatLog('Grounding active. Syncing sensors...')
+        await proactivityStore.updateSensors()
+
+        const sensorPayload = proactivityStore.sensorPayload
+        const groundingMessage: any = {
+          role: 'system',
+          content: `[ENVIRONMENTAL AWARENESS]\nThe following telemetry describes your current environmental context. Use it to stay grounded in the user's reality and inform your response. You may reference specific values (like time or active applications) if relevant to the conversation, but avoid a dry, technical recitation of the data.\n---\n${sensorPayload}`,
+        }
+
+        // Inject right before the user message (last element)
+        const lastIndex = sessionMessagesForSend.length
+        const nextInferenceMessages = [...sessionMessagesForSend, inferenceUserMessage]
+        nextInferenceMessages.splice(lastIndex, 0, groundingMessage)
+        chatLog('Grounding payload injected into inference step.')
+
+        inferenceMessages = nextInferenceMessages
+      }
+      else {
+        inferenceMessages = [...sessionMessagesForSend, inferenceUserMessage]
+      }
+      // ----------------------------
 
       // For VLM turns, trim history to save context/tokens.
       // Rule: System Message + last 6 conversation messages + current user input.
@@ -824,14 +850,28 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       console.error('Error sending message:', { sessionId, generation, error })
 
       let errorMessage = 'An unknown error occurred.'
+      let technicalDetail = ''
+
       if (error && typeof error === 'object') {
         errorMessage = error.message || 'An object error occurred.'
 
         // Handle XSAIError or similar with response/data info
         try {
-          const detail = error.response || error.data || error.body
+          const detail = error.response || error.data || error.body || (error.cause as any)?.response
           if (detail) {
-            errorMessage += `\n\n**Response**: ${JSON.stringify(detail, null, 2)}`
+            technicalDetail = typeof detail === 'string' ? detail : JSON.stringify(detail, null, 2)
+          }
+
+          // Best effort: if message itself contains JSON (common in 429s), extract it
+          if (errorMessage.includes('{') && errorMessage.includes('}')) {
+            const potentialJson = errorMessage.substring(errorMessage.indexOf('{'), errorMessage.lastIndexOf('}') + 1)
+            try {
+              const parsed = JSON.parse(potentialJson)
+              technicalDetail = JSON.stringify(parsed, null, 2)
+              // Strip the JSON from the main message for cleaner display
+              errorMessage = errorMessage.replace(potentialJson, '').trim()
+            }
+            catch {}
           }
         }
         catch {}
@@ -840,8 +880,15 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         errorMessage = String(error)
       }
 
-      // Display in UI
-      buildingMessage.content += `${buildingMessage.content ? '\n\n' : ''}⚠️ **Chat Error**\n${errorMessage}`
+      const fullErrorDisplay = `⚠️ **Chat Error**\n\n${errorMessage}${technicalDetail ? `\n\n**Technical Details**:\n\`\`\`json\n${technicalDetail}\n\`\`\`` : ''}`
+
+      // Display in UI: Update content for history AND slices for immediate rendering
+      buildingMessage.content += `${buildingMessage.content ? '\n\n' : ''}${fullErrorDisplay}`
+      buildingMessage.slices.push({
+        type: 'text',
+        text: fullErrorDisplay,
+      })
+
       updateUI()
 
       // Persist to session history if not stale

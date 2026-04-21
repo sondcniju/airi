@@ -23,7 +23,7 @@ async function processContent() {
   }
 
   const sample = props.content.slice(0, 10).split('').map(c => `${c} (0x${c.charCodeAt(0).toString(16)})`).join(', ')
-  console.debug(`[MarkdownRenderer] Healing input (sample: ${sample})...`)
+  // console.debug(`[MarkdownRenderer] Healing input (sample: ${sample})...`)
 
   let healed = healMozibake(props.content)
 
@@ -49,11 +49,11 @@ async function processContent() {
   }
 
   if (healed !== props.content) {
-    console.debug('[MarkdownRenderer] Scrambled Unicode healed successfully.')
+    // console.debug('[MarkdownRenderer] Scrambled Unicode healed successfully.')
   }
   else {
     // If it's still scrambled but healing failed, log the actual codes
-    console.debug('[MarkdownRenderer] No changes made by healer.')
+    // console.debug('[MarkdownRenderer] No changes made by healer.')
   }
 
   try {

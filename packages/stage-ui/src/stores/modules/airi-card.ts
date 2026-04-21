@@ -128,6 +128,7 @@ export interface AiriExtension {
     model?: string
     promptPrefix?: string
     widgetInstruction?: string
+    spawnMode?: 'bg' | 'widget' | 'inline' | 'bg_widget'
     options?: Record<string, any>
     autonomousEnabled?: boolean
     autonomousThreshold?: number
@@ -492,6 +493,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       artistry: {
         ...existingExtension.artistry,
         widgetInstruction: existingExtension.artistry?.widgetInstruction ?? defaultArtistry.widgetInstruction,
+        spawnMode: existingExtension.artistry?.spawnMode ?? 'bg_widget',
         autonomousEnabled: existingExtension.artistry?.autonomousEnabled ?? false,
         autonomousThreshold: existingExtension.artistry?.autonomousThreshold ?? 70,
       },

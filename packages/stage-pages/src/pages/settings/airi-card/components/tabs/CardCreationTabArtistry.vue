@@ -16,12 +16,19 @@ const selectedArtistryPromptPrefix = defineModel<string>('selectedArtistryPrompt
 const selectedArtistryWidgetInstruction = defineModel<string>('selectedArtistryWidgetInstruction', { required: true })
 const selectedArtistryAutonomousEnabled = defineModel<boolean>('selectedArtistryAutonomousEnabled', { required: true })
 const selectedArtistryAutonomousThreshold = defineModel<number>('selectedArtistryAutonomousThreshold', { required: true })
+const selectedArtistrySpawnMode = defineModel<'bg' | 'widget' | 'inline' | 'bg_widget'>('selectedArtistrySpawnMode', { required: true })
 const selectedArtistryConfigStr = defineModel<string>('selectedArtistryConfigStr', { required: true })
 
 const { t } = useI18n()
 
 const artistryStore = useArtistryStore()
 const comfyuiWorkflows = computed(() => artistryStore.comfyuiSavedWorkflows || [])
+const spawnModeOptions = computed(() => [
+  { value: 'bg', label: t('settings.pages.modules.artistry.spawn_mode.options.bg') },
+  { value: 'inline', label: t('settings.pages.modules.artistry.spawn_mode.options.inline') },
+  { value: 'widget', label: t('settings.pages.modules.artistry.spawn_mode.options.widget') },
+  { value: 'bg_widget', label: t('settings.pages.modules.artistry.spawn_mode.options.bg_widget') },
+])
 
 function handleModelSelect(model: any) {
   selectedArtistryModel.value = model.id
@@ -166,6 +173,21 @@ function openReplicateModel() {
           :placeholder="defaultArtistryProviderPlaceholder"
           class="w-full"
         />
+      </div>
+
+      <div :class="['flex', 'flex-col', 'gap-2']">
+        <label :class="['flex', 'flex-row', 'items-center', 'gap-2', 'text-sm', 'text-neutral-500', 'dark:text-neutral-400']">
+          <div i-solar:route-bold-duotone />
+          {{ t('settings.pages.modules.artistry.spawn_mode.label') }}
+        </label>
+        <Select
+          v-model="selectedArtistrySpawnMode"
+          :options="spawnModeOptions"
+          class="w-full"
+        />
+        <p :class="['text-[10px]', 'text-neutral-400', 'px-1']">
+          {{ t('settings.pages.modules.artistry.spawn_mode.description') }}
+        </p>
       </div>
 
       <div v-if="selectedArtistryProvider === 'replicate'" class="grid grid-cols-3 mb-2 gap-3">

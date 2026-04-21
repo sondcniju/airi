@@ -85,8 +85,16 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
   }
 
   async function getDisplayModel(id: string) {
+    if (displayModelsFromIndexedDBLoading.value) {
+      console.warn('[PipelineTTS:Models] getDisplayModel called while loading is TRUE, waiting...', { id })
+    }
     await until(displayModelsFromIndexedDBLoading).toBe(false)
-    const modelFromFile = await localforage.getItem<DisplayModelFile>(id)
+
+    console.log('[PipelineTTS:Models] Accessing localforage for:', id)
+    const modelFromFile = await localforage.getItem<DisplayModelFile>(id).catch((err) => {
+      console.error('[PipelineTTS:Models] localforage.getItem FAILED:', err)
+      return null
+    })
     if (modelFromFile) {
       return modelFromFile
     }

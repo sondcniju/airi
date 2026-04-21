@@ -69,14 +69,14 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
   }
 
   async function initialize() {
-    console.log('[Context Bridge] Initializing...')
+    console.log('[PipelineTTS:Bridge] Initializing...')
     if (isInitialized.value) {
       console.log('[Context Bridge] Already initialized, skipping.')
       return
     }
-    console.log('[Context Bridge] Acquiring mutex...')
+    console.log('[PipelineTTS:Bridge] Acquiring mutex...')
     await mutex.acquire()
-    console.log('[Context Bridge] Mutex acquired.')
+    console.log('[PipelineTTS:Bridge] Mutex acquired.')
 
     try {
       let isProcessingRemoteStream = false
@@ -222,11 +222,11 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
         }),
         chatOrchestrator.onTokenLiteral(async (literal, context) => {
           if (isProcessingRemoteStream) {
-            // console.debug('[Context Bridge] Skipping broadcast of token-literal (remote stream in progress)')
+            // console.debug('[PipelineTTS:Bridge] Skipping broadcast of token-literal (remote stream in progress)')
             return
           }
 
-          console.log('[Context Bridge] Broadcasting token-literal', { literal })
+          console.log(`[PipelineTTS:Bridge] Broadcasting token-literal in ${window.location.hash || 'main'}`, { literal: literal.slice(0, 50) })
           broadcastStreamEvent({ type: 'token-literal', literal, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
         }),
         chatOrchestrator.onTokenSpecial(async (special, context) => {
@@ -298,7 +298,7 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
         if (!event)
           return
 
-        console.log('[Context Bridge] Received remote stream event:', event.type)
+        console.log(`[PipelineTTS:Bridge] RECEIVED BROADCAST in ${window.location.hash || 'main'}:`, event.type)
         isProcessingRemoteStream = true
 
         try {
@@ -386,11 +386,11 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
       })
       disposeHookFns.value.push(stopIncomingStreamWatch)
 
-      console.log('[Context Bridge] Initialization complete. Registered hooks:', disposeHookFns.value.length)
+      console.log(`[PipelineTTS:Bridge] Initialization complete in ${window.location.hash || 'main'}. Registered hooks: ${disposeHookFns.value.length}`)
       isInitialized.value = true
     }
     catch (e) {
-      console.error('[Context Bridge] Initialization failed:', e)
+      console.error('[PipelineTTS:Bridge] Initialization failed:', e)
       isInitialized.value = false
     }
     finally {

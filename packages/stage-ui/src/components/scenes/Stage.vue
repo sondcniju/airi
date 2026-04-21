@@ -676,11 +676,21 @@ chatHookCleanups.push(onBeforeSend(async () => {
 }))
 
 chatHookCleanups.push(onTokenLiteral(async (literal) => {
+  const orchestrator = useChatOrchestratorStore()
   const intent = ensureSpeechIntent()
+  if (import.meta.env.DEV) {
+    console.log('[PipelineTTS:Stage] onTokenLiteral triggered:', {
+      hash: window.location.hash,
+      hasIntent: !!intent,
+      intentId: intent?.intentId,
+      literalPreview: literal.slice(0, 10),
+    })
+  }
+
   if (!intent)
     return
   currentChatIntentReceivedLiteral.value = true
-  console.log('[Stage] onTokenLiteral -> forwarding to speech', {
+  console.log('[PipelineTTS:Stage] onTokenLiteral -> forwarding to speech', {
     intentId: intent.intentId,
     length: literal.length,
     preview: literal.slice(0, 120),

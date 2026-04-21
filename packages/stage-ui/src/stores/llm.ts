@@ -201,12 +201,21 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
 
       // We MUST catch all promises returned by streamText to ensure the main promise settles
       // and to prevent "Uncaught (in promise)" errors if the initial handshake fails (e.g. 429).
+      // We prioritize result.messages for primary settlement, but ensure any step error
+      // that occurs before the first message also triggers a rejection.
       void result.messages.then(() => resolveOnce()).catch((err) => {
         rejectOnce(err)
         console.error('Stream messages error:', err)
       })
-      void result.steps.catch(err => console.error('Stream steps error:', err))
+
+      void result.steps.catch((err) => {
+        // If the stream steps fail before messages settle, propagate it.
+        rejectOnce(err)
+        console.error('Stream steps error:', err)
+      })
+
       void result.usage.catch(err => console.error('Stream usage error:', err))
+
       void result.totalUsage.then((usage) => {
         if (usage) {
           onEvent({ type: 'usage', usage })

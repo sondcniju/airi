@@ -8,6 +8,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { captionGetIsFollowingWindow, captionIsFollowingWindowChanged } from '../../shared/eventa'
 
 const attached = ref(true)
+const scrollContainer = ref<HTMLElement | null>(null)
 const settingsStore = useSettings()
 const speakerText = ref('') // NOTICE: do NOT add 'caption-speaker' or user speech to captions. This is intentionally AI-only.
 const assistantText = ref('')
@@ -99,6 +100,16 @@ onMounted(async () => {
   catch {}
 })
 
+// Auto-scroll to bottom when text changes
+watch(assistantText, () => {
+  if (scrollContainer.value) {
+    scrollContainer.value.scrollTo({
+      top: scrollContainer.value.scrollHeight,
+      behavior: 'smooth',
+    })
+  }
+})
+
 const containerStyle = computed(() => ({
   backgroundColor: `rgba(0, 0, 0, ${settingsStore.captionOpacity / 100})`,
   transform: `scale(${settingsStore.captionFontSize / 100})`,
@@ -115,8 +126,9 @@ const containerStyle = computed(() => ({
   >
     <!-- Content Wrapper (Clean) -->
     <div
+      ref="scrollContainer"
       :class="[
-        'w-full h-full flex justify-center',
+        'w-full h-full flex justify-center overflow-y-auto scrollbar-hide',
         settingsStore.captionDocking === 'top' ? 'items-start pt-1' : 'items-end pb-1',
       ]"
     >
@@ -125,7 +137,7 @@ const containerStyle = computed(() => ({
           (!settingsStore.showCaptions || shouldFadeOnCursorWithin) ? 'op-0' : 'op-100',
           'pointer-events-auto relative select-none rounded-xl px-3 py-2',
           'backdrop-blur-sm',
-          'transition-all duration-300 ease-in-out',
+          'transition-all duration-300 ease-in-out my-2',
         ]"
         :style="containerStyle"
       >
@@ -186,6 +198,13 @@ const containerStyle = computed(() => ({
 </template>
 
 <style scoped>
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 </style>
 
 <route lang="yaml">

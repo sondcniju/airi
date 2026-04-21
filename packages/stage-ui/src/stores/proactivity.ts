@@ -873,6 +873,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
     totalTurns,
     nextMilestone,
     incrementMetric,
+    updateSensors,
     sensorPayload,
     idleTimeSec,
     activeWinStr,

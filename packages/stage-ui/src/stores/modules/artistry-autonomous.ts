@@ -8,6 +8,7 @@ import { ref, toRaw } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { useBackgroundStore } from '../background'
+import { useChatSessionStore } from '../chat/session-store'
 import { useLLM } from '../llm'
 import { useProvidersStore } from '../providers'
 import { useAiriCardStore } from './airi-card'
@@ -23,6 +24,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
   const artistryStore = useArtistryStore()
   const consciousnessStore = useConsciousnessStore()
   const providersStore = useProvidersStore()
+  const chatSessionStore = useChatSessionStore()
 
   const isProcessing = ref(false)
 
@@ -116,6 +118,9 @@ Output EXACTLY this JSON format and nothing else:
       if (!chatProvider) {
         throw new Error(`Failed to resolve chat provider instance for: ${providerId}`)
       }
+
+      // NOTICE: Artificial 10s delay requested by user for sync/testing
+      await new Promise(resolve => setTimeout(resolve, 10000))
 
       // 2. Call LLM (Non-streaming for structured data)
       const response = await llmStore.generate(modelId, chatProvider, messages)
@@ -211,38 +216,96 @@ Output EXACTLY this JSON format and nothing else:
           const entryId = await backgroundStore.addBackground('journal', blob, analysis.title || 'Autonomous Scene', analysis.prompt, cardId)
           artistLog('Generation complete and added to journal.', { entryId })
 
-          // Update character's active background to the new entry
-          cardStore.updateCard(cardId, {
-            extensions: {
-              ...activeCard.extensions,
-              airi: {
-                ...activeCard.extensions.airi,
-                modules: {
-                  ...activeCard.extensions.airi.modules,
-                  activeBackgroundId: entryId,
-                },
-              },
-            },
-          } as any)
+          // 5. Route based on spawnMode
+          const spawnMode = artistry.spawnMode || 'bg_widget'
+          artistLog(`Routing image with mode: ${spawnMode}`)
 
-          // 5. Trigger widget for visibility
-          try {
-            await invokers.addWidget({
-              componentName: 'artistry',
-              componentProps: {
-                status: 'done',
-                entryId,
-                imageUrl: result.imageUrl || result.base64,
-                prompt: analysis.prompt,
-                title: analysis.title || 'Autonomous Scene',
-                _skipIngestion: true,
-              },
-              size: 'm',
-              ttlMs: 0,
-            })
-          }
-          catch (widgetErr) {
-            console.warn('[AutonomousArtist] Failed to spawn Result widget', widgetErr)
+          switch (spawnMode) {
+            case 'bg':
+              // Update character's active background
+              cardStore.updateCard(cardId, {
+                extensions: {
+                  ...activeCard.extensions,
+                  airi: {
+                    ...activeCard.extensions.airi,
+                    modules: {
+                      ...activeCard.extensions.airi.modules,
+                      activeBackgroundId: entryId,
+                    },
+                  },
+                },
+              } as any)
+              break
+
+            case 'inline': {
+              const imageUrl = result.imageUrl || result.base64
+              const content = `![${analysis.title || 'Generated Image'}](${imageUrl})`
+              chatSessionStore.inscribeTurn({
+                role: 'assistant',
+                content,
+                slices: [{ type: 'text', text: content }],
+                tool_results: [],
+                createdAt: Date.now(),
+              })
+              break
+            }
+
+            case 'widget':
+              try {
+                await invokers.addWidget({
+                  componentName: 'artistry',
+                  componentProps: {
+                    status: 'done',
+                    entryId,
+                    imageUrl: result.imageUrl || result.base64,
+                    prompt: analysis.prompt,
+                    title: analysis.title || 'Autonomous Scene',
+                    _skipIngestion: true,
+                  },
+                  size: 'm',
+                  ttlMs: 0,
+                })
+              }
+              catch (widgetErr) {
+                console.warn('[AutonomousArtist] Failed to spawn Result widget', widgetErr)
+              }
+              break
+
+            case 'bg_widget':
+            default:
+              // Both: Update background AND spawn widget
+              cardStore.updateCard(cardId, {
+                extensions: {
+                  ...activeCard.extensions,
+                  airi: {
+                    ...activeCard.extensions.airi,
+                    modules: {
+                      ...activeCard.extensions.airi.modules,
+                      activeBackgroundId: entryId,
+                    },
+                  },
+                },
+              } as any)
+
+              try {
+                await invokers.addWidget({
+                  componentName: 'artistry',
+                  componentProps: {
+                    status: 'done',
+                    entryId,
+                    imageUrl: result.imageUrl || result.base64,
+                    prompt: analysis.prompt,
+                    title: analysis.title || 'Autonomous Scene',
+                    _skipIngestion: true,
+                  },
+                  size: 'm',
+                  ttlMs: 0,
+                })
+              }
+              catch (widgetErr) {
+                console.warn('[AutonomousArtist] Failed to spawn Result widget', widgetErr)
+              }
+              break
           }
         }
       }
