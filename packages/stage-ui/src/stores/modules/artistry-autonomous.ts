@@ -72,6 +72,12 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
     artistLog('Starting analysis task...', { threshold, cardId, target })
 
     try {
+      // 0. Guard: If the text is empty, skip analysis (Director cannot analyze silence)
+      if (!inputText || inputText.trim() === '') {
+        artistLog('Skipping analysis: Input text is empty.')
+        return
+      }
+
       // 1. Compose the "Director" prompt based on target
       const systemPrompt = target === 'assistant'
         ? `You are the Cinematic Director for AIRI. 
@@ -110,24 +116,32 @@ Output EXACTLY this JSON format and nothing else:
   "title": "Short descriptive title for the scene"
 }`
 
-      // Prepare context: last 3 turns of history for scene consistency
+      // 2. Rollup history and text into a single prompt to help the LLM "see" the full context
       const recentHistory = history.slice(-3)
+      const historyText = recentHistory.map(m => `[${m.role === 'assistant' ? 'Companion' : 'User'}]: ${m.content}`).join('\n\n')
+
+      const analysisPrompt = `Consider the recent history between the user and the character for context and inspiration, then analyze the latest ${target === 'assistant' ? 'response from the companion' : 'input from the user'} to decide if a visual manifestation is needed.
+
+--- 
+CONTEXT HISTORY:
+${historyText || '(No previous history)'}
+
+---
+LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
+"${inputText}"`
+
       const messages: Message[] = [
         { role: 'system', content: systemPrompt },
-        ...recentHistory,
         {
           role: 'user',
-          content: `Task: Analyze the following ${target === 'assistant' ? 'response from the companion' : 'input from the user'} to decide if a visual manifestation is needed.
-
-${target === 'assistant' ? 'Companion Response' : 'User Input'}:
-"${inputText}"`,
+          content: analysisPrompt,
         },
       ]
 
       const modelId = consciousnessStore.activeModel
       const providerId = consciousnessStore.activeProvider
 
-      artistLog('Sending prompt to Director LLM...', {
+      artistLog('Sending rolled-up prompt to Director LLM...', {
         model: modelId,
         provider: providerId,
         historyCount: recentHistory.length,

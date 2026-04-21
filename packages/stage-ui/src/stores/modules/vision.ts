@@ -250,9 +250,9 @@ export const useVisionStore = defineStore('vision', () => {
   }
 
   // Self-healing: Reset active provider if it no longer exists
-  watch(activeProvider, (newVal) => {
-    if (newVal && !providersStore.providerMetadata[newVal]) {
-      console.warn(`[Vision] Provider ${newVal} no longer exists. Resetting.`)
+  watch(activeProvider, () => {
+    if (Object.keys(providersStore.providerMetadata).length > 0 && activeProvider.value && !providersStore.providerMetadata[activeProvider.value]) {
+      console.warn(`[Vision] Provider ${activeProvider.value} no longer exists. Resetting.`)
       activeProvider.value = ''
       resetModelSelection()
     }
