@@ -1,6 +1,6 @@
-# Windows Stable Release & Build Guide
+# Stable Release & Build Guide
 
-This document captures the specific technical steps required to successfully build and release stable versions of the AIRI Electron application on Windows.
+This document captures the lessons learned and the specific technical steps required to successfully build and release stable versions of the AIRI Electron application, particularly focusing on overcoming environment-related build failures.
 
 ## 1. Release Workflow
 
@@ -10,47 +10,82 @@ Update the `version` in `apps/stage-tamagotchi/package.json`. Follow the format:
 ### Step 2: Local Tagging
 Create a git tag matching the version (with a `v` prefix) and push it to your fork or upstream:
 ```bash
-git tag v[version]
-git push origin v[version]
+git tag v0.9.0-stable.20260321
+git push origin v0.9.0-stable.20260321
 ```
 
 ### Step 3: Generate Release Notes
+Do not use generic or placeholder notes. Analyze the changes and generate a **user-facing** summary.
+
 1. **Compare Hashes**: Look at all commits between the previous stable tag and `HEAD`:
    ```bash
    git log [previous-tag]..HEAD --oneline
    ```
-2. **Draft Summary**: Focus on outward-facing user features (e.g., new buttons, UI improvements, stability wins).
-3. **Save to File**: Save to `release-notes.md`.
+2. **Draft Summary**: Focus on outward-facing user features (e.g., new buttons, UI improvements, stability wins) rather than internal technical refactors.
+3. **Save to File**: Save the notes into a temporary `.md` file (e.g., `release-notes.md`) to be used during the publish step.
 
 ### Step 4: Build Windows Executable
 Execute the build command from the `stage-tamagotchi` workspace:
 ```bash
 pnpm -F @proj-airi/stage-tamagotchi run build:win
 ```
-This runs `electron-builder --win` and generates a `.exe` setup file in `dist`.
+This runs `electron-builder --win` after performing necessary typechecks and production builds for main/renderer/preload.
 
 ### Step 5: Publish to GitHub Releases
-Use the `gh` CLI to create the release and upload the asset.
+Use the `gh` CLI to create the release and upload the asset, using the `--notes-file` argument for your drafted notes.
 
 **Daily / Development Release (Target your fork):**
 ```bash
-gh release create [tag] apps/stage-tamagotchi/dist/AIRI-[version]-windows-x64-setup.exe --repo [your-fork] --title "AIRI [version]" --notes-file release-notes.md
+gh release create v0.9.1-stable.20260408 apps/stage-tamagotchi/dist/AIRI-0.9.1-stable.20260408-windows-x64-setup.exe --repo dasilva333/airi --title "AIRI v0.9.1-stable (April 8, 2026)" --notes-file release-notes.md
 ```
 
 **Stable Release (Target upstream):**
+Only target the upstream repository if you have write access and are performing an official release.
 ```bash
-gh release create [tag] apps/stage-tamagotchi/dist/AIRI-[version]-windows-x64-setup.exe --repo moeru-ai/airi --title "AIRI [version]" --notes-file release-notes.md
+gh release create [tag] [artifact_path] --repo moeru-ai/airi --title "[Title]" --notes "[Notes]"
 ```
+
+> [!IMPORTANT]
+> **Authentication Scope**: Ensure your `gh` CLI session has the `workflow` scope. This is required for creating releases. If you see a "Failed to create release" error despite having permissions, run:
+> `gh auth refresh -h github.com -s workflow`
 
 ---
 
-## 2. Technical Lessons Learned
+## 2. Lessons Learned: Environment Conflicts
 
 ### The `node:crypto` Renderer Error
-Electron renderer processes are browser environments. Map Node-specific packages to browser equivalents in `electron.vite.config.ts` or use shims (e.g., `apps/stage-tamagotchi/src/renderer/shims/node-crypto.ts`).
+Electron renderer processes are browser environments. Many modern dependencies (like `@noble/hashes` or `better-auth`) accidentally pull in Node.js-specific bundles in production builds.
+
+**Symptoms:**
+- `Uncaught Error: Module "node:crypto" has been externalized for browser compatibility.`
+- `Cannot access "node:crypto.webcrypto" in client code.`
+
+**Solution:**
+1. **Force Browser Aliases**: Map Node-specific packages to their browser equivalents in `electron.vite.config.ts`.
+2. **Custom Shimming**: Implement a virtual `node:crypto` shim (e.g., `apps/stage-tamagotchi/src/renderer/shims/node-crypto.ts`) that maps `node:crypto.webcrypto` to `window.crypto`.
 
 ### DuckDB Environment Leakage
-Use the custom Vite plugin to redirect WASM loaders to browser-specific bundles.
+`@proj-airi/duckdb-wasm` (and its dependencies) may attempt to load Node.js-specific WASM loaders or bundles even in the renderer.
+
+**Solution:**
+Use a custom Vite plugin (e.g., `force-node-crypto-shim` in our config) to intercept `resolveId` and redirected any path like `bundles/default-node` to `bundles/default-browser`.
 
 ### Global Module Shimming
-Ensure imports starting with `node:` are caught and redirected to safe shims in the renderer bundle.
+To prevent "leakage" of Node.js modules like `process`, `module`, and `path` into the renderer bundle:
+1. Use the custom Vite plugin to catch imports starting with `node:` or common Node-only module names.
+2. Redirect them to a virtual empty module or a safe constant-only shim.
+
+---
+
+## 3. Resilient Builds
+
+To avoid build failures due to transient network issues (e.g., downloading VRM models or fonts):
+- Use the `resilient` wrapper (found in `packages/stage-shared/src/ts/resilient.ts`) in build-time download plugins or scripts.
+- This provides automatic retries and ensures the build can continue if at least one critical asset is present.
+
+---
+
+## 4. Troubleshooting
+
+- **Alias Conflicts**: If an alias doesn't work, it might be due to relative path resolution within `node_modules`. Use **regex aliases** in Vite configuration to catch all variations.
+- **Typecheck Failures**: If adding an alias breaks typechecks, ensure the shim file exports types compatible with the original module, or use `// @ts-ignore` sparingly in the shim itself.

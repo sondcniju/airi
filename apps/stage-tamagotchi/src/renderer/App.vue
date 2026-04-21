@@ -155,7 +155,7 @@ onMounted(async () => {
   // before any potentially blocking or slow subsystems (like models or server channels) are started.
   // This prevents a hang in a high-level service from "deafening" the window to token broadcasts.
   logStep('Initializing context bridge')
-  await contextBridgeStore.initialize().catch(err => console.error('[PipelineTTS:App] FAILED context bridge init:', err))
+  await contextBridgeStore.initialize().catch((err: any) => console.error('[PipelineTTS:App] FAILED context bridge init:', err))
 
   proactivityStore.registerTools(builtinTools)
   proactivityStore.startHeartbeatLoop()
@@ -174,11 +174,11 @@ onMounted(async () => {
   logStep('Loading display models')
   await displayModelsStore.loadDisplayModelsFromIndexedDB()
   logStep('Initializing stage model')
-  await settingsStore.initializeStageModel().catch(err => console.error('[PipelineTTS:App] FAILED stage model init:', err))
+  await settingsStore.initializeStageModel().catch((err: any) => console.error('[PipelineTTS:App] FAILED stage model init:', err))
   logStep('Stage model initialized')
 
   logStep('Requesting server channel config')
-  const serverChannelConfig = await getServerChannelConfig().catch((err) => {
+  const serverChannelConfig = await getServerChannelConfig().catch((err: any) => {
     console.error('[PipelineTTS:App] FAILED server channel config:', err)
     return {} as any
   })
@@ -188,13 +188,13 @@ onMounted(async () => {
   serverChannelSettingsStore.hostname = serverChannelConfig.hostname
 
   logStep('Initializing server channel store')
-  await serverChannelStore.initialize({ possibleEvents: ['ui:configure'] }).catch(err => console.error('[PipelineTTS:App] FAILED server channel store init:', err))
+  await serverChannelStore.initialize({ possibleEvents: ['ui:configure'] }).catch((err: any) => console.error('[PipelineTTS:App] FAILED server channel store init:', err))
 
   logStep('Initializing character orchestrator')
   characterOrchestratorStore.initialize()
 
   logStep('Starting cursor tracking')
-  await startTrackingCursorPoint().catch(err => console.error('[PipelineTTS:App] FAILED cursor tracking init:', err))
+  await startTrackingCursorPoint().catch((err: any) => console.error('[PipelineTTS:App] FAILED cursor tracking init:', err))
   logStep('App Startup Complete')
   // Startup initialization complete
 

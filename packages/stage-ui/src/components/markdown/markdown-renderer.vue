@@ -22,7 +22,7 @@ async function processContent() {
     return
   }
 
-  const sample = props.content.slice(0, 10).split('').map(c => `${c} (0x${c.charCodeAt(0).toString(16)})`).join(', ')
+  // const sample = props.content.slice(0, 10).split('').map(c => `${c} (0x${c.charCodeAt(0).toString(16)})`).join(', ')
   // console.debug(`[MarkdownRenderer] Healing input (sample: ${sample})...`)
 
   let healed = healMozibake(props.content)

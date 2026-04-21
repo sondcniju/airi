@@ -225,8 +225,12 @@ export function setupCaptionWindowManager(params: {
     else {
       windows.push(captionEntry)
     }
-
-    params.appConfig.update({ ...appConfig, windows })
+    params.appConfig.update({
+      ...appConfig,
+      language: appConfig?.language ?? 'en',
+      microphoneToggleHotkey: appConfig?.microphoneToggleHotkey ?? 'Scroll',
+      windows,
+    })
   }
 
   function applyBounds(win: BrowserWindow, bounds: Rectangle, options: { programmatic?: boolean, resizable?: boolean } = {}) {

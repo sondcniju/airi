@@ -676,7 +676,7 @@ chatHookCleanups.push(onBeforeSend(async () => {
 }))
 
 chatHookCleanups.push(onTokenLiteral(async (literal) => {
-  const orchestrator = useChatOrchestratorStore()
+  // const orchestrator = useChatOrchestratorStore()
   const intent = ensureSpeechIntent()
   if (import.meta.env.DEV) {
     console.log('[PipelineTTS:Stage] onTokenLiteral triggered:', {
