@@ -88,6 +88,7 @@ const selectedArtistryPromptPrefix = ref<string>('')
 const selectedArtistryWidgetInstruction = ref<string>('')
 const selectedArtistryAutonomousEnabled = ref<boolean>(false)
 const selectedArtistryAutonomousThreshold = ref<number>(70)
+const selectedArtistryAutonomousTarget = ref<'user' | 'assistant'>('user')
 const selectedArtistrySpawnMode = ref<'bg' | 'widget' | 'inline' | 'bg_widget'>('bg_widget')
 const selectedArtistryConfigStr = ref<string>('{\n  \n}')
 const generationEnabled = ref<boolean>(false)
@@ -576,6 +577,7 @@ async function saveCard(card: Card): Promise<boolean> {
     spawnMode: selectedArtistrySpawnMode.value,
     autonomousEnabled: selectedArtistryAutonomousEnabled.value,
     autonomousThreshold: selectedArtistryAutonomousThreshold.value,
+    autonomousTarget: selectedArtistryAutonomousTarget.value,
     options: (() => {
       try {
         return selectedArtistryConfigStr.value.trim() ? JSON.parse(selectedArtistryConfigStr.value) : undefined
@@ -622,6 +624,7 @@ function initializeCard(): Card {
   selectedArtistryWidgetInstruction.value = airiExt?.artistry?.widgetInstruction || DEFAULT_ARTISTRY_WIDGET_INSTRUCTION
   selectedArtistryAutonomousEnabled.value = airiExt?.artistry?.autonomousEnabled ?? false
   selectedArtistryAutonomousThreshold.value = airiExt?.artistry?.autonomousThreshold ?? 70
+  selectedArtistryAutonomousTarget.value = airiExt?.artistry?.autonomousTarget ?? 'user'
   selectedArtistrySpawnMode.value = airiExt?.artistry?.spawnMode ?? 'bg_widget'
   generationEnabled.value = airiExt?.generation?.enabled ?? false
   generationProvider.value = airiExt?.generation?.provider || airiExt?.modules?.consciousness?.provider || consciousnessProvider.value
@@ -873,6 +876,7 @@ function getDefaultPlaceholder(defaultValue: string | undefined): string {
             v-model:selected-artistry-widget-instruction="selectedArtistryWidgetInstruction"
             v-model:selected-artistry-autonomous-enabled="selectedArtistryAutonomousEnabled"
             v-model:selected-artistry-autonomous-threshold="selectedArtistryAutonomousThreshold"
+            v-model:selected-artistry-autonomous-target="selectedArtistryAutonomousTarget"
             v-model:selected-artistry-spawn-mode="selectedArtistrySpawnMode"
             v-model:selected-artistry-config-str="selectedArtistryConfigStr"
             :artistry-provider-options="artistryProviderOptions"

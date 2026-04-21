@@ -46,23 +46,22 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
   }
 
   /**
-   * Analyzes the user input in parallel and triggers a visual if threshold is met.
+   * Analyzes the context in parallel and triggers a visual if threshold is met.
    */
-  async function runArtistTask(userInput: string, history: Message[] = []) {
+  async function runArtistTask(inputText: string, history: Message[] = [], targetOverride?: 'user' | 'assistant') {
     const { activeCard } = cardStore
-    const autonomousEnabled = activeCard?.extensions?.airi?.artistry?.autonomousEnabled ?? false
+    const artistry = activeCard?.extensions?.airi?.artistry
+    const autonomousEnabled = artistry?.autonomousEnabled ?? false
+    const target = targetOverride || artistry?.autonomousTarget || 'user'
+
     artistLog('Triggered runArtistTask. State:', {
       cardId: cardStore.activeCardId,
       cardName: activeCard?.name,
       autonomousEnabled,
+      target,
     })
 
-    if (!activeCard) {
-      return
-    }
-
-    const artistry = activeCard.extensions?.airi?.artistry
-    if (!autonomousEnabled || !artistry) {
+    if (!activeCard || !artistry || !autonomousEnabled) {
       return
     }
 
@@ -70,11 +69,30 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
     const cardId = cardStore.activeCardId
 
     isProcessing.value = true
-    artistLog('Starting analysis task...', { threshold, cardId })
+    artistLog('Starting analysis task...', { threshold, cardId, target })
 
     try {
-      // 1. Compose the "Director" prompt
-      const systemPrompt = `You are the Cinematic Director for AIRI. 
+      // 1. Compose the "Director" prompt based on target
+      const systemPrompt = target === 'assistant'
+        ? `You are the Cinematic Director for AIRI. 
+Your job is to analyze the character's response and reaction to the user, and decide if it warrants a visual manifestation (a generative image).
+Manifestation is warranted for:
+- Descriptions of beautiful scenery or environment changes in the response
+- Expressive emotional reactions or body language from the character
+- Direct mentions of food, items, or gifts in the narrative
+- Narrative actions that would look stunning as a manga/anime scene
+- Changes in the character's clothing or appearance
+
+Character Personality: ${activeCard.personality}
+
+Output EXACTLY this JSON format and nothing else:
+{
+  "reasoning": "Quick explanation of why this reaction warrants/doesn't warrant a visual",
+  "intensity": 0-100,
+  "prompt": "Highly detailed, illustrative prompt for the image generator capturing the character's reaction and scene. Use Mori's style (masterpiece, high quality, manga style, intricate details)",
+  "title": "Short descriptive title for the scene"
+}`
+        : `You are the Cinematic Director for AIRI. 
 Your job is to analyze the user's input and decide if it warrants a visual manifestation (a generative image).
 Manifestation is warranted for:
 - Descriptions of beautiful scenery or environment changes
@@ -97,7 +115,13 @@ Output EXACTLY this JSON format and nothing else:
       const messages: Message[] = [
         { role: 'system', content: systemPrompt },
         ...recentHistory,
-        { role: 'user', content: userInput },
+        {
+          role: 'user',
+          content: `Task: Analyze the following ${target === 'assistant' ? 'response from the companion' : 'input from the user'} to decide if a visual manifestation is needed.
+
+${target === 'assistant' ? 'Companion Response' : 'User Input'}:
+"${inputText}"`,
+        },
       ]
 
       const modelId = consciousnessStore.activeModel
@@ -107,7 +131,8 @@ Output EXACTLY this JSON format and nothing else:
         model: modelId,
         provider: providerId,
         historyCount: recentHistory.length,
-        userInputSubstring: userInput.substring(0, 50),
+        textSubstring: inputText.substring(0, 50),
+        target,
       })
 
       if (!modelId || !providerId) {
@@ -119,8 +144,12 @@ Output EXACTLY this JSON format and nothing else:
         throw new Error(`Failed to resolve chat provider instance for: ${providerId}`)
       }
 
-      // NOTICE: Artificial 10s delay requested by user for sync/testing
-      await new Promise(resolve => setTimeout(resolve, 10000))
+      // NOTICE: Artificial 10s delay for USER target to avoid race conditions/429s.
+      // Skipped for ASSISTANT target as the main response is already finalized.
+      if (target === 'user') {
+        artistLog('User target detected. Applying 10s safety delay...')
+        await new Promise(resolve => setTimeout(resolve, 10000))
+      }
 
       // 2. Call LLM (Non-streaming for structured data)
       const response = await llmStore.generate(modelId, chatProvider, messages)

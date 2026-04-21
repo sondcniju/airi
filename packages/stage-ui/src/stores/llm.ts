@@ -196,6 +196,7 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
         // TODO: we need Automatic tools discovery
         tools,
         onEvent,
+        model,
         abortSignal: options?.abortSignal,
       })
 
@@ -265,6 +266,7 @@ async function generateFrom(model: string, chatProvider: ChatProvider, messages:
     top_p: options?.top_p,
     max_tokens: options?.max_tokens,
     ...(options?.contextWidth ? { num_ctx: options.contextWidth } : {}),
+    model,
     tools,
   })
 }

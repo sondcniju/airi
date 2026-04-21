@@ -132,6 +132,7 @@ export interface AiriExtension {
     options?: Record<string, any>
     autonomousEnabled?: boolean
     autonomousThreshold?: number
+    autonomousTarget?: 'user' | 'assistant'
   }
 
   generation?: CharacterGenerationConfig
@@ -496,6 +497,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         spawnMode: existingExtension.artistry?.spawnMode ?? 'bg_widget',
         autonomousEnabled: existingExtension.artistry?.autonomousEnabled ?? false,
         autonomousThreshold: existingExtension.artistry?.autonomousThreshold ?? 70,
+        autonomousTarget: existingExtension.artistry?.autonomousTarget ?? 'user',
       },
       generation: {
         enabled: existingExtension.generation?.enabled ?? defaultGeneration.enabled,

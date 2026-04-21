@@ -264,8 +264,12 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       // cancel stale intents, reset lip sync, and clear captions before the new turn starts.
       await hooks.emitBeforeMessageComposedHooks(sendingMessage, streamingMessageContext)
 
-      // We run this in parallel without awaiting to avoid stalling the main response.
-      void artistryAutonomousStore.runArtistTask(sendingMessage, sessionMessagesForSend as any)
+      // --- AUTONOMOUS ARTISTRY HOOK ---
+      // Trigger now only if in user-centric mode. Assistant-centric runs after response is complete.
+      const autonomousTarget = activeCard.value?.extensions?.airi?.artistry?.autonomousTarget || 'user'
+      if (autonomousTarget === 'user') {
+        void artistryAutonomousStore.runArtistTask(sendingMessage, sessionMessagesForSend as any)
+      }
       // --------------------------------
 
       let inferenceMessages: any[] = []
@@ -841,6 +845,13 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         outputText: fullText,
         toolCalls: sessionMessagesForSend.filter(msg => msg.role === 'tool') as ToolMessage[],
       }, streamingMessageContext)
+
+      // --- AUTONOMOUS ARTISTRY HOOK (ASSISTANT-CENTRIC) ---
+      const artistry = activeCard.value?.extensions?.airi?.artistry
+      if (artistry?.autonomousEnabled && artistry?.autonomousTarget === 'assistant') {
+        void artistryAutonomousStore.runArtistTask(fullText, sessionMessagesForSend as any)
+      }
+      // ---------------------------------------------------
 
       if (isForegroundSession()) {
         streamingMessage.value = { role: 'assistant', content: '', slices: [], tool_results: [] }

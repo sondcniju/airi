@@ -647,6 +647,13 @@ export const useLiveSessionStore = defineStore('live-session', () => {
               await chatOrchestrator.emitStreamEndHooks(currentStreamContext)
               await chatOrchestrator.emitAssistantResponseEndHooks(fullText, currentStreamContext)
 
+              // --- AUTONOMOUS ARTISTRY HOOK (ASSISTANT-CENTRIC) ---
+              const artistry = airiCard.activeCard?.extensions?.airi?.artistry
+              if (artistry?.autonomousEnabled && artistry?.autonomousTarget === 'assistant') {
+                void artistryAutonomousStore.runArtistTask(fullText, chatSession.messages as any)
+              }
+              // ---------------------------------------------------
+
               currentStreamingMessage = null
               currentStreamContext = null
               currentCategoriser = null
@@ -800,7 +807,10 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     // --- AUTONOMOUS ARTISTRY HOOK ---
     // Trigger the parallel artist task for Gemini Live text inputs.
     // We use chatSession.messages to provide history for context.
-    void artistryAutonomousStore.runArtistTask(text, chatSession.messages as any)
+    const autonomousTarget = airiCard.activeCard?.extensions?.airi?.artistry?.autonomousTarget || 'user'
+    if (autonomousTarget === 'user') {
+      void artistryAutonomousStore.runArtistTask(text, chatSession.messages as any)
+    }
     // --------------------------------
   }
 

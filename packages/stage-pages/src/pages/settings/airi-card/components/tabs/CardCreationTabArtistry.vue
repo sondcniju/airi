@@ -16,6 +16,7 @@ const selectedArtistryPromptPrefix = defineModel<string>('selectedArtistryPrompt
 const selectedArtistryWidgetInstruction = defineModel<string>('selectedArtistryWidgetInstruction', { required: true })
 const selectedArtistryAutonomousEnabled = defineModel<boolean>('selectedArtistryAutonomousEnabled', { required: true })
 const selectedArtistryAutonomousThreshold = defineModel<number>('selectedArtistryAutonomousThreshold', { required: true })
+const selectedArtistryAutonomousTarget = defineModel<'user' | 'assistant'>('selectedArtistryAutonomousTarget', { required: true })
 const selectedArtistrySpawnMode = defineModel<'bg' | 'widget' | 'inline' | 'bg_widget'>('selectedArtistrySpawnMode', { required: true })
 const selectedArtistryConfigStr = defineModel<string>('selectedArtistryConfigStr', { required: true })
 
@@ -28,6 +29,10 @@ const spawnModeOptions = computed(() => [
   { value: 'inline', label: t('settings.pages.modules.artistry.spawn_mode.options.inline') },
   { value: 'widget', label: t('settings.pages.modules.artistry.spawn_mode.options.widget') },
   { value: 'bg_widget', label: t('settings.pages.modules.artistry.spawn_mode.options.bg_widget') },
+])
+const autonomousTargetOptions = computed(() => [
+  { value: 'user', label: 'User Input (Standard)' },
+  { value: 'assistant', label: 'Companion Reaction (Impact Focus)' },
 ])
 
 function handleModelSelect(model: any) {
@@ -157,6 +162,21 @@ function openReplicateModel() {
             <span>Always Generate (0%)</span>
             <span>Strict (100%)</span>
           </div>
+        </div>
+
+        <!-- Target Mode Selection -->
+        <div :class="['flex', 'flex-col', 'gap-2', 'pt-2']">
+          <label :class="['text-[10px]', 'font-bold', 'text-neutral-500', 'uppercase', 'tracking-wider']">
+            Autonomous Target
+          </label>
+          <Select
+            v-model="selectedArtistryAutonomousTarget"
+            :options="autonomousTargetOptions"
+            class="w-full"
+          />
+          <p :class="['text-[10px]', 'text-neutral-400', 'px-1']">
+            Decide if the Director should judge your messages or the character's response for visual impact.
+          </p>
         </div>
       </div>
     </div>

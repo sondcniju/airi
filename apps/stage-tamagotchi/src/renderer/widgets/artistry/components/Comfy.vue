@@ -1,9 +1,6 @@
 <script setup lang="ts">
-import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { useAiriCardStore, useBackgroundStore } from '@proj-airi/stage-ui/stores'
 import { computed, ref, watch } from 'vue'
-
-import { widgetsHideWindow, widgetsRemove } from '../../../../shared/eventa'
 
 const props = withDefaults(defineProps<{
   id?: string
@@ -42,7 +39,7 @@ watch(() => props.entryId, (newId) => {
   }
 }, { immediate: true })
 
-// Auto-snap to the newest generation (Index 0) when it finishes, 
+// Auto-snap to the newest generation (Index 0) when it finishes,
 // unless the user has manually started browsing away.
 watch(() => props.status, (newStatus) => {
   if (newStatus === 'generating') {
@@ -59,9 +56,6 @@ const isSettingBackground = ref(false)
 const isBrowsingGallery = ref(false)
 
 // (Removed legacy status watcher as it's merged into the entryId/status logic above)
-
-const hideWindow = useElectronEventaInvoke(widgetsHideWindow)
-const removeWidget = useElectronEventaInvoke(widgetsRemove)
 
 // The current image is either resolved from the collection or fallback to props
 const currentImage = computed(() => {
@@ -128,13 +122,6 @@ async function handleSetAsBackground() {
   }
   finally {
     isSettingBackground.value = false
-  }
-}
-
-async function handleClose() {
-  if (props.id) {
-    await hideWindow({ id: props.id })
-    await removeWidget({ id: props.id })
   }
 }
 </script>
