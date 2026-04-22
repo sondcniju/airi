@@ -94,7 +94,7 @@ const props = defineProps<{
               'dark:bg-green-500/20 dark:text-green-400',
             ]"
           >
-            <div i-solar:wad-of-money-bold-duotone text-xs />
+            <div i-solar:wad-of-money-bold-duotone class="text-xs" />
             <span>Free</span>
           </div>
         </template>
@@ -107,7 +107,7 @@ const props = defineProps<{
               'dark:bg-amber-500/20 dark:text-amber-400',
             ]"
           >
-            <div i-solar:card-2-bold-duotone text-xs />
+            <div i-solar:card-2-bold-duotone class="text-xs" />
             <span>Paid</span>
           </div>
         </template>
@@ -121,7 +121,7 @@ const props = defineProps<{
               'dark:bg-blue-500/20 dark:text-blue-400',
             ]"
           >
-            <div i-solar:laptop-bold-duotone text-xs />
+            <div i-solar:laptop-bold-duotone class="text-xs" />
             <span>Local</span>
           </div>
         </template>
@@ -134,7 +134,7 @@ const props = defineProps<{
               'dark:bg-purple-500/20 dark:text-purple-400',
             ]"
           >
-            <div i-solar:cloud-bold-duotone text-xs />
+            <div i-solar:cloud-bold-duotone class="text-xs" />
             <span>Cloud</span>
           </div>
         </template>
@@ -148,7 +148,7 @@ const props = defineProps<{
               'dark:bg-pink-500/20 dark:text-pink-400',
             ]"
           >
-            <div i-solar:star-bold-duotone text-xs />
+            <div i-solar:star-bold-duotone class="text-xs" />
             <span>Suggested</span>
           </div>
         </template>

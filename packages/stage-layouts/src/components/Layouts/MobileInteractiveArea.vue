@@ -140,7 +140,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div fixed bottom-0 w-full flex flex-col>
+  <div class="fixed bottom-0 w-full flex flex-col">
     <BackgroundDialogPicker v-model="backgroundDialogOpen" />
     <KeepAlive>
       <Transition name="fade">
@@ -150,21 +150,16 @@ onMounted(() => {
           :messages="historyMessages"
           :sending="sending"
           :streaming-message="streamingMessage"
-          max-w="[calc(100%-3.5rem)]"
-          w-full self-start pb-3 pl-3
-          class="chat-history"
-          :class="[
-            'relative z-20',
-          ]"
+          class="chat-history relative z-20 max-w-[calc(100%-3.5rem)] w-full self-start pb-3 pl-3"
         />
       </Transition>
     </KeepAlive>
-    <div relative w-full self-end>
-      <div top="50%" translate-y="[-50%]" fixed z-15 px-3>
+    <div class="relative w-full self-end">
+      <div class="fixed top-[50%] z-15 px-3 -translate-y-1/2">
         <ViewControlInputs ref="viewControlsInputs" :mode="viewControlsActiveMode" />
       </div>
-      <div translate-y="[-100%]" absolute right-0 w-full px-3 pb-3 font-sans>
-        <div flex="~ col" w-full gap-1>
+      <div class="absolute right-0 w-full px-3 pb-3 font-sans -translate-y-full">
+        <div class="w-full flex flex-col gap-1">
           <ActionAbout />
           <HearingConfigDialog
             v-model:show="hearingDialogOpen"
@@ -175,40 +170,36 @@ onMounted(() => {
             :granted="true"
           >
             <button
-              border="2 solid neutral-100/60 dark:neutral-800/30"
-              bg="neutral-50/70 dark:neutral-800/70"
-              w-fit flex items-center self-end justify-center rounded-xl p-2 backdrop-blur-md
+              class="w-fit flex items-center self-end justify-center border-2 border-neutral-100/60 rounded-xl border-solid bg-neutral-50/70 p-2 backdrop-blur-md dark:border-neutral-800/30 dark:bg-neutral-800/70"
               title="Hearing"
             >
               <Transition name="fade" mode="out-in">
-                <IndicatorMicVolume v-if="enabled" size-5 color-class="text-neutral-500 dark:text-neutral-400" />
-                <div v-else i-solar:microphone-3-outline size-5 text="neutral-500 dark:neutral-400" />
+                <IndicatorMicVolume v-if="enabled" class="size-5 text-neutral-500 dark:text-neutral-400" />
+                <div v-else class="i-solar:microphone-3-outline size-5 text-neutral-500 dark:text-neutral-400" />
               </Transition>
             </button>
           </HearingConfigDialog>
-          <button border="2 solid neutral-100/60 dark:neutral-800/30" bg="neutral-50/70 dark:neutral-800/70" w-fit flex items-center self-end justify-center rounded-xl p-2 backdrop-blur-md title="Theme" @click="toggleDark()">
+          <button class="w-fit flex items-center self-end justify-center border-2 border-neutral-100/60 rounded-xl border-solid bg-neutral-50/70 p-2 backdrop-blur-md dark:border-neutral-800/30 dark:bg-neutral-800/70" title="Theme" @click="toggleDark()">
             <Transition name="fade" mode="out-in">
-              <div v-if="isDark" i-solar:moon-outline size-5 text="neutral-500 dark:neutral-400" />
-              <div v-else i-solar:sun-2-outline size-5 text="neutral-500 dark:neutral-400" />
+              <div v-if="isDark" class="i-solar:moon-outline size-5 text-neutral-500 dark:text-neutral-400" />
+              <div v-else class="i-solar:sun-2-outline size-5 text-neutral-500 dark:text-neutral-400" />
             </Transition>
           </button>
-          <button border="2 solid neutral-100/60 dark:neutral-800/30" bg="neutral-50/70 dark:neutral-800/70" w-fit flex items-center self-end justify-center rounded-xl p-2 backdrop-blur-md title="Background" @click="backgroundDialogOpen = true">
-            <div i-solar:gallery-wide-bold-duotone size-5 text="neutral-500 dark:neutral-400" />
+          <button class="w-fit flex items-center self-end justify-center border-2 border-neutral-100/60 rounded-xl border-solid bg-neutral-50/70 p-2 backdrop-blur-md dark:border-neutral-800/30 dark:bg-neutral-800/70" title="Background" @click="backgroundDialogOpen = true">
+            <div class="i-solar:gallery-wide-bold-duotone size-5 text-neutral-500 dark:text-neutral-400" />
           </button>
           <!-- <button border="2 solid neutral-100/60 dark:neutral-800/30" bg="neutral-50/70 dark:neutral-800/70" w-fit flex items-center self-end justify-center rounded-xl p-2 backdrop-blur-md title="Language">
             <div i-solar:earth-outline size-5 text="neutral-500 dark:neutral-400" />
           </button> -->
-          <RouterLink to="/settings" border="2 solid neutral-100/60 dark:neutral-800/30" bg="neutral-50/70 dark:neutral-800/70" w-fit flex items-center self-end justify-center rounded-xl p-2 backdrop-blur-md title="Settings">
-            <div i-solar:settings-outline size-5 text="neutral-500 dark:neutral-400" />
+          <RouterLink to="/settings" class="w-fit flex items-center self-end justify-center border-2 border-neutral-100/60 rounded-xl border-solid bg-neutral-50/70 p-2 backdrop-blur-md dark:border-neutral-800/30 dark:bg-neutral-800/70" title="Settings">
+            <div class="i-solar:settings-outline size-5 text-neutral-500 dark:text-neutral-400" />
           </RouterLink>
           <!-- <button border="2 solid neutral-100/60 dark:neutral-800/30" bg="neutral-50/70 dark:neutral-800/70" w-fit flex items-center self-end justify-center rounded-xl p-2 backdrop-blur-md title="Model">
             <div i-solar:face-scan-circle-outline size-5 text="neutral-500 dark:neutral-400" />
           </button> -->
           <ActionViewControls v-model="viewControlsActiveMode" @reset="() => viewControlsInputsRef?.resetOnMode()" />
           <button
-            border="2 solid neutral-100/60 dark:neutral-800/30"
-            bg="neutral-50/70 dark:neutral-800/70"
-            w-fit flex items-center self-end justify-center rounded-xl p-2 backdrop-blur-md
+            class="w-fit flex items-center self-end justify-center border-2 border-neutral-100/60 rounded-xl border-solid bg-neutral-50/70 p-2 backdrop-blur-md dark:border-neutral-800/30 dark:bg-neutral-800/70"
             title="Cleanup Messages"
             @click="cleanupMessages()"
           >
@@ -216,17 +207,12 @@ onMounted(() => {
           </button>
         </div>
       </div>
-      <div bg="white dark:neutral-800" max-h-100dvh max-w-100dvw w-full flex gap-1 overflow-auto px-3 pt-2 :style="{ paddingBottom: `${Math.max(Number.parseFloat(screenSafeArea.bottom.value.replace('px', '')), 12)}px` }">
+      <div class="max-h-100dvh max-w-100dvw w-full flex gap-1 overflow-auto bg-white px-3 pt-2 dark:bg-neutral-800" :style="{ paddingBottom: `${Math.max(Number.parseFloat(screenSafeArea.bottom.value.replace('px', '')), 12)}px` }">
         <BasicTextarea
           v-model="messageInput"
           :placeholder="t('stage.message')"
-          border="solid 2 neutral-200/60 dark:neutral-700/60"
-          text="neutral-500 hover:neutral-600 dark:neutral-100 dark:hover:neutral-200 placeholder:neutral-400 placeholder:hover:neutral-500 placeholder:dark:neutral-300 placeholder:dark:hover:neutral-400"
-          bg="neutral-100/80 dark:neutral-950/80"
-          max-h="[10lh]" min-h="[calc(1lh+4px+4px)]"
-          w-full resize-none overflow-y-scroll rounded="[1lh]" px-4 py-0.5 outline-none backdrop-blur-md scrollbar-none
-          transition="all duration-250 ease-in-out placeholder:all placeholder:duration-250 placeholder:ease-in-out"
-          :class="[themeColorsHueDynamic ? 'transition-colors-none placeholder:transition-colors-none' : '']"
+          class="max-h-[10lh] min-h-[calc(1lh+4px+4px)] w-full resize-none overflow-y-scroll border-2 border-neutral-200/60 rounded-[1lh] border-solid bg-neutral-100/80 px-4 py-0.5 text-neutral-500 outline-none backdrop-blur-md transition-all duration-250 ease-in-out scrollbar-none dark:border-neutral-700/60 dark:bg-neutral-950/80 dark:text-neutral-100 hover:text-neutral-600 placeholder:text-neutral-400 placeholder:transition-all placeholder:duration-250 placeholder:ease-in-out dark:hover:text-neutral-200 placeholder:dark:text-neutral-300 placeholder:hover:text-neutral-500 placeholder:dark:hover:text-neutral-400"
+          :class="[themeColorsHueDynamic ? 'transition-none placeholder:transition-none' : '']"
           default-height="1lh"
           @submit="handleSubmit"
           @compositionstart="isComposing = true"
@@ -234,10 +220,7 @@ onMounted(() => {
         />
         <button
           v-if="messageInput.trim() || isComposing"
-          w="[calc(1lh+4px+4px)]" h="[calc(1lh+4px+4px)]" aspect-square flex items-center self-end justify-center rounded-full outline-none backdrop-blur-md
-          text="neutral-500 hover:neutral-600 dark:neutral-900 dark:hover:neutral-800"
-          bg="primary-50/80 dark:neutral-100/80 hover:neutral-50"
-          transition="all duration-250 ease-in-out"
+          class="aspect-square h-[calc(1lh+4px+4px)] w-[calc(1lh+4px+4px)] flex items-center self-end justify-center rounded-full bg-primary-50/80 text-neutral-500 outline-none backdrop-blur-md transition-all duration-250 ease-in-out dark:bg-neutral-100/80 hover:bg-neutral-50 dark:text-neutral-900 hover:text-neutral-600 dark:hover:text-neutral-800"
           @click="handleSend"
         >
           <div i-solar:arrow-up-outline />

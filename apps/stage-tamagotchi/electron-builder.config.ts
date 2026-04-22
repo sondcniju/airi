@@ -42,6 +42,19 @@ export default {
     output: 'dist',
     buildResources: 'build',
   },
+  afterPack: async (context) => {
+    const { execSync } = require('node:child_process')
+    console.log(`  • cleaning detritus for codesign: xattr -cr ${context.appOutDir}`)
+    try {
+      execSync(`xattr -cr "${context.appOutDir}"`)
+      execSync(`find "${context.appOutDir}" -name ".DS_Store" -delete`)
+      console.log(`  • removing existing signatures to prevent detritus conflicts`)
+      execSync(`find "${context.appOutDir}" -type f -exec codesign --remove-signature {} + 2>/dev/null || true`)
+    }
+    catch (e) {
+      console.warn(`  • warning: metadata cleanup failed: ${e.message}`)
+    }
+  },
   // // For self-publishing, testing, and distribution after modified the code without access to
   // // an Apple Developer account, comment and uncomment the following lines.
   // // Later on when you obtained one, you can set up the necessary certificates and provisioning
