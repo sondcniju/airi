@@ -10,6 +10,7 @@ export default defineConfig({
       'packages/cap-vite',
       'packages/vite-plugin-warpdrive',
       'packages/audio-pipelines-transcribe',
+      'packages/pipelines-audio',
       'packages/server-runtime',
     ],
   },
