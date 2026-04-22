@@ -5,9 +5,6 @@ import os from 'node:os'
 
 import { createRequire } from 'node:module'
 
-import loudness from 'loudness'
-import si from 'systeminformation'
-
 import { useLogg } from '@guiiai/logg'
 import { defineInvokeHandler } from '@moeru/eventa'
 import {
@@ -22,7 +19,30 @@ import {
 import { powerMonitor } from 'electron'
 
 const require = createRequire(import.meta.url)
-const activeWindow = require('active-win')
+let activeWindow: any = null
+let loudness: any = null
+let si: any = null
+
+try {
+  activeWindow = require('active-win')
+}
+catch (err) {
+  console.warn('[Sensors] Failed to load active-win native module. Will use fallbacks.', err)
+}
+
+try {
+  loudness = require('loudness')
+}
+catch (err) {
+  console.warn('[Sensors] Failed to load loudness module.', err)
+}
+
+try {
+  si = require('systeminformation')
+}
+catch (err) {
+  console.warn('[Sensors] Failed to load systeminformation module.', err)
+}
 
 const log = useLogg('main/sensors').useGlobalConfig()
 
@@ -58,6 +78,8 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
 
   async function getActiveWindowInfo(): Promise<WindowInfo | null> {
     try {
+      if (typeof activeWindow !== 'function')
+        throw new Error('active-win is not loaded')
       const result = await activeWindow()
       if (result) {
         return {
@@ -70,7 +92,7 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
       const now = Date.now()
       if (now - lastActiveWinErrorTime > ERROR_LOG_INTERVAL) {
         // eslint-disable-next-line no-console
-        console.log('[getActiveWindowInfo] active-win failed, using Koffi fallback.')
+        console.log('[getActiveWindowInfo] active-win failed or missing, using Koffi fallback.')
         lastActiveWinErrorTime = now
       }
 
@@ -213,6 +235,8 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
 
   async function getVolumeLevel(): Promise<number> {
     try {
+      if (!loudness)
+        return 0
       const vol = await loudness.getVolume()
       const muted = await loudness.getMuted()
       if (muted)
@@ -239,6 +263,8 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
     let gpuLoad = 0
 
     try {
+      if (!si)
+        throw new Error('systeminformation is not loaded')
       const load = await si.currentLoad()
       const val = load.currentLoad / 100
       cpuLoads = [val, val, val]
@@ -249,6 +275,8 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
     }
 
     try {
+      if (!si)
+        throw new Error('systeminformation is not loaded')
       const graphics = await si.graphics()
       gpuLoad = Math.max(0, ...graphics.controllers.map((c: any) => (c.utilizationGpu || 0) as number))
     }

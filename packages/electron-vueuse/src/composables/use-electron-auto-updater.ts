@@ -30,13 +30,15 @@ export function useElectronAutoUpdater() {
     }
     catch {}
 
-    try {
-      context.value.on(electronAutoUpdaterStateChanged, (evt) => {
-        if (evt.body)
-          state.value = evt.body
-      })
+    if (context.value) {
+      try {
+        context.value.on(electronAutoUpdaterStateChanged, (evt) => {
+          if (evt.body)
+            state.value = evt.body
+        })
+      }
+      catch {}
     }
-    catch {}
   })
 
   return {

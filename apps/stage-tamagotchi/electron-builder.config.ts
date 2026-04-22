@@ -145,7 +145,7 @@ export default {
   appImage: {
     artifactName: '${productName}-${version}-linux-${arch}.${ext}',
   },
-  npmRebuild: false,
+  npmRebuild: true,
   publish: {
     provider: 'github',
     owner: 'moeru-ai',

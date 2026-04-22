@@ -39,6 +39,7 @@ export default defineConfig({
       '@proj-airi/stage-ui/*',
       '@proj-airi/drizzle-duckdb-wasm',
       '@proj-airi/drizzle-duckdb-wasm/*',
+      'uncrypto',
 
       // Static Assets: Models, Images, etc.
       'public/assets/*',
@@ -68,7 +69,6 @@ export default defineConfig({
       '@proj-airi/stage-layouts': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-layouts', 'src')),
       '@proj-airi/stage-pages': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-pages', 'src')),
       '@proj-airi/stage-shared': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-shared', 'src')),
-      'uncrypto': 'uncrypto/dist/crypto.web.mjs',
     },
   },
   server: {
