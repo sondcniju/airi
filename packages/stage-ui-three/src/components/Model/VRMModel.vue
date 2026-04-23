@@ -21,7 +21,7 @@ import type { Vec3 } from '../../stores/model-store'
 
 import { VRMUtils } from '@pixiv/three-vrm'
 import { useLoop, useTresContext } from '@tresjs/core'
-import { until, useMouse } from '@vueuse/core'
+import { until, useEventListener, useMouse } from '@vueuse/core'
 import {
   AnimationMixer,
   LoopOnce,
@@ -58,6 +58,7 @@ import {
 import { loadVrm } from '../../composables/vrm/core'
 import { useVRMEmote } from '../../composables/vrm/expression'
 import { useVRMLipSync } from '../../composables/vrm/lip-sync'
+import { useVRMClothInteraction } from '../../composables/vrm/use-vrm-cloth-interaction'
 import { useModelStore } from '../../stores/model-store'
 
 /*
@@ -163,6 +164,39 @@ let stopCameraWatch: WatchStopHandle | undefined
 let isUnmounted = false
 let currentLoadId = 0
 
+// Expressions
+const blink = useBlink()
+const idleEyeSaccades = useIdleEyeSaccades()
+const vrmEmote = ref<ReturnType<typeof useVRMEmote>>()
+const modelStore = useModelStore()
+const vrmLipSync = useVRMLipSync(currentAudioSource)
+const vrmClothTug = useVRMClothInteraction()
+
+// Setup Pointer Interaction (Moved below initialization to fix ReferenceError)
+useEventListener('mousedown', (e) => {
+  if (modelStore.interactionMode === 'tactile' && vrm.value && camera.value) {
+    vrmClothTug.startTug({ x: e.clientX, y: e.clientY, isCtrlPressed: e.ctrlKey }, camera.value, vrm.value, vrmEmote.value)
+  }
+})
+
+useEventListener('dblclick', (e) => {
+  if (modelStore.interactionMode === 'tactile' && vrm.value && camera.value) {
+    vrmClothTug.startTug({ x: e.clientX, y: e.clientY, isDoubleClick: true }, camera.value, vrm.value, vrmEmote.value)
+  }
+})
+
+useEventListener('mousemove', (e) => {
+  if (modelStore.interactionMode === 'tactile' && camera.value) {
+    vrmClothTug.handleTug({ x: e.clientX, y: e.clientY }, camera.value)
+  }
+})
+
+useEventListener('mouseup', () => {
+  if (modelStore.interactionMode === 'tactile') {
+    vrmClothTug.endTug()
+  }
+})
+
 // Animation related ref
 const vrmAnimationMixer = ref<AnimationMixer>()
 const { onBeforeRender, stop, start } = useLoop()
@@ -170,13 +204,6 @@ const { onBeforeRender, stop, start } = useLoop()
 type VrmFrameHook = (vrm: VRM, delta: number) => void
 const vrmFrameHook = shallowRef<VrmFrameHook>()
 let disposeBeforeRenderLoop: (() => void | undefined)
-
-// Expressions
-const blink = useBlink()
-const idleEyeSaccades = useIdleEyeSaccades()
-const vrmEmote = ref<ReturnType<typeof useVRMEmote>>()
-const modelStore = useModelStore()
-const vrmLipSync = useVRMLipSync(currentAudioSource)
 
 // For sky box update
 const nprProgramVersion = ref(0)
@@ -224,6 +251,11 @@ function componentCleanUp() {
   airiIblProbe?.dispose()
   airiIblProbe = null
   initialHipWorldPosition.value = null
+
+  // clear cloth interaction tether
+  if (vrmClothTug.tetherLine.value) {
+    vrmClothTug.tetherLine.value.removeFromParent()
+  }
 
   modelStore.activeVrm = null
   modelStore.activeVrmIdentity = ''
@@ -334,6 +366,7 @@ async function loadModel() {
         modelSize: vrmModelSize,
         initialCameraOffset: vrmInitialCameraOffset,
         parser: vrmParser,
+        unmappedExpressions: vrmUnlockedExpressions,
       } = _vrmInfo
 
       // ASYNC GUARD: If we unmounted or a new load started, dispose this model immediately
@@ -349,6 +382,11 @@ async function loadModel() {
       */
       vrm.value = _vrm
       vrmGroup.value = _vrmGroup
+
+      // Add tether line to model group for local-to-world sync
+      if (vrmClothTug.tetherLine.value) {
+        _vrmGroup.add(vrmClothTug.tetherLine.value)
+      }
       modelStore.activeVrm = _vrm
       modelStore.activeVrmParser = vrmParser
       modelStore.activeVrmIdentity = currentModelIdentity
@@ -380,8 +418,8 @@ async function loadModel() {
 
       // Populate available expressions for the settings UI
       if (_vrm.expressionManager) {
-        const expressions = Object.keys(_vrm.expressionManager.expressionMap).sort()
-        modelStore.availableExpressions = expressions
+        const nativeExpressions = Object.keys(_vrm.expressionManager.expressionMap)
+        modelStore.availableExpressions = [...nativeExpressions, ...vrmUnlockedExpressions].sort()
       }
 
       const hipNode = _vrm.humanoid?.getNormalizedBoneNode('hips')
@@ -449,50 +487,6 @@ async function loadModel() {
       if (!airiIblProbe && scene.value)
         airiIblProbe = createIblProbeController(scene.value)
 
-      // Material traverse setting (CLEANSED IN V10)
-      /*
-      _vrm.scene.traverse((child) => {
-        if (child instanceof Mesh && child.material) {
-          const material = Array.isArray(child.material) ? child.material : [child.material]
-          material.forEach((mat) => {
-            // console.debug("shader material: ", mat)
-            if (mat instanceof MeshStandardMaterial || mat instanceof MeshPhysicalMaterial) {
-              // Should read envMap intensity from outside props
-              mat.envMapIntensity = 1.0
-              mat.needsUpdate = true
-            }
-            else if (isMToon(mat)) {
-              // --- MToon material, add IBL lightProbe only ---
-              // close tone mapping for NPR materials
-              if ('toneMapped' in mat)
-                mat.toneMapped = false
-            }
-            else if (isShaderMat(mat)) {
-              // --- Shader material, further IBL injection needed ---
-              // console.debug("Mat: ", mat)
-              // TODO: stylised shader injection
-              // Lilia: I plan to replace all injected shader code to be my own, so that it can always avoid double injection and unknown user upload VRM injected shader behaviour...
-              // if ('toneMapped' in mat)
-              //   mat.toneMapped = false
-              // if ('envMap' in mat && mat.envMap)
-              //   mat.envMap = null
-              // NPR materials usually use sRGB textures
-              const tex = (mat as any).map as Texture | undefined
-              if (tex && (tex as any).colorSpace !== undefined) {
-                try {
-                  (tex as any).colorSpace = SRGBColorSpace
-                }
-                catch (e) {
-                  console.warn('Failed to set colorSpace on texture:', e)
-                }
-              }
-              // injectDiffuseIBL(mat)
-            }
-          })
-        }
-      })
-      */
-
       /*
         * Eye tracking setting
       */
@@ -514,7 +508,16 @@ async function loadModel() {
 
       // Standard VRM Update Loop
       disposeBeforeRenderLoop = onBeforeRender(({ delta }) => {
-        vrmAnimationMixer.value?.update(delta)
+        if (vrm.value) {
+          // Loop: Custom frame hook
+          vrmFrameHook.value?.(vrm.value, delta)
+
+          // Loop: Cloth Interaction (Wired R&D)
+          vrmClothTug.update(vrm.value, delta, vrmEmote.value)
+
+          // Update mixer
+          vrmAnimationMixer.value?.update(delta)
+        }
         const activeVrm = vrm.value
         if (!activeVrm)
           return

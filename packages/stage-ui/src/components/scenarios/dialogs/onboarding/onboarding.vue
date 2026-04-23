@@ -329,7 +329,7 @@ async function navigatePrevious() {
 </script>
 
 <template>
-  <div class="onboarding-step-container" h-full w-full>
+  <div class="onboarding-step-container h-full w-full">
     <Transition :name="direction === 'next' ? 'slide-next' : 'slide-prev'" mode="out-in">
       <component
         :is="currentStep.component"

@@ -52,7 +52,7 @@ export const useBackgroundStore = defineStore('background', () => {
     try {
       const url = URL.createObjectURL(blob)
       backgroundUrls[id] = url
-      console.log(`[BackgroundStore] Created ObjectURL for ${id}`)
+      // console.log(`[BackgroundStore] Created ObjectURL for ${id}`)
       return url
     }
     catch (e) {

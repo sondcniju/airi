@@ -10,7 +10,6 @@ import { toast } from 'vue-sonner'
 
 import { useLlmmarkerParser } from '../../composables/llm-marker-parser'
 import { createStreamingCategorizer } from '../../composables/response-categoriser'
-import { mcp } from '../../tools'
 import { useAudioContext } from '../audio'
 import { useChatOrchestratorStore } from '../chat'
 import { useChatContextStore } from '../chat/context-store'
@@ -18,6 +17,7 @@ import { useChatSessionStore } from '../chat/session-store'
 import { useProactivityStore } from '../proactivity'
 import { useProvidersStore } from '../providers'
 import { useAiriCardStore } from './airi-card'
+import { useAutonomousArtistryStore } from './artistry-autonomous'
 import { useVisionStore } from './vision'
 
 const MODEL = 'models/gemini-3.1-flash-live-preview'
@@ -74,6 +74,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
   const chatContext = useChatContextStore()
   const proactivityStore = useProactivityStore()
   const airiCard = useAiriCardStore()
+  const artistryAutonomousStore = useAutonomousArtistryStore()
 
   const audioCtxStore = useAudioContext()
 
@@ -264,6 +265,95 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     }
   }
 
+  /**
+   * Evaluates a special marker string to see if it qualifies as a bridged tool call.
+   * If matched, it executes the tool and sends the result back to Gemini Bidi
+   * to trigger a trajectory adjustment (follow-up response).
+   */
+  async function tryBridgeMarker(ws: WebSocket, marker: string): Promise<boolean> {
+    const match = marker.match(/^<\|([\w-]+):([^|]*?)(?:\|>|<\/tool_call>|$)/)
+      || marker.match(/^\[call_tool:([\w-]+),\s*([^\]]*?)(?:\]|<\/tool_call>|$)/)
+      || marker.match(/<tool_call>([\w-]+)\((.*?)\)<\/tool_call>/s)
+      || marker.match(/<tool_call>(\{.*?\})<\/tool_call>/s)
+
+    if (!match)
+      return false
+
+    let toolName: string
+    let argsRaw: string
+
+    // check if it's the JSON flavor: <tool_call>{"name": "...", "arguments": "..."}</tool_call>
+    const potentialJson = match[1] || ''
+    if (potentialJson.trim().startsWith('{')) {
+      try {
+        const parsed = JSON.parse(potentialJson)
+        toolName = parsed.name
+        argsRaw = typeof parsed.arguments === 'string' ? parsed.arguments : JSON.stringify(parsed.arguments)
+      }
+      catch (e) {
+        console.error('[LiveSession] Failed to parse JSON tool call tag:', e)
+        return false
+      }
+    }
+    else {
+      toolName = match[1]
+      argsRaw = match[2] || ''
+    }
+
+    // Attempt to parse pseudo-arguments (KV pairs)
+    const args: Record<string, any> = {}
+    const kvRegex = /(?:^|[, \n\t]+)\s*([\w-]+)\s*[:=]\s*(?:"([^"]*)"|'([^']*)'|(\d+(?:\.\d+)?)|(true|false)|(\{.*\}|\[.*\]))/g
+    let kvMatch
+    while ((kvMatch = kvRegex.exec(argsRaw)) !== null) {
+      const [, key, valDouble, valSingle, valNum, valBool, valComplex] = kvMatch
+      if (valDouble !== undefined) {
+        args[key] = valDouble
+      }
+      else if (valSingle !== undefined) {
+        args[key] = valSingle
+      }
+      else if (valNum !== undefined) {
+        args[key] = Number.parseFloat(valNum)
+      }
+      else if (valBool !== undefined) {
+        args[key] = valBool === 'true'
+      }
+      else if (valComplex !== undefined) {
+        try {
+          args[key] = JSON.parse(valComplex.replace(/'/g, '"'))
+        }
+        catch {
+          args[key] = valComplex
+        }
+      }
+    }
+
+    if (Object.keys(args).length === 0) {
+      try {
+        const cleaned = argsRaw.trim().replace(/^\{/, '').replace(/\}$/, '').replace(/(\w+):/g, '"$1":').replace(/'/g, '"')
+        Object.assign(args, JSON.parse(`{${cleaned}}`))
+      }
+      catch {}
+    }
+
+    if (Object.keys(args).length === 0 && argsRaw.trim()) {
+      // Fallback for tools that take a single string argument (like some search markers)
+      args.query = argsRaw.trim()
+    }
+
+    console.log(`[LiveSession] 🌉 Bridging marker to tool call: ${toolName}`, args)
+
+    // Execute via our standard Bidi-compatible tool runner
+    // This handles UI slices, proactivity registry lookup, and result feedback.
+    await executeToolCall(ws, {
+      name: toolName,
+      args: Object.keys(args).length > 0 ? args : undefined,
+      id: `bridge-${nanoid()}`,
+    })
+
+    return true
+  }
+
   // Streaming State for hooking into the Chat Orchestrator's TTS
   let currentStreamingMessage: StreamingAssistantMessage | null = null
   let currentStreamContext: ChatStreamEventContext | null = null
@@ -306,10 +396,9 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     ws.onopen = async () => {
       console.log('[LiveSession] WebSocket connected. Resolving tools and sending setup...')
 
-      // Resolve the full AIRI toolchain: proactive tools + MCP tools
+      // Resolve the full AIRI toolchain: proactive tools
       const proactiveTools = await proactivityStore.resolveRegisteredTools() as Tool[]
-      const mcpTools = await mcp() as Tool[]
-      resolvedToolRegistry = [...proactiveTools, ...mcpTools]
+      resolvedToolRegistry = [...proactiveTools]
 
       // Build the Gemini tools array
       const geminiTools: Record<string, unknown>[] = []
@@ -472,11 +561,17 @@ export const useLiveSessionStore = defineStore('live-session', () => {
                 }
               },
               onSpecial: async (special) => {
-                // ACT/DELAY markers are handled here — emit as special tokens
+                // ACT/DELAY/TOOL markers are handled here — emit as special tokens
                 // so the stage orchestrator can process expressions/animations.
                 // These fire in BOTH modes so expressions always work.
                 if (currentStreamContext) {
                   await chatOrchestrator.emitTokenSpecialHooks(special, currentStreamContext)
+                }
+
+                // Check for bridged tool markers (pseudo-token tool calls)
+                // This allows markers to trigger trajectory adjustments in Live mode.
+                if (ws.readyState === WebSocket.OPEN) {
+                  await tryBridgeMarker(ws, special)
                 }
               },
             })
@@ -551,6 +646,13 @@ export const useLiveSessionStore = defineStore('live-session', () => {
 
               await chatOrchestrator.emitStreamEndHooks(currentStreamContext)
               await chatOrchestrator.emitAssistantResponseEndHooks(fullText, currentStreamContext)
+
+              // --- AUTONOMOUS ARTISTRY HOOK (ASSISTANT-CENTRIC) ---
+              const artistry = airiCard.activeCard?.extensions?.airi?.artistry
+              if (artistry?.autonomousEnabled && artistry?.autonomousTarget === 'assistant') {
+                void artistryAutonomousStore.runArtistTask(fullText, chatSession.messages as any)
+              }
+              // ---------------------------------------------------
 
               currentStreamingMessage = null
               currentStreamContext = null
@@ -701,6 +803,15 @@ export const useLiveSessionStore = defineStore('live-session', () => {
       slices: [],
       tool_results: [],
     } as any)
+
+    // --- AUTONOMOUS ARTISTRY HOOK ---
+    // Trigger the parallel artist task for Gemini Live text inputs.
+    // We use chatSession.messages to provide history for context.
+    const autonomousTarget = airiCard.activeCard?.extensions?.airi?.artistry?.autonomousTarget || 'user'
+    if (autonomousTarget === 'user') {
+      void artistryAutonomousStore.runArtistTask(text, chatSession.messages as any)
+    }
+    // --------------------------------
   }
 
   function sendRealtimeAudio(base64Pcm: string) {
@@ -849,24 +960,31 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     resolvedToolRegistry = []
     sessionTokenHighWaterMark = 0
     audioPlaybackTime = 0
-    for (const src of activeAudioSources) {
-      try { src.stop() }
-      catch {}
-    }
+    activeAudioSources.forEach((src) => {
+      src.stop()
+      src.disconnect()
+    })
     activeAudioSources.clear()
   }
 
   const visionStore = useVisionStore()
   const powerState = computed(() => {
+    // Master off switch: if not active and not connecting, it's OFF.
+    if (!isActive.value && !isConnecting.value)
+      return 'off'
+
     if (chatOrchestrator.sending || visionStore.status === 'capturing')
       return 'busy'
     if (isConnecting.value)
       return 'connecting'
-    if (isActive.value)
-      return 'active'
+
+    // If we're here, we are active.
+    // If vision is also enabled, it's 'ambient' (orange).
+    // Otherwise, it's 'active' (red).
     if (visionStore.isWitnessEnabled)
       return 'ambient'
-    return 'off'
+
+    return 'active'
   })
 
   return {

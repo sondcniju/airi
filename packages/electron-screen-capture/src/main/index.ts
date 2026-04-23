@@ -19,6 +19,12 @@ import {
   toSerializableDesktopCapturerSource,
 } from './utils'
 
+export {
+  checkMacOSScreenCapturePermission,
+  requestMacOSScreenCapturePermission,
+  toSerializableDesktopCapturerSource,
+}
+
 export const defaultSourcesOptions: SourcesOptions = { types: ['screen'] }
 
 export const featureSwitchKey = 'enable-features' as const

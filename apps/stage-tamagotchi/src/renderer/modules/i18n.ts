@@ -4,9 +4,8 @@ import { createI18n } from 'vue-i18n'
 
 const languageRemap: Record<string, string> = {
   'zh-CN': 'zh-Hans',
-  'zh-TW': 'zh-Hans', // TODO: remove this when zh-Hant is supported
-  'zh-HK': 'zh-Hans', // TODO: remove this when zh-Hant is supported
-  'zh-Hant': 'zh-Hans', // TODO: remove this when zh-Hant is supported
+  'zh-TW': 'zh-Hant',
+  'zh-HK': 'zh-Hant',
   'en-US': 'en',
   'en-GB': 'en',
   'en-AU': 'en',

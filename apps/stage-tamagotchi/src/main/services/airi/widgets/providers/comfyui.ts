@@ -38,7 +38,7 @@ export class ComfyUIProvider implements ArtistryProvider {
       this.serverUrl = config.comfyuiServerUrl.replace(/\/+$/, '') // strip trailing slashes
     if (config?.comfyuiSavedWorkflows)
       this.savedWorkflows = config.comfyuiSavedWorkflows
-    if (config?.comfyuiActiveWorkflow)
+    if (config?.comfyuiActiveWorkflow !== undefined)
       this.activeWorkflowId = config.comfyuiActiveWorkflow
   }
 

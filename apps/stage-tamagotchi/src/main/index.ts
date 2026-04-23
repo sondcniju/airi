@@ -6,6 +6,7 @@ import messages from '@proj-airi/i18n/locales'
 
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { Format, LogLevel, setGlobalFormat, setGlobalLogLevel, useLogg } from '@guiiai/logg'
+import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
 import { initScreenCaptureForMain } from '@proj-airi/electron-screen-capture/main'
 import { app, ipcMain, session } from 'electron'
@@ -14,6 +15,7 @@ import { isLinux } from 'std-env'
 
 import icon from '../../resources/icon.png?asset'
 
+import { electronCaptionSyncDocking, electronCaptionToggleVisibility } from '../shared/eventa'
 import { openDebugger, setupDebugger } from './app/debugger'
 import { createGlobalAppConfig } from './configs/global'
 import { emitAppBeforeQuit, emitAppReady, emitAppWindowAllClosed } from './libs/bootkit/lifecycle'
@@ -218,6 +220,14 @@ app.whenReady().then(async () => {
       createMicToggleService({ context, window: deps.mainWindow })
       createVisionService({ context })
       const sensorsServicePromise = createSensorsService({ context })
+      defineInvokeHandler(context, electronCaptionToggleVisibility, async () => {
+        console.log('[@proj-airi/stage-tamagotchi] [Main] Caption visibility toggle triggered via Control Island')
+        await deps.captionWindow.toggleVisibility()
+      })
+      defineInvokeHandler(context, electronCaptionSyncDocking, async (dock) => {
+        console.log('[@proj-airi/stage-tamagotchi] [Main] Caption docking sync triggered via Control Island:', dock)
+        await deps.captionWindow.triggerMove(dock)
+      })
 
       const restoreCaption = () => {
         // Auto-restore caption window if enabled in config

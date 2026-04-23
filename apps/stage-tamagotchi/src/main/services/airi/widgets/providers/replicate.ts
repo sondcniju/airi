@@ -184,7 +184,7 @@ export class ReplicateProvider implements ArtistryProvider {
     return this.jobResults.get(jobId) || { status: 'queued' }
   }
 
-  private truncatePrompt(prompt: string, maxChars: number = 380): string {
+  private truncatePrompt(prompt: string, maxChars: number = 2000): string {
     if (prompt.length <= maxChars)
       return prompt
     log.log(`[Replicate] Truncating prompt from ${prompt.length} to ${maxChars} chars.`)

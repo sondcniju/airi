@@ -1,3 +1,7 @@
+---
+title: AIRI Interaction Pipelines
+description: Documentation of the primary surfaces for LLM ingestion and interaction.
+---
 # AIRI Interaction Pipelines
 
 Documentation of the three primary surfaces for LLM ingestion and interaction, plus the downstream speech/runtime pieces that make assistant output audible on stage.
@@ -249,3 +253,21 @@ Fix direction:
 - Always chain `useLlmmarkerParser` as the very first layer for any LLM text stream.
 - Route `onLiteral` → `categorizer.consume()` and `onSpecial` → `emitTokenSpecialHooks`.
 - This ensures markers are stripped safely before speech evaluation and categorized tags are handled correctly.
+
+Another failure pattern is the **Initialization Deadlock** in the renderer startup.
+
+Failure mode:
+- High-level services (like `useModsServerChannelStore`) are initialized in `App.vue` before the critical infrastructure (`contextBridgeStore`).
+- The `serverChannelStore.initialize()` promise waits indefinitely for a WebSocket authentication packet (`module:authenticated`).
+- If the server is slow, down, or authentication is blocked, the entire `onMounted` hook in `App.vue` hangs.
+- The `ContextBridge` is never initialized, making the window "deaf" to all cross-process token broadcasts from the Chat window.
+
+Observed symptom:
+- The Chat window logs show `Broadcasting token-literal`.
+- The Stage window shows startup logs up to `Initializing server channel store`, then goes silent.
+- No `[PipelineTTS:Bridge]` or `[PipelineTTS:Stage]` logs appear in the receiver devtools.
+- Chat text appears in the Chat UI, but no TTS is heard.
+
+Fix direction:
+- **Prioritize Infrastructure**: Move `contextBridgeStore.initialize()` to the very top of the `onMounted` sequence in `App.vue`.
+- **Implement Safety Timeouts**: Add a default timeout (e.g., 5000ms) to every initialization promise in higher-level stores (`channel-server.ts`) to ensure the app continues to boot even if a service is unreachable.

@@ -10,6 +10,7 @@ import { client } from '../../composables/api'
 import { useLocalFirstRequest } from '../../composables/use-local-first'
 import { chatSessionsRepo } from '../../database/repos/chat-sessions.repo'
 import { useAuthStore } from '../auth'
+import { useMemoryLifetimeStore } from '../memory-lifetime'
 import { useShortTermMemoryStore } from '../memory-short-term'
 import { useAiriCardStore } from '../modules/airi-card'
 import { useSettingsGeneral } from '../settings'
@@ -21,6 +22,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   const { activeCardId, systemPrompt } = storeToRefs(useAiriCardStore())
   const { remoteSyncEnabled } = storeToRefs(useSettingsGeneral())
   const shortTermMemory = useShortTermMemoryStore()
+  const lifetimeMemory = useMemoryLifetimeStore()
 
   // NOTICE: This BroadcastChannel reuses the same channel as context-bridge to notify
   // other windows (e.g. chatbox) that session data changed and they should reload from DB.
@@ -200,11 +202,27 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     ].join('\n\n')
   }
 
+  function buildLifetimeMemoryContext(characterId: string) {
+    const artifact = lifetimeMemory.artifacts.get(characterId)
+    const distilledContent = artifact?.distilledContent?.trim()
+    if (!distilledContent)
+      return ''
+
+    return [
+      '[Lifetime Artifact]',
+      'The following distilled long-horizon continuity block represents the durable relationship context for this active character.',
+      'Use it as hidden continuity context alongside recent short-term memory.',
+      distilledContent,
+    ].join('\n\n')
+  }
+
   function generateInitialMessageFromPrompt(prompt: string, characterId = getCurrentCharacterId()) {
     const shortTermContext = buildShortTermMemoryContext(characterId)
+    const lifetimeContext = buildLifetimeMemoryContext(characterId)
     const content = [
       codeBlockSystemPrompt + mathSyntaxSystemPrompt + prompt,
       shortTermContext,
+      lifetimeContext,
     ].filter(Boolean).join('\n\n')
 
     return {
@@ -386,6 +404,8 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     if (!index.value || index.value.userId !== currentUserId)
       await loadIndexForUser(currentUserId)
 
+    await lifetimeMemory.loadForCharacter(characterId)
+
     const characterIndex = getCharacterIndex(characterId)
     if (!characterIndex) {
       console.info('[ChatSession] no character index, creating session', { characterId })
@@ -406,7 +426,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     // NOTICE: Ensure prompt is up to date immediately after card-switch context is resolved.
     refreshActiveSystemMessage({
       sessionId: characterIndex.activeSessionId,
-      characterId: characterId,
+      characterId,
       prompt: systemPrompt.value,
     })
 
@@ -687,6 +707,15 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       return
     refreshActiveSystemMessage()
   })
+
+  watch(
+    () => lifetimeMemory.artifacts.get(activeCardId.value || 'default')?.updatedAt ?? 0,
+    () => {
+      if (!ready.value)
+        return
+      refreshActiveSystemMessage()
+    },
+  )
 
   watch(activeSessionId, async (nextId) => {
     if (!nextId || !ready.value)

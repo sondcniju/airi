@@ -1,4 +1,4 @@
-import { array, boolean, literal, number, object, optional, pipe, record, regex, string, union, unknown } from 'valibot'
+import { array, boolean, intersect, literal, number, object, optional, pipe, record, regex, string, union, unknown } from 'valibot'
 
 /**
  * Message Example Item Schema
@@ -70,6 +70,19 @@ const AiriHeartbeatSchema = object({
   }),
 })
 
+const AiriDreamStateSchema = object({
+  enabled: boolean(),
+  strictAfkGating: boolean(),
+  journalingThreshold: union([literal('minimal'), literal('balanced'), literal('lush')]),
+  maxSessionsPerDay: number(),
+  sessionTimeoutMinutes: number(),
+  afkThresholdMinutes: number(),
+  minConversationTurns: number(),
+  lastProcessedAt: optional(number()),
+  dailyRunDate: optional(string()),
+  dailyRunCount: optional(number()),
+})
+
 const AiriOutfitSchema = object({
   id: string(),
   name: string(),
@@ -81,6 +94,7 @@ const AiriOutfitSchema = object({
 const AiriExtensionSchema = object({
   modules: optional(AiriModulesSchema),
   heartbeats: optional(AiriHeartbeatSchema),
+  dreamState: optional(AiriDreamStateSchema),
   groundingEnabled: optional(boolean()),
   generation: optional(object({
     enabled: boolean(),
@@ -111,11 +125,16 @@ const AiriExtensionSchema = object({
     promptPrefix: optional(string()),
     widgetInstruction: optional(string()),
     options: optional(record(string(), unknown())),
+    autonomousEnabled: optional(boolean()),
+    autonomousThreshold: optional(number()),
   })),
   agents: optional(record(string(), object({
     prompt: string(),
     enabled: optional(boolean()),
   }))),
+  imageJournal: optional(object({
+    selfie: optional(boolean()),
+  })),
 })
 
 /**
@@ -133,7 +152,12 @@ export const AiriCardSchema = object({
   postHistoryInstructions: optional(string()),
   greetings: optional(array(string())),
   messageExample: optional(MessageExampleSchema),
-  extensions: optional(record(string(), unknown())),
+  extensions: optional(intersect([
+    record(string(), unknown()),
+    object({
+      airi: optional(AiriExtensionSchema),
+    }),
+  ])),
 })
 // Exporting for use in the main schema later if needed
 export { AiriExtensionSchema }

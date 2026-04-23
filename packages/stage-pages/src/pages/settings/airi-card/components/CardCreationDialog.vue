@@ -70,7 +70,6 @@ const { stageModelSelected: defaultDisplayModelId } = storeToRefs(stageModelStor
 const { activeProvider: defaultArtistryProvider } = storeToRefs(artistryStore)
 const { availableExpressions } = storeToRefs(modelStore)
 const { animationOptions } = storeToRefs(customVrmAnimationsStore)
-const { activeCardId } = storeToRefs(cardStore)
 
 // Determine if we're in edit mode
 const isEditMode = computed(() => !!props.cardId)
@@ -87,6 +86,10 @@ const selectedArtistryProvider = ref<string>('')
 const selectedArtistryModel = ref<string>('')
 const selectedArtistryPromptPrefix = ref<string>('')
 const selectedArtistryWidgetInstruction = ref<string>('')
+const selectedArtistryAutonomousEnabled = ref<boolean>(false)
+const selectedArtistryAutonomousThreshold = ref<number>(70)
+const selectedArtistryAutonomousTarget = ref<'user' | 'assistant'>('user')
+const selectedArtistrySpawnMode = ref<'bg' | 'widget' | 'inline' | 'bg_widget'>('bg_widget')
 const selectedArtistryConfigStr = ref<string>('{\n  \n}')
 const generationEnabled = ref<boolean>(false)
 const generationProvider = ref<string>('')
@@ -138,6 +141,9 @@ const heartbeatsContextWindowHistory = ref<boolean>(true)
 const heartbeatsContextSystemLoad = ref<boolean>(true)
 const heartbeatsContextUsageMetrics = ref<boolean>(true)
 const heartbeatsRespectSchedule = ref<boolean>(true)
+const dreamStateEnabled = ref<boolean>(false)
+const dreamStateStrictAfkGating = ref<boolean>(true)
+const groundingEnabled = ref<boolean>(false)
 
 const staticSamplePayload = `[Sensor Data]
 User Idle: 15s
@@ -428,6 +434,9 @@ const errorMessage = ref<string>('')
 async function saveCard(card: Card): Promise<boolean> {
   // Before saving, let's validate what the user entered :
   const rawCard: Card = toRaw(card)
+  const existingAiriExt = (isEditMode.value && props.cardId)
+    ? cardStore.getCard(props.cardId)?.extensions?.airi as AiriExtension | undefined
+    : undefined
 
   if (!((rawCard.name?.length ?? 0) > 0)) {
     // No name
@@ -529,6 +538,18 @@ async function saveCard(card: Card): Promise<boolean> {
           },
           respectSchedule: heartbeatsRespectSchedule.value,
         },
+        dreamState: {
+          enabled: dreamStateEnabled.value,
+          strictAfkGating: dreamStateStrictAfkGating.value,
+          journalingThreshold: 'balanced',
+          maxSessionsPerDay: 4,
+          sessionTimeoutMinutes: 60,
+          afkThresholdMinutes: 5,
+          minConversationTurns: 4,
+          lastProcessedAt: existingAiriExt?.dreamState?.lastProcessedAt,
+          dailyRunDate: existingAiriExt?.dreamState?.dailyRunDate,
+          dailyRunCount: existingAiriExt?.dreamState?.dailyRunCount ?? 0,
+        },
         acting: {
           modelExpressionPrompt: selectedActingModelExpressionPrompt.value,
           speechExpressionPrompt: selectedActingSpeechExpressionPrompt.value,
@@ -542,6 +563,7 @@ async function saveCard(card: Card): Promise<boolean> {
           known: generationKnown,
           advanced: generationAdvanced,
         },
+        groundingEnabled: groundingEnabled.value,
       } as AiriExtension,
     },
   }
@@ -552,6 +574,10 @@ async function saveCard(card: Card): Promise<boolean> {
     model: selectedArtistryModel.value,
     promptPrefix: selectedArtistryPromptPrefix.value,
     widgetInstruction: selectedArtistryWidgetInstruction.value,
+    spawnMode: selectedArtistrySpawnMode.value,
+    autonomousEnabled: selectedArtistryAutonomousEnabled.value,
+    autonomousThreshold: selectedArtistryAutonomousThreshold.value,
+    autonomousTarget: selectedArtistryAutonomousTarget.value,
     options: (() => {
       try {
         return selectedArtistryConfigStr.value.trim() ? JSON.parse(selectedArtistryConfigStr.value) : undefined
@@ -590,12 +616,16 @@ function initializeCard(): Card {
   selectedSpeechModel.value = airiExt?.modules?.speech?.model || defaultSpeechModel.value
   selectedSpeechVoiceId.value = airiExt?.modules?.speech?.voice_id || defaultSpeechVoiceId.value
   selectedDisplayModelId.value = airiExt?.modules?.displayModelId || defaultDisplayModelId.value
-  const activeBg = airiExt?.modules?.activeBackgroundId || airiExt?.modules?.preferredBackgroundId
+  const activeBg = airiExt?.modules?.activeBackgroundId || (airiExt?.modules as any)?.preferredBackgroundId
   selectedActiveBackgroundId.value = !activeBg ? 'none' : activeBg
   selectedArtistryProvider.value = airiExt?.artistry?.provider || defaultArtistryProvider.value
   selectedArtistryModel.value = airiExt?.artistry?.model || ''
   selectedArtistryPromptPrefix.value = airiExt?.artistry?.promptPrefix || ''
   selectedArtistryWidgetInstruction.value = airiExt?.artistry?.widgetInstruction || DEFAULT_ARTISTRY_WIDGET_INSTRUCTION
+  selectedArtistryAutonomousEnabled.value = airiExt?.artistry?.autonomousEnabled ?? false
+  selectedArtistryAutonomousThreshold.value = airiExt?.artistry?.autonomousThreshold ?? 70
+  selectedArtistryAutonomousTarget.value = airiExt?.artistry?.autonomousTarget ?? 'user'
+  selectedArtistrySpawnMode.value = airiExt?.artistry?.spawnMode ?? 'bg_widget'
   generationEnabled.value = airiExt?.generation?.enabled ?? false
   generationProvider.value = airiExt?.generation?.provider || airiExt?.modules?.consciousness?.provider || consciousnessProvider.value
   generationModel.value = airiExt?.generation?.model || airiExt?.modules?.consciousness?.model || defaultConsciousnessModel.value
@@ -626,6 +656,9 @@ function initializeCard(): Card {
   heartbeatsContextSystemLoad.value = airiExt?.heartbeats?.contextOptions?.systemLoad ?? true
   heartbeatsContextUsageMetrics.value = airiExt?.heartbeats?.contextOptions?.usageMetrics ?? true
   heartbeatsRespectSchedule.value = airiExt?.heartbeats?.respectSchedule ?? true
+  dreamStateEnabled.value = airiExt?.dreamState?.enabled ?? false
+  dreamStateStrictAfkGating.value = airiExt?.dreamState?.strictAfkGating ?? true
+  groundingEnabled.value = airiExt?.groundingEnabled ?? false
 
   loadActingSpeechCapabilities(selectedSpeechProvider.value || speechProvider.value)
 
@@ -841,6 +874,10 @@ function getDefaultPlaceholder(defaultValue: string | undefined): string {
             v-model:selected-artistry-model="selectedArtistryModel"
             v-model:selected-artistry-prompt-prefix="selectedArtistryPromptPrefix"
             v-model:selected-artistry-widget-instruction="selectedArtistryWidgetInstruction"
+            v-model:selected-artistry-autonomous-enabled="selectedArtistryAutonomousEnabled"
+            v-model:selected-artistry-autonomous-threshold="selectedArtistryAutonomousThreshold"
+            v-model:selected-artistry-autonomous-target="selectedArtistryAutonomousTarget"
+            v-model:selected-artistry-spawn-mode="selectedArtistrySpawnMode"
             v-model:selected-artistry-config-str="selectedArtistryConfigStr"
             :artistry-provider-options="artistryProviderOptions"
             :default-artistry-provider-placeholder="getDefaultPlaceholder(defaultArtistryProvider)"
@@ -858,6 +895,9 @@ function getDefaultPlaceholder(defaultValue: string | undefined): string {
             v-model:heartbeats-context-system-load="heartbeatsContextSystemLoad"
             v-model:heartbeats-context-usage-metrics="heartbeatsContextUsageMetrics"
             v-model:heartbeats-respect-schedule="heartbeatsRespectSchedule"
+            v-model:dream-state-enabled="dreamStateEnabled"
+            v-model:dream-state-strict-afk-gating="dreamStateStrictAfkGating"
+            v-model:grounding-enabled="groundingEnabled"
             :sensor-payload="sensorPayload"
             :static-sample-payload="staticSamplePayload"
           />

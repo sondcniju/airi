@@ -6,19 +6,22 @@ import { estimateTokens, formatTokenCount } from '@proj-airi/stage-shared'
 import {
   CharacterContextDialog,
   ChatHistory,
+  ChatImagesPopover,
   ChatMemoryPopover,
-  MarkdownRenderer,
+  JournalPreviewModal,
 } from '@proj-airi/stage-ui/components'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatMaintenanceStore } from '@proj-airi/stage-ui/stores/chat/maintenance'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useChatStreamStore } from '@proj-airi/stage-ui/stores/chat/stream-store'
+import { useEchoesStore } from '@proj-airi/stage-ui/stores/echo-chips'
+import { useJournalPreviewStore } from '@proj-airi/stage-ui/stores/journal-preview'
 import { useShortTermMemoryStore } from '@proj-airi/stage-ui/stores/memory-short-term'
 import { useTextJournalStore } from '@proj-airi/stage-ui/stores/memory-text-journal'
 import { buildSystemPrompt, useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
-import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
+import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettingsChat } from '@proj-airi/stage-ui/stores/settings'
 import { BasicTextarea } from '@proj-airi/ui'
@@ -27,6 +30,7 @@ import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka
 import { computed, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
+import { toast } from 'vue-sonner'
 
 import { builtinTools } from '../stores/tools/builtin'
 
@@ -40,7 +44,7 @@ const chatStream = useChatStreamStore()
 const textJournalStore = useTextJournalStore()
 const backgroundStore = useBackgroundStore()
 const airiCardStore = useAiriCardStore()
-const proactivityStore = useProactivityStore()
+const echoesStore = useEchoesStore()
 
 const { activeCard } = storeToRefs(airiCardStore)
 const shortTermMemory = useShortTermMemoryStore()
@@ -57,6 +61,33 @@ const { activeModel, activeProvider } = storeToRefs(useConsciousnessStore())
 const settingsChat = useSettingsChat()
 const isComposing = ref(false)
 const CHAT_WINDOW_TITLE = 'AIRI - Chat Window'
+
+const journalPreviewStore = useJournalPreviewStore()
+const visionStore = useVisionStore()
+const { openTextPreview, openImagePreview, closePreview } = journalPreviewStore
+
+function addImageAttachmentFromBase64(data: string, mimeType: string, _fileName?: string) {
+  let url = ''
+  try {
+    const binary = atob(data)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i)
+    }
+    const blob = new Blob([bytes], { type: mimeType })
+    url = URL.createObjectURL(blob)
+  }
+  catch {
+    url = `data:${mimeType};base64,${data}`
+  }
+
+  attachments.value.push({
+    type: 'image' as const,
+    data,
+    mimeType,
+    url,
+  })
+}
 
 // --- Journal Preview Data ---
 const latestTextEntries = computed(() => {
@@ -83,46 +114,66 @@ const latestTextEntries = computed(() => {
         id: b.id,
         type: 'auto' as const,
         timestamp: b.updatedAt || b.createdAt,
-        title: `My thoughts after ${b.messageCount} messages together~`,
+        messageCount: b.messageCount,
+        title: 'Daily Recap',
         content,
       })
     })
 
-  return [...manualEntries, ...autoEntries]
+  const echoEntries = echoesStore.getCharacterChips(activeCardId.value)
+    .map(c => ({
+      id: c.id,
+      type: 'echo' as const,
+      echoType: c.type,
+      timestamp: c.createdAt,
+      title: c.type.charAt(0).toUpperCase() + c.type.slice(1).replace('_', ' '),
+      content: c.content,
+    }))
+
+  return [...manualEntries, ...autoEntries, ...echoEntries]
     .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, 2)
+    .slice(0, 15)
+})
+
+const groupedTextEntries = computed(() => {
+  const entries = latestTextEntries.value
+  const groups: { type: 'single' | 'echo-group', entry?: any, items?: any[] }[] = []
+  let tempEchoGroup: any[] = []
+
+  entries.forEach((entry) => {
+    if (entry.type === 'echo') {
+      tempEchoGroup.push(entry)
+    }
+    else {
+      if (tempEchoGroup.length > 0) {
+        groups.push({ type: 'echo-group', items: [...tempEchoGroup] })
+        tempEchoGroup = []
+      }
+      groups.push({ type: 'single', entry })
+    }
+  })
+
+  if (tempEchoGroup.length > 0) {
+    groups.push({ type: 'echo-group', items: tempEchoGroup })
+  }
+
+  return groups
 })
 
 const latestImageEntries = computed(() => {
   if (!activeCardId.value)
     return []
-  return backgroundStore.journalEntries.slice(0, 3)
+  return backgroundStore.journalEntries.slice(0, 15)
 })
-
-// --- Inline Preview Modal ---
-const previewModal = ref<{
-  type: 'text' | 'image'
-  title: string
-  content: string // text content or image URL
-} | null>(null)
-
-function openTextPreview(entry: { title: string, content: string }) {
-  previewModal.value = { type: 'text', title: entry.title, content: entry.content }
-}
-
-function openImagePreview(entry: { title: string, url: string | null }) {
-  if (!entry.url)
-    return
-  previewModal.value = { type: 'image', title: entry.title, content: entry.url }
-}
-
-function closePreview() {
-  previewModal.value = null
-}
 
 // --- Date Formatting ---
 function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString('en-CA') // YYYY-MM-DD
+}
+
+function formatDayMonth(timestamp: number): string {
+  const d = new Date(timestamp)
+  return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
 function formatLocalDayKey(date: Date): string {
@@ -191,13 +242,7 @@ async function handleSend() {
     return
   }
 
-  let textToSend = messageInput.value
-  if (activeCard.value?.extensions?.airi?.groundingEnabled) {
-    const sensorData = proactivityStore.sensorPayload
-    if (sensorData) {
-      textToSend = `[Grounding Context]\n${sensorData}\n\n---\nUser Says:\n${textToSend}`
-    }
-  }
+  const textToSend = messageInput.value
 
   const attachmentsToSend = attachments.value.map(att => ({ ...att }))
 
@@ -234,16 +279,92 @@ async function handleFilePaste(files: File[]) {
       reader.onload = (e) => {
         const base64Data = (e.target?.result as string)?.split(',')[1]
         if (base64Data) {
-          attachments.value.push({
-            type: 'image' as const,
-            data: base64Data,
-            mimeType: file.type,
-            url: URL.createObjectURL(file),
-          })
+          addImageAttachmentFromBase64(base64Data, file.type, file.name)
         }
       }
       reader.readAsDataURL(file)
     }
+  }
+}
+
+function addScreenshotAttachment(data: string, mimeType: string) {
+  addImageAttachmentFromBase64(data, mimeType, 'screenshot.png')
+}
+
+async function handleScreenshotClick() {
+  console.log('[InteractiveArea] Manual screenshot capture requested via visionStore...')
+  try {
+    const result = await visionStore.captureSnapshot({ width: 1280, height: 720 }) as any
+    console.log('[InteractiveArea] Capture result:', result ? (result.error ? result.error : 'Success') : 'Null/Empty')
+
+    if (result?.error === 'permission_denied') {
+      toast.error('Screen recording permission required.', {
+        action: { label: 'Open Settings', onClick: () => visionStore.openPermissionSettings() },
+      })
+      return
+    }
+
+    if (result?.dataUrl) {
+      const base64 = result.dataUrl.split(',')[1]
+      if (base64) {
+        addScreenshotAttachment(base64, 'image/png')
+        toast.success('Screenshot attached!')
+      }
+    }
+    else {
+      console.warn('[InteractiveArea] Capturing screenshot returned no data. Check screen recording permissions.')
+      toast.error('Capture failed: No data.')
+    }
+  }
+  catch (err) {
+    console.error('[InteractiveArea] Screenshot capture failed:', err)
+  }
+}
+
+async function handleInternalImageAttach({ url, title }: { url: string, title: string }) {
+  try {
+    const response = await fetch(url)
+    const blob = await response.blob()
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const base64Data = (e.target?.result as string)?.split(',')[1]
+      if (base64Data) {
+        addImageAttachmentFromBase64(base64Data, blob.type, title)
+        toast.success('Image attached to chat!')
+      }
+    }
+    reader.readAsDataURL(blob)
+  }
+  catch (err) {
+    console.error('[InteractiveArea] Failed to attach internal image:', err)
+    toast.error('Failed to attach image.')
+  }
+}
+
+async function captureAndSendScreenshot() {
+  console.log('[InteractiveArea] Auto-send screenshot requested (shortcut) via visionStore...')
+  try {
+    const result = await visionStore.captureSnapshot({ width: 1280, height: 720 }) as any
+    if (result?.error === 'permission_denied') {
+      toast.error('Permission denied. Cannot auto-send.', {
+        action: { label: 'Settings', onClick: () => visionStore.openPermissionSettings() },
+      })
+      return
+    }
+    if (result?.dataUrl) {
+      const base64 = result.dataUrl.split(',')[1]
+      if (base64) {
+        addScreenshotAttachment(base64, 'image/png')
+        await handleSend()
+      }
+    }
+    else {
+      console.warn('[InteractiveArea] Auto-send screenshot failed: No data. Check permissions.')
+      toast.error('Auto-send failed: No data.')
+    }
+  }
+  catch (err) {
+    console.error('[InteractiveArea] Auto-send screenshot capture failed:', err)
   }
 }
 
@@ -342,6 +463,16 @@ onMounted(() => {
   updateWindowTitle()
   textJournalStore.load()
   shortTermMemory.load()
+  echoesStore.load()
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.ctrlKey && e.key === 'F7') {
+      e.preventDefault()
+      captureAndSendScreenshot()
+    }
+  }
+
+  window.addEventListener('keydown', handleKeyDown)
 })
 
 watch(messageInput, () => {
@@ -369,42 +500,115 @@ watch(messageInput, () => {
     </div>
 
     <!-- Journal Preview Chips -->
-    <div v-if="latestTextEntries.length > 0 || latestImageEntries.length > 0" class="flex gap-2 overflow-x-auto px-2 py-1 scrollbar-none">
+    <div v-if="latestTextEntries.length > 0 || latestImageEntries.length > 0" class="w-full flex gap-2 px-2 py-1">
       <!-- Text Journal Chips -->
       <div
-        v-for="entry in latestTextEntries"
-        :key="entry.id"
+        v-if="groupedTextEntries.length > 0"
         :class="[
-          'min-w-32 max-w-44 flex flex-col cursor-pointer',
-          'border border-primary-200/30 rounded-lg bg-primary-50/50 p-2 text-xs',
-          'transition-all hover:bg-primary-100/50',
-          'dark:border-primary-800/30 dark:bg-primary-900/30 dark:hover:bg-primary-800/50',
+          latestImageEntries.length > 0 ? 'w-1/2' : 'w-full',
+          'flex gap-2 overflow-x-auto scrollbar-none',
         ]"
-        @click="openTextPreview(entry)"
       >
-        <div :class="['flex items-center gap-1', 'text-primary-500 text-[10px] font-bold uppercase tracking-tighter']">
-          <div :class="entry.type === 'auto' ? 'i-solar:magic-stick-3-bold-duotone' : 'i-solar:notebook-bold-duotone'" />
-          <span>{{ formatDate(entry.timestamp) }}</span>
-        </div>
-        <div :class="['line-clamp-2', 'text-primary-900/70 dark:text-primary-100/70']">
-          {{ entry.title }}
-        </div>
+        <template v-for="(group, idx) in groupedTextEntries" :key="idx">
+          <!-- Echo Group (2-story Ticker) -->
+          <div v-if="group.type === 'echo-group'" class="h-14 min-w-fit flex flex-col flex-wrap gap-1">
+            <div
+              v-for="entry in group.items"
+              :key="entry.id"
+              :class="[
+                'h-[26px] flex items-center gap-2 shrink-0 cursor-pointer px-2 py-1 rounded-lg border border-opacity-30 transition-all',
+                entry.echoType === 'mood' ? 'bg-rose-50/50 border-rose-200 text-rose-600 dark:bg-rose-900/20 dark:border-rose-800 dark:text-rose-400'
+                : entry.echoType === 'flavor' ? 'bg-amber-50/50 border-amber-200 text-amber-600 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400'
+                  : 'bg-indigo-50/50 border-indigo-200 text-indigo-600 dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-400',
+              ]"
+              @click="openTextPreview(entry)"
+            >
+              <div class="flex items-center gap-1 text-[8px] font-bold tracking-tighter uppercase opacity-70">
+                <span>{{ formatDayMonth(entry.timestamp) }}</span>
+                <div
+                  :class="[
+                    'text-[10px]',
+                    entry.echoType === 'mood' ? 'i-solar:heart-bold-duotone'
+                    : entry.echoType === 'flavor' ? 'i-solar:tag-bold-duotone'
+                      : 'i-solar:magic-stick-3-bold-duotone',
+                  ]"
+                />
+              </div>
+              <span class="max-w-40 truncate text-[10px] font-bold leading-none">{{ entry.content }}</span>
+            </div>
+          </div>
+
+          <!-- Single Entries (DNA Snaps / Emerald Cards) -->
+          <div v-else-if="group.type === 'single'" @click="openTextPreview(group.entry)">
+            <!-- STMM (Auto) Square Block -->
+            <div
+              v-if="group.entry.type === 'auto'"
+              :class="[
+                'h-14 w-14 shrink-0 flex flex-col items-center justify-between p-1 cursor-pointer',
+                'border border-primary-200/30 rounded-lg bg-primary-50/50 transition-all hover:bg-primary-100/50',
+                'dark:border-primary-800/30 dark:bg-primary-900/30 dark:hover:bg-primary-800/50',
+              ]"
+            >
+              <span class="mt-0.5 text-[9px] text-primary-500/80 font-bold leading-none">{{ formatDayMonth(group.entry.timestamp) }}</span>
+              <div class="i-solar:dna-bold-duotone text-sm text-primary-500" />
+              <span class="mb-0.5 text-[8px] text-primary-400 font-bold leading-none font-mono dark:text-primary-500">{{ group.entry.messageCount }}</span>
+            </div>
+
+            <!-- Manual Journal Card -->
+            <div
+              v-else
+              :class="[
+                'min-w-28 max-w-40 h-14 flex flex-col shrink-0 cursor-pointer p-2 text-xs',
+                'border border-emerald-200/30 rounded-lg bg-emerald-50/50 transition-all hover:bg-emerald-100/50',
+                'dark:border-emerald-800/30 dark:bg-emerald-900/30 dark:hover:bg-emerald-800/50',
+              ]"
+            >
+              <div :class="['flex items-center gap-1', 'text-emerald-500 text-[10px] font-bold uppercase tracking-tighter leading-none mb-1']">
+                <div class="i-solar:notebook-bold-duotone" />
+                <span>{{ formatDate(group.entry.timestamp) }}</span>
+              </div>
+              <div :class="['line-clamp-2 text-[10px] leading-tight', 'text-emerald-900/70 dark:text-emerald-100/70']">
+                {{ group.entry.title }}
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
 
       <!-- Image Journal Chips -->
       <div
-        v-for="entry in latestImageEntries"
-        :key="entry.id"
+        v-if="latestImageEntries.length > 0"
         :class="[
-          'relative h-14 w-14 shrink-0 cursor-pointer of-hidden rounded-lg',
-          'border border-primary-200/30 transition-all hover:border-primary-500',
-          'dark:border-primary-800/30 dark:hover:border-primary-400',
+          latestTextEntries.length > 0 ? 'w-1/2' : 'w-full',
+          'flex gap-2 overflow-x-auto scrollbar-none',
         ]"
-        @click="openImagePreview(entry)"
       >
-        <img :src="entry.url || ''" class="h-full w-full object-cover">
-        <div :class="['absolute inset-0 flex items-end p-1', 'bg-gradient-to-t from-black/60 to-transparent']">
-          <span class="truncate text-[8px] text-white font-medium">{{ entry.title }}</span>
+        <div
+          v-for="entry in latestImageEntries"
+          :key="entry.id"
+          :class="[
+            'group relative h-14 w-14 shrink-0 cursor-pointer of-hidden rounded-lg',
+            'border border-primary-200/30 transition-all hover:border-primary-500',
+            'dark:border-primary-800/30 dark:hover:border-primary-400',
+          ]"
+          @click="openImagePreview(entry)"
+        >
+          <img :src="entry.url || ''" class="h-full w-full object-cover">
+          <div :class="['absolute inset-0 flex items-end p-1', 'bg-gradient-to-t from-black/60 to-transparent']">
+            <span class="truncate text-[8px] text-white font-medium">{{ entry.title }}</span>
+          </div>
+
+          <!-- Save Button (Top Right, Hover Only) -->
+          <button
+            :class="[
+              'absolute right-1 top-1 z-10 p-1 rounded-md bg-black/40 text-white backdrop-blur-sm',
+              'opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/60',
+            ]"
+            title="Save to computer"
+            @click.stop="journalPreviewStore.downloadImage(entry.url || '', entry.title)"
+          >
+            <div class="i-solar:download-minimalistic-bold-duotone text-[10px]" />
+          </button>
         </div>
       </div>
     </div>
@@ -471,33 +675,11 @@ watch(messageInput, () => {
         @view-context="showContext = true"
       />
 
-      <!-- Image Journal Deep Link -->
-      <button
-        class="max-h-[10lh] min-h-[1lh]"
-        bg="neutral-100 dark:neutral-800"
-        text="lg neutral-500 dark:neutral-400"
-        hover:text="primary-500 dark:primary-400"
-        flex items-center justify-center rounded-md p-2 outline-none
-        transition-colors transition-transform active:scale-95
-        title="Image Journal"
-        @click="navigateToImageJournal"
-      >
-        <div class="i-solar:gallery-bold-duotone" />
-      </button>
-
-      <!-- Attach Image -->
-      <button
-        class="max-h-[10lh] min-h-[1lh]"
-        bg="neutral-100 dark:neutral-800"
-        text="lg neutral-500 dark:neutral-400"
-        hover:text="primary-500 dark:primary-400"
-        flex items-center justify-center rounded-md p-2 outline-none
-        transition-colors transition-transform active:scale-95
-        title="Attach Image"
-        @click="fileInput?.click()"
-      >
-        <div class="i-solar:camera-add-bold-duotone" />
-      </button>
+      <ChatImagesPopover
+        @attach="fileInput?.click()"
+        @screenshot="handleScreenshotClick"
+        @view-journal="navigateToImageJournal"
+      />
 
       <!-- Clear Messages (with safety hook) -->
       <button
@@ -585,50 +767,15 @@ watch(messageInput, () => {
       @attach="handleFilePaste"
     />
 
-    <!-- Inline Preview Modal -->
+    <!-- Context Dialog -->
+    <CharacterContextDialog
+      v-model="showContext"
+      :character-name="characterName"
+      :system-prompt="effectiveSystemPrompt"
+    />
+
+    <!-- Trash Safety Confirmation Dialog -->
     <Teleport to="body">
-      <Transition name="modal-fade">
-        <div
-          v-if="previewModal"
-          class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          @click.self="closePreview"
-        >
-          <div
-            :class="[
-              'relative mx-4 max-h-[80vh] max-w-md w-full overflow-hidden rounded-2xl',
-              'bg-white shadow-2xl dark:bg-neutral-900',
-              'animate-scale-in',
-            ]"
-          >
-            <!-- Header -->
-            <div :class="['flex items-center justify-between border-b border-neutral-200/50 px-4 py-3', 'dark:border-neutral-700/50']">
-              <div :class="['flex items-center gap-2 text-sm font-bold', 'text-neutral-800 dark:text-neutral-100']">
-                <div :class="previewModal.type === 'text' ? 'i-solar:notebook-bold-duotone' : 'i-solar:gallery-bold-duotone'" />
-                <span class="truncate">{{ previewModal.title }}</span>
-              </div>
-              <button
-                :class="['rounded-full p-1 text-neutral-400 transition-colors', 'hover:bg-neutral-100 hover:text-neutral-600', 'dark:hover:bg-neutral-800 dark:hover:text-neutral-200']"
-                @click="closePreview"
-              >
-                <div i-solar:close-circle-bold-duotone class="text-lg" />
-              </button>
-            </div>
-
-            <!-- Content -->
-            <div v-if="previewModal.type === 'text'" class="max-h-[60vh] overflow-y-auto px-4 py-3">
-              <MarkdownRenderer
-                :content="previewModal.content"
-                class="max-w-none prose prose-sm dark:prose-invert"
-              />
-            </div>
-            <div v-else class="flex items-center justify-center p-2">
-              <img :src="previewModal.content" class="max-h-[60vh] w-auto rounded-lg object-contain">
-            </div>
-          </div>
-        </div>
-      </Transition>
-
-      <!-- Trash Safety Confirmation Dialog -->
       <Transition name="modal-fade">
         <div
           v-if="trashConfirmOpen"
@@ -674,42 +821,34 @@ watch(messageInput, () => {
               >
                 Clear Anyway
               </button>
-              <button
-                :class="[
-                  'flex-1 rounded-lg px-3 py-2 text-xs font-semibold',
-                  'bg-neutral-100 text-neutral-600 transition-colors',
-                  'hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700',
-                ]"
-                @click="trashConfirmOpen = false"
-              >
-                Cancel
-              </button>
             </div>
           </div>
         </div>
       </Transition>
     </Teleport>
-    <!-- Context Dialog -->
-    <CharacterContextDialog
-      v-model="showContext"
-      :character-name="characterName"
-      :system-prompt="effectiveSystemPrompt"
-    />
+
+    <!-- Journal Preview Modal -->
+    <JournalPreviewModal @attach="handleInternalImageAttach" />
   </div>
 </template>
 
 <style scoped>
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 .modal-fade-enter-active,
 .modal-fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.3s ease;
 }
+
 .modal-fade-enter-from,
 .modal-fade-leave-to {
   opacity: 0;
-}
-
-.animate-scale-in {
-  animation: scale-in 0.2s ease-out;
 }
 
 @keyframes scale-in {
@@ -721,5 +860,9 @@ watch(messageInput, () => {
     transform: scale(1);
     opacity: 1;
   }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
 }
 </style>

@@ -14,20 +14,29 @@ git tag v0.9.0-stable.20260321
 git push origin v0.9.0-stable.20260321
 ```
 
-### Step 3: Build Windows Executable
+### Step 3: Generate Release Notes
+Do not use generic or placeholder notes. Analyze the changes and generate a **user-facing** summary.
+
+1. **Compare Hashes**: Look at all commits between the previous stable tag and `HEAD`:
+   ```bash
+   git log [previous-tag]..HEAD --oneline
+   ```
+2. **Draft Summary**: Focus on outward-facing user features (e.g., new buttons, UI improvements, stability wins) rather than internal technical refactors.
+3. **Save to File**: Save the notes into a temporary `.md` file (e.g., `release-notes.md`) to be used during the publish step.
+
+### Step 4: Build Windows Executable
 Execute the build command from the `stage-tamagotchi` workspace:
 ```bash
 pnpm -F @proj-airi/stage-tamagotchi run build:win
 ```
 This runs `electron-builder --win` after performing necessary typechecks and production builds for main/renderer/preload.
 
-### Step 4: Publish to GitHub Releases
-Use the `gh` CLI to create the release and upload the asset.
+### Step 5: Publish to GitHub Releases
+Use the `gh` CLI to create the release and upload the asset, using the `--notes-file` argument for your drafted notes.
 
 **Daily / Development Release (Target your fork):**
-For daily releases or testing, you should target your own fork to avoid permission issues with the upstream repository.
 ```bash
-gh release create v0.9.0-stable.20260322 apps/stage-tamagotchi/dist/AIRI-0.9.0-stable.20260322-windows-x64-setup.exe --repo dasilva333/airi --title "AIRI v0.9.0-stable (March 22, 2026)" --notes "Daily release focusing on Vision support MVP and Live2D state synchronization fixes."
+gh release create v0.9.1-stable.20260408 apps/stage-tamagotchi/dist/AIRI-0.9.1-stable.20260408-windows-x64-setup.exe --repo dasilva333/airi --title "AIRI v0.9.1-stable (April 8, 2026)" --notes-file release-notes.md
 ```
 
 **Stable Release (Target upstream):**

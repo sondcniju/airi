@@ -29,7 +29,6 @@ import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 
 // From stage-ui-three package
 import { useRenderTargetRegionAtClientPoint } from '../composables/render-target'
-// pinia store
 import { useModelStore } from '../stores/model-store'
 import { OrbitControls } from './Controls'
 import { SkyBox } from './Environment'
@@ -142,13 +141,18 @@ function onOrbitControlsCameraChanged(value: {
   }
 }
 const controlsReady = ref(false)
+const controlEnable = ref<boolean>(false)
+
+watch(() => modelStore.interactionMode, (mode) => {
+  controlEnable.value = mode === 'orbit'
+}, { immediate: true })
+
 function onOrbitControlsReady() {
   controlsReady.value = true
 }
 
 //  === VRMModel ===
 const modelLoaded = ref<boolean>(false)
-const controlEnable = ref<boolean>(false)
 function onVRMModelLoadStart() {
   modelLoaded.value = false
   controlEnable.value = false
@@ -183,7 +187,6 @@ function onVRMModelLoaded(value: { modelIdentity?: string, modelSrc: string }) {
   lastModelSrc.value = value.modelSrc
   lastModelIdentity.value = value.modelIdentity ?? value.modelSrc
   modelLoaded.value = true
-  controlEnable.value = true
 }
 
 // === sky box ===

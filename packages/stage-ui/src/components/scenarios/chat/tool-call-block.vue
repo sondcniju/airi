@@ -2,6 +2,7 @@
 import { Collapsible } from '@proj-airi/ui'
 import { computed } from 'vue'
 
+import { useJournalPreviewStore } from '../../../stores/journal-preview'
 import { MarkdownRenderer } from '../../markdown'
 
 const props = defineProps<{
@@ -11,22 +12,26 @@ const props = defineProps<{
   result?: any
 }>()
 
+const journalPreviewStore = useJournalPreviewStore()
+const { openImagePreview } = journalPreviewStore
+
 interface TextJournalArgs {
   action?: string
   title?: string
   content?: string
+  query?: string
 }
 
 interface ImageJournalArgs {
   action?: string
   prompt?: string
   title?: string
-  set_as_background?: boolean
+  mode?: 'inline' | 'widget' | 'bg'
 }
 
-const parsedArgs = computed<TextJournalArgs | null>(() => {
+const parsedArgs = computed<TextJournalArgs | any | null>(() => {
   try {
-    return JSON.parse(props.args) as TextJournalArgs
+    return JSON.parse(props.args)
   }
   catch {
     return null
@@ -37,6 +42,11 @@ const isTextJournalCreate = computed(() => {
   return props.toolName === 'text_journal'
     && parsedArgs.value?.action === 'create'
     && !!parsedArgs.value?.content?.trim()
+})
+
+const isTextJournalSearch = computed(() => {
+  return props.toolName === 'text_journal'
+    && parsedArgs.value?.action === 'search'
 })
 
 const isImageJournalCreate = computed(() => {
@@ -61,8 +71,28 @@ const imageJournalMarkdown = computed(() => {
   const args = parsedArgs.value as ImageJournalArgs
   const title = args?.title?.trim() || 'Untitled Image'
   const prompt = args?.prompt?.trim() || ''
-  const setBg = args?.set_as_background ? '\n\n> Setting as background...' : ''
-  return `### ${title}\n\n*${prompt}*${setBg}`
+  const mode = args?.mode || 'inline'
+
+  let footer = ''
+  if (mode === 'bg')
+    footer = '\n\n> **Scene Shift**: Setting this as the active background...'
+  else if (mode === 'widget')
+    footer = '\n\n> **Canvas Created**: Spawning an artistry widget for you...'
+  else
+    footer = '\n\n> **Sharing**: Sending a quick sketch to our chat history...'
+
+  return `### ${title}\n\n*${prompt}*${footer}`
+})
+
+const imageJournalResult = computed(() => {
+  if (props.toolName !== 'image_journal' || !props.result)
+    return null
+  try {
+    return typeof props.result === 'string' ? JSON.parse(props.result) : props.result
+  }
+  catch {
+    return null
+  }
 })
 
 const formattedArgs = computed(() => {
@@ -127,16 +157,63 @@ const formattedArgs = computed(() => {
         </div>
         <MarkdownRenderer :content="textJournalMarkdown" />
       </template>
+
+      <template v-else-if="isTextJournalSearch">
+        <div class="mb-2 flex items-center gap-2">
+          <div class="i-solar:magnifer-bold-duotone text-base text-primary-500" />
+          <div class="rounded-full bg-primary-500/12 px-2.5 py-1 text-xs text-primary-700 dark:text-primary-300">
+            Semantic Search: "{{ parsedArgs?.query }}"
+          </div>
+        </div>
+
+        <div v-if="state === 'executing'" class="flex items-center gap-2 py-2 op-50">
+          <div i-eos-icons:loading class="text-xs" />
+          <span class="text-xs italic">Probing memory layers...</span>
+        </div>
+
+        <div v-else-if="result && Array.isArray(result)" class="mt-2 flex flex-col gap-2">
+          <div v-for="entry in result" :key="entry.id" class="border-l-2 border-primary-500/30 rounded-r-md bg-primary-500/5 px-2 py-1.5">
+            <div class="mb-0.5 flex items-center justify-between">
+              <span class="text-[10px] font-bold tracking-tight uppercase op-50">{{ entry.title || 'Memory' }}</span>
+              <span v-if="entry.createdAt" class="text-[9px] op-40">{{ new Date(entry.createdAt).toLocaleDateString() }}</span>
+            </div>
+            <div class="line-clamp-3 text-[13px] leading-relaxed italic op-90">
+              "{{ entry.content }}"
+            </div>
+          </div>
+          <div v-if="result.length === 0" class="py-2 text-center text-xs italic op-40">
+            No semantic matches found for this query.
+          </div>
+        </div>
+      </template>
+
       <template v-else-if="isImageJournalCreate">
         <div class="mb-2 flex items-center gap-2">
-          <div class="i-solar:camera-bold-duotone text-base text-violet-500" />
-          <div class="rounded-full bg-violet-500/12 px-2.5 py-1 text-xs text-violet-700 dark:text-violet-300">
-            Generating image
+          <div :class="[(parsedArgs as ImageJournalArgs)?.mode === 'bg' ? 'i-solar:gallery-wide-bold-duotone text-emerald-500' : 'i-solar:camera-bold-duotone text-violet-500']" class="text-base" />
+          <div
+            class="rounded-full px-2.5 py-1 text-xs"
+            :class="[
+              (parsedArgs as ImageJournalArgs)?.mode === 'bg'
+                ? 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300'
+                : 'bg-violet-500/12 text-violet-700 dark:text-violet-300',
+            ]"
+          >
+            {{ (parsedArgs as ImageJournalArgs)?.mode === 'bg' ? 'Updating Scene' : 'Generating image' }}
           </div>
         </div>
         <MarkdownRenderer :content="imageJournalMarkdown" />
+
+        <!-- Result Rendering (for inline mode) -->
+        <div v-if="imageJournalResult?.imageUrl" class="mt-4 overflow-hidden border border-primary-500/20 rounded-xl shadow-lg">
+          <img
+            :src="imageJournalResult.imageUrl"
+            class="w-full cursor-pointer object-contain transition-all active:scale-[0.98] hover:ring-2 hover:ring-primary-500/50"
+            @click="openImagePreview({ title: (parsedArgs as ImageJournalArgs)?.title || 'Generated Image', url: imageJournalResult.imageUrl })"
+          >
+        </div>
       </template>
-      <div v-else class="whitespace-pre-wrap break-words font-mono">
+
+      <div v-else class="whitespace-pre-wrap break-words text-[10px] font-mono op-80">
         {{ formattedArgs }}
       </div>
     </div>

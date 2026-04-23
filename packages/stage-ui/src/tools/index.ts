@@ -1,1 +1,1 @@
-export * from './mcp'
+export * from './debug'

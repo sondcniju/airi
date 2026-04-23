@@ -10,6 +10,7 @@ import defaultSkyBoxSrc from '../components/Environment/assets/sky_linekotsi_23_
 // TODO: make a separate type.ts
 export interface Vec3 { x: number, y: number, z: number }
 export type TrackingMode = 'camera' | 'mouse' | 'none'
+export type InteractionMode = 'orbit' | 'tactile'
 export type HexColor = string & { __hex?: true }
 
 export interface FieldBase<T> {
@@ -98,6 +99,8 @@ export const useModelStore = defineStore('modelStore', () => {
   const cameraPosition = useLocalStorage('settings/stage-ui-three/camera-position', { x: 0, y: 0, z: -1 })
   const cameraDistance = useLocalStorage('settings/stage-ui-three/cameraDistance', 0)
 
+  const interactionMode = useLocalStorage<InteractionMode>('settings/stage-ui-three/interaction-mode', 'orbit')
+
   const lookAtTarget = useLocalStorage('settings/stage-ui-three/lookAtTarget', { x: 0, y: 0, z: 0 })
   const trackingMode = useLocalStorage('settings/stage-ui-three/trackingMode', 'none' as 'camera' | 'mouse' | 'none')
   const eyeHeight = useLocalStorage('settings/stage-ui-three/eyeHeight', 0)
@@ -135,7 +138,15 @@ export const useModelStore = defineStore('modelStore', () => {
     activeVrm.value = null
     activeVrmParser.value = null
     activeVrmIdentity.value = ''
+    detectedWardrobe.value = { active: null, siblings: [], texIndex: null }
   }
+
+  // === Tactile Interaction State ===
+  const detectedWardrobe = ref<{
+    active: { display: string, raw: string } | null
+    siblings: { display: string, raw: string }[]
+    texIndex: number | null
+  }>({ active: null, siblings: [], texIndex: null })
 
   // === Lighting ===
   const directionalLightPosition = useLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/position', { x: 0, y: 0, z: -1 })
@@ -186,6 +197,7 @@ export const useModelStore = defineStore('modelStore', () => {
     cameraFOV,
     cameraPosition,
     cameraDistance,
+    interactionMode,
 
     directionalLightPosition,
     directionalLightTarget,
@@ -220,6 +232,7 @@ export const useModelStore = defineStore('modelStore', () => {
     activeVrm,
     activeVrmParser,
     activeVrmIdentity,
+    detectedWardrobe,
 
     onShouldUpdateView,
     shouldUpdateView,

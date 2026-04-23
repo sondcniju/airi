@@ -196,6 +196,41 @@ export function useVRMEmote(vrm: VRMCore) {
     }, ms) as unknown as number
   }
 
+  /**
+   * updateIntensity
+   * Forcefully updates the intensity of the currently active emotion.
+   * Useful for live-tracking interactions (e.g., tension-based reactions) where
+   * we want the expression to follow a value 1:1 without its own internal blend timing.
+   */
+  const updateIntensity = (intensity: number) => {
+    if (!currentEmotion.value)
+      return
+
+    const emotionState = emotionStates.get(currentEmotion.value)
+    if (!emotionState)
+      return
+
+    const normalizedIntensity = clampIntensity(intensity)
+
+    for (const expr of emotionState.expression || []) {
+      const resolvedName = resolveExpressionName(expr.name)
+      if (!resolvedName)
+        continue
+
+      const targetValue = expr.value * normalizedIntensity
+      targetExpressionValues.value.set(resolvedName, targetValue)
+
+      // To ensure 1:1 tracking, we sync the "current" (transition start) value to the target
+      // This effectively jumps the intensity to the new value immediately, which is
+      // desired when the caller (e.g. Wired Interaction) is already providing a smooth delta.
+      currentExpressionValues.value.set(resolvedName, targetValue)
+    }
+
+    // Stop internal transition to ensure it doesn't override our manual update
+    isTransitioning.value = false
+    transitionProgress.value = 1.0
+  }
+
   const update = (deltaTime: number) => {
     if (!currentEmotion.value) {
       if (isTransitioning.value) {
@@ -247,6 +282,7 @@ export function useVRMEmote(vrm: VRMCore) {
     setEmotion,
     setEmotionWithResetAfter,
     update,
+    updateIntensity,
     addEmotionState,
     removeEmotionState,
     dispose,

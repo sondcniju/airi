@@ -1,9 +1,6 @@
 <script setup lang="ts">
-import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { useAiriCardStore, useBackgroundStore } from '@proj-airi/stage-ui/stores'
 import { computed, ref, watch } from 'vue'
-
-import { widgetsHideWindow, widgetsRemove } from '../../../../shared/eventa'
 
 const props = withDefaults(defineProps<{
   id?: string
@@ -32,29 +29,33 @@ const backgroundStore = useBackgroundStore()
 const history = computed(() => backgroundStore.getCharacterJournalEntries(cardStore.activeCardId))
 const currentIndex = ref(0)
 
-// When entryId prop matches a new generation, jump to it in the gallery
-watch([() => props.entryId, history], ([newId, newHistory]) => {
+// Snap to a specific entry if the prop is explicitly changed (e.g. from the tool)
+watch(() => props.entryId, (newId) => {
   if (newId) {
-    const index = newHistory.findIndex(e => e.id === newId)
+    const index = history.value.findIndex(e => e.id === newId)
     if (index >= 0) {
       currentIndex.value = index
     }
   }
 }, { immediate: true })
 
+// Auto-snap to the newest generation (Index 0) when it finishes,
+// unless the user has manually started browsing away.
+watch(() => props.status, (newStatus) => {
+  if (newStatus === 'generating') {
+    isBrowsingGallery.value = false
+  }
+  else if (newStatus === 'done' && !isBrowsingGallery.value) {
+    currentIndex.value = 0
+  }
+})
+
 const isFlipped = ref(false)
 const errorOccurred = ref(false)
 const isSettingBackground = ref(false)
 const isBrowsingGallery = ref(false)
 
-watch(() => props.status, (newStatus) => {
-  if (newStatus === 'generating') {
-    isBrowsingGallery.value = false
-  }
-})
-
-const hideWindow = useElectronEventaInvoke(widgetsHideWindow)
-const removeWidget = useElectronEventaInvoke(widgetsRemove)
+// (Removed legacy status watcher as it's merged into the entryId/status logic above)
 
 // The current image is either resolved from the collection or fallback to props
 const currentImage = computed(() => {
@@ -78,6 +79,7 @@ function handleImageError() {
 function nextImage() {
   if (history.value.length === 0)
     return
+  isBrowsingGallery.value = true
   errorOccurred.value = false
   currentIndex.value = (currentIndex.value + 1) % history.value.length
 }
@@ -85,6 +87,7 @@ function nextImage() {
 function prevImage() {
   if (history.value.length === 0)
     return
+  isBrowsingGallery.value = true
   errorOccurred.value = false
   currentIndex.value = (currentIndex.value - 1 + history.value.length) % history.value.length
 }
@@ -119,13 +122,6 @@ async function handleSetAsBackground() {
   }
   finally {
     isSettingBackground.value = false
-  }
-}
-
-async function handleClose() {
-  if (props.id) {
-    await hideWindow({ id: props.id })
-    await removeWidget({ id: props.id })
   }
 }
 </script>
@@ -226,14 +222,6 @@ async function handleClose() {
             <span class="flex items-center justify-center pb-1 text-2xl leading-none font-mono">&gt;</span>
           </button>
         </div>
-
-        <!-- Close Button -->
-        <button
-          class="absolute right-3 top-3 z-30 size-8 flex items-center justify-center border border-white/20 rounded-full bg-black/40 text-white/70 backdrop-blur-md transition-all active:scale-95 hover:bg-black/70 hover:text-white"
-          @click.stop="handleClose"
-        >
-          <div class="i-iconify-material-symbols:close text-lg" />
-        </button>
 
         <!-- Counter & Flip Toggle -->
         <div class="absolute inset-x-0 bottom-2 z-10 flex items-center justify-between px-3">

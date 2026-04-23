@@ -8,8 +8,6 @@ import { streamText } from '@xsai/stream-text'
 import { defineStore } from 'pinia'
 import { toRaw } from 'vue'
 
-import { mcp } from '../tools'
-
 export type StreamEvent
   = | { type: 'text-delta', text: string }
     | { type: 'reasoning-delta', text: string }
@@ -137,7 +135,6 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
   const supportedTools = streamOptionsToolsCompatibilityOk(model, chatProvider, messages, options)
   const tools = supportedTools
     ? [
-        ...await mcp(),
         ...await resolveTools(),
       ]
     : undefined
@@ -168,8 +165,11 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
       try {
         await options?.onStreamEvent?.(event as StreamEvent)
         if (event && (event as StreamEvent).type === 'finish') {
-          const finishReason = (event as any).finishReason
-          if (finishReason !== 'tool_calls' || !options?.waitForTools)
+          // If we are not waiting for tools, resolve immediately on the first finish event.
+          // Otherwise, we rely on `result.messages.then()` resolving at the very end of all steps,
+          // because buggy endpoints (like Gemini's OpenAI proxy) might erroneously return `stop`
+          // instead of `tool_calls` during the first step of a multi-turn tool interaction.
+          if (!options?.waitForTools)
             resolveOnce()
         }
         else if (event && (event as StreamEvent).type === 'error') {
@@ -196,17 +196,27 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
         // TODO: we need Automatic tools discovery
         tools,
         onEvent,
+        model,
         abortSignal: options?.abortSignal,
       })
 
       // We MUST catch all promises returned by streamText to ensure the main promise settles
       // and to prevent "Uncaught (in promise)" errors if the initial handshake fails (e.g. 429).
-      void result.messages.catch((err) => {
+      // We prioritize result.messages for primary settlement, but ensure any step error
+      // that occurs before the first message also triggers a rejection.
+      void result.messages.then(() => resolveOnce()).catch((err) => {
         rejectOnce(err)
         console.error('Stream messages error:', err)
       })
-      void result.steps.catch(err => console.error('Stream steps error:', err))
+
+      void result.steps.catch((err) => {
+        // If the stream steps fail before messages settle, propagate it.
+        rejectOnce(err)
+        console.error('Stream steps error:', err)
+      })
+
       void result.usage.catch(err => console.error('Stream usage error:', err))
+
       void result.totalUsage.then((usage) => {
         if (usage) {
           onEvent({ type: 'usage', usage })
@@ -235,7 +245,6 @@ async function generateFrom(model: string, chatProvider: ChatProvider, messages:
   const supportedTools = streamOptionsToolsCompatibilityOk(model, chatProvider, messages, options)
   const tools = supportedTools
     ? [
-        ...await mcp(),
         ...await resolveTools(),
       ]
     : undefined
@@ -257,6 +266,7 @@ async function generateFrom(model: string, chatProvider: ChatProvider, messages:
     top_p: options?.top_p,
     max_tokens: options?.max_tokens,
     ...(options?.contextWidth ? { num_ctx: options.contextWidth } : {}),
+    model,
     tools,
   })
 }
@@ -348,6 +358,22 @@ export const useLLM = defineStore('llm', () => {
     return generateFrom(model, chatProvider, messages, { ...options, toolsCompatibility: toolsCompatibility.value })
   }
 
+  async function generateObject<T>(
+    model: string,
+    chatProvider: ChatProvider,
+    options: Omit<import('@proj-airi/stage-shared').StructuredOutputOptions<T>, 'model' | 'apiKey' | 'baseURL'>,
+  ) {
+    const { generateObject: sharedGenerateObject } = await import('@proj-airi/stage-shared')
+    const chatConfig = chatProvider.chat(model)
+
+    return await sharedGenerateObject({
+      ...options,
+      model,
+      apiKey: chatConfig.apiKey,
+      baseURL: String(chatConfig.baseURL),
+    })
+  }
+
   async function discoverToolsCompatibility(model: string, chatProvider: ChatProvider, _: Message[], options?: Omit<StreamOptions, 'supportsTools'>) {
     // Cached, no need to discover again
     const key = `${chatProvider.chat(model).baseURL}-${model}`
@@ -383,6 +409,7 @@ export const useLLM = defineStore('llm', () => {
     models,
     stream,
     generate,
+    generateObject,
     discoverToolsCompatibility,
   }
 })

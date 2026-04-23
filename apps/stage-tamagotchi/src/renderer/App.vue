@@ -145,10 +145,17 @@ onMounted(() => updateThemeColor())
 onMounted(async () => {
   const startupAt = performance.now()
   const logStep = (label: string) => {
-    console.log(`[App] ${label} (+${Math.round(performance.now() - startupAt)}ms)`)
+    console.log(`[PipelineTTS:App] ${label} (+${Math.round(performance.now() - startupAt)}ms)`)
   }
 
   logStep('onMounted start')
+
+  // NOTICE: Infrastructure vs Service ordering.
+  // We initialize the Context Bridge FIRST to ensure cross-window communication is established
+  // before any potentially blocking or slow subsystems (like models or server channels) are started.
+  // This prevents a hang in a high-level service from "deafening" the window to token broadcasts.
+  logStep('Initializing context bridge')
+  await contextBridgeStore.initialize().catch((err: any) => console.error('[PipelineTTS:App] FAILED context bridge init:', err))
 
   proactivityStore.registerTools(builtinTools)
   proactivityStore.startHeartbeatLoop()
@@ -167,23 +174,28 @@ onMounted(async () => {
   logStep('Loading display models')
   await displayModelsStore.loadDisplayModelsFromIndexedDB()
   logStep('Initializing stage model')
-  await settingsStore.initializeStageModel()
+  await settingsStore.initializeStageModel().catch((err: any) => console.error('[PipelineTTS:App] FAILED stage model init:', err))
+  logStep('Stage model initialized')
 
   logStep('Requesting server channel config')
-  const serverChannelConfig = await getServerChannelConfig()
+  const serverChannelConfig = await getServerChannelConfig().catch((err: any) => {
+    console.error('[PipelineTTS:App] FAILED server channel config:', err)
+    return {} as any
+  })
   logStep('Received server channel config')
   serverChannelSettingsStore.websocketTlsConfig = serverChannelConfig.websocketTlsConfig
   serverChannelSettingsStore.authToken = serverChannelConfig.authToken
   serverChannelSettingsStore.hostname = serverChannelConfig.hostname
 
   logStep('Initializing server channel store')
-  await serverChannelStore.initialize({ possibleEvents: ['ui:configure'] }).catch(err => console.error('Failed to initialize Mods Server Channel in App.vue:', err))
-  logStep('Initializing context bridge')
-  await contextBridgeStore.initialize()
+  await serverChannelStore.initialize({ possibleEvents: ['ui:configure'] }).catch((err: any) => console.error('[PipelineTTS:App] FAILED server channel store init:', err))
+
   logStep('Initializing character orchestrator')
   characterOrchestratorStore.initialize()
+
   logStep('Starting cursor tracking')
-  await startTrackingCursorPoint()
+  await startTrackingCursorPoint().catch((err: any) => console.error('[PipelineTTS:App] FAILED cursor tracking init:', err))
+  logStep('App Startup Complete')
   // Startup initialization complete
 
   // Expose stage provider definitions to plugin host APIs.
@@ -304,7 +316,7 @@ onUnmounted(() => {
 
 <template>
   <ToasterRoot @close="id => toast.dismiss(id)">
-    <Toaster />
+    <Toaster position="top-right" />
   </ToasterRoot>
   <ResizeHandler />
   <RouterView />

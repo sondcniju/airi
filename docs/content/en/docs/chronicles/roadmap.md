@@ -20,6 +20,19 @@ This document tracks the current development state of the AIRI project, specific
 
 ## Recent Changes (in `airi-rebase-scratch`)
 
+#### 2026-04-07 - Toolchain Consolidation & Conditional Guards
+- **Builtin Tools Unification**: Successfully coalesced the `mcp` tools into the main `builtinTools` registry. MCP is no longer a "sidecar" dependency; it's now part of the unified pipeline shared by Typed Chat, STT, and Proactivity.
+- **Conditional Tool Guards**: Implemented a reactive guard layer for tool inclusion. The LLM is now protected from "tool-call overload" by dynamically hiding unavailable features:
+  - **Artistry Guard**: `stage_widgets` and `image_journal` are omitted if Artistry is not configured.
+  - **Sticker Guard**: `spawn_sticker` is hidden if the character's sticker library is empty.
+  - **MCP Guard**: MCP tools are only registered if at least one MCP server is configured in the system.
+- **Legacy Store Cleanup**: Stripped manual tool injection logic from `llm` and `live-session` stores, significantly reducing technical debt and ensuring consistent behavior across all interaction surfaces.
+
+#### 2026-04-05 - Caption Continuity & Hardware-Level Resets
+- **Hardware-Level Turn Reset**: Implemented a definitive solution for caption "blob" accumulation. Both the sender (`Stage.vue`) and receiver (`caption.vue`) now listen directly to the `airi-chat-stream` broadcast; the moment a new user message is detected, both the internal string accumulator and the overlay display are wiped clean.
+- **AI-Only Caption Guard**: Hardened the codebase with explicit "Ninja Guard" comments to forbid the inclusion of user speech in the caption overlay, preserving it as a pure AI-only context tool.
+- **Receiver Debug Logging**: Added persistent `console.log` state to the caption renderer to allow real-time verification of incoming broadcast events and reset signals.
+
 #### 2026-04-04 - Live2D Expression Mapping & UI Refined
 - **Live2D Settings Revamp**: Reorganized the Live2D settings into a standardized 3-panel architecture (Character, Scene, Advanced) to match the premium VRM experience.
 - **ACT Emotion Mapping**: Implemented a "hold to map" system for Live2D expressions. Users can now long-press any expression button to bind it to a standard ACT emotion (Happy, Sad, etc.).
@@ -63,7 +76,7 @@ This document tracks the current development state of the AIRI project, specific
 
 #### 2026-03-29 - Onboarding Overhaul, Modular Wardrobe & Interface Revamp
 - **Integrated Profile Switcher**: Redesigned the Character Profile Picker in the Control Island. Replaced the popover UI with an integrated sub-menu, adding utility buttons for Gallery and Profile Management. This resolves layout issues on small windows.
-- **Sense Portal (Easy Mode)**: Implemented a streamlined, zero-config onboarding path using **Qwen Portal OAuth** and **Deepgram**.
+- **Sense Portal (Easy Mode)**: Implemented a streamlined, zero-config onboarding path using **OpenRouter** and **Deepgram**.
 - **Onboarding Orchestration**: Developed a modular multi-step setup flow with branching paths (Easy vs. Advanced) and automatic provider/model initialization.
 - **Polymorphic UI Components**: Enhanced the core `Button` primitive to support polymorphism, enabling seamless integration of external setup links.
 - **Modular Wardrobe Architecture**: Implemented a schema-driven wardrobe system that persists outfit bundles (base vs. overlay) within the AIRI character card.
@@ -143,12 +156,18 @@ This document tracks the current development state of the AIRI project, specific
     - [ ] **Outfit Context**: Integrate available and active outfit labels into the Chat Context Manager.
     - [ ] **Permanent Outfit Changes (`change_outfit` tool)**: Implement a polymorphic tool for the AI to perform non-ephemeral swaps, supporting mutually exclusive swaps and additive layer/accessory controls. (Blocked until Live2D outfit system is ready).
 - **Browser-Integrated Card Imports (Phase 2)**: (Next Focus) Deep integration with external character sites via an in-app Electron browser. Hooks for direct importing while respecting site ads/iframes.
+- **Memory & Continuity Management**: (Next Session focus)
+  - [ ] **Short-Term Memory Interface**: Implement a dedicated UI in Settings for managing stored summary blocks:
+    - [ ] **Delete Button**: Allow users to remove inaccurate or "hallucinated" summary blocks manually to prevent them from poisoning future context.
+    - [ ] **Edit Button**: Implement manual editing for summary blocks, allowing users to correct facts or refine the AI's internal continuity record.
+    - [ ] **Language Consistency**: (Completed) Refined the summarization prompt to respect the primary language of the conversation.
 - **Vision Feature Integration**:
   - [/] **Gemini 2.5 vs 3.1 Support**: Implement support for both versions to compare the "richer" experience of 2.5 vs the standard 3.1 implementation. [/]
-- **Discord Bot Revamp**:
-  - [ ] **Unified Discord Service**: Transition the Discord bot from a standalone process to a native AIRI service with a deep, meaningful integration (slash commands, character syncing, and native context routing).
-  - [ ] **Advanced Features**: Implementation of character switching (`/character`), manual emotion triggering (`/emotion`), proactive heartbeat routing, and inline Artistry/media attachments.
-  - [ ] **Full Spec**: See [docs/feat__discord-revamp.md](docs/feat__discord-revamp.md) for the detailed technical roadmap and command registry.
+- **Unified Multi-Platform Service Revamp**:
+  - [ ] **Cross-Platform Service Layer**: Transition the messaging/bot integration from platform-specific standalone processes (Discord, Telegram, etc.) into a unified, abstract service layer within AIRI.
+  - [ ] **Unified Protocol Handlers**: Implement a standardized interface for common actions (e.g., character switching, manual emotion triggering, proactive heartbeat routing, and inline Artistry) that can be shared across all messaging platforms (Discord, Telegram, etc.).
+  - [ ] **Heuristic Routing Engine**: Develop a central engine to determine the last active channel across all connected platforms to intelligently route proactive turns.
+  - [ ] **Full Revamp Spec**: See [docs/feat__discord-revamp.md](docs/feat__discord-revamp.md) for the initial technical roadmap, which serves as the blueprint for the wider multi-platform rollout (including Telegram).
 
 - **Infrastructure & UI Health**:
     - [ ] **Settings - System Revamp**: Completely overhaul the `settings > system` page to resolve the current "hodge-podge" of disjointed, nested, and potentially duplicated settings:
@@ -164,12 +183,24 @@ This document tracks the current development state of the AIRI project, specific
         - **Toggle buttons** (e.g., Grounding toggle, Voice/Custom mode toggle) should trigger an auto-hide of the island panel.
         - **Cycle buttons** (e.g., Interval cycling) should keep the island panel open for further interaction.
     - [ ] **Status Indicator Audit**: Revisit `settings>modules` and `settings>providers` to ensure the "green state" (connected/enabled) indicators are working accurately for all entries.
+    - [ ] **Gemini Control Island Onboarding Modal**: Implement a one-time "What is this?" premium dialog for the Gemini island:
+        - **Content**: Bullet points covering multimodal capabilities (image/text/voice), Google Live's session-wide overrides (LLM/TTS/STT), and manual camera triggering via the viewfinder icon.
+        - **Persistence**: Once dismissed, mark a `localStorage` key as "seen" to prevent re-showing until copy or keyname changes.
+        - **Trigger**: Automatically prompt the user the first time they open the island after configuring their API key.
     - [ ] **Model Selector Stability (Research & Design)**: Investigate and resolve the "reactive reset" bug where selecting a temporary preview model in the Model Selector is overridden by the active character's stored model configuration:
         - **Problem**: Users on character "Mint" (set to `mint123.vrm`) select `mint456.vrm` in the Model Selector for a temporary preview; reactive logic currently forces a reset back to `mint123.vrm` after a few moments.
         - **Proposed Solution**: Detect when the user is in the Model Selector route/page and suppress the character-scoped model restoration logic.
         - **UI Enhancement**: If the active character's model configuration differs from the current Model Selector preview, display a non-intrusive warning: *"Your model will be restored to the one set on your character once you leave this page unless you click Apply Now."*
         - **Current Workaround (Kludgy)**: Users are currently forced to "Set model to {character}" just to avoid a reset, even if they aren't ready to commit to the change.
 - [x] **Privacy Indicator**: Add visual feedback in Controls Island when AIRI is "Watching". [x]
+### 🛠️ HUD & HUD-Bridge Improvements
+- [ ] **Fix**: Caption toggle in Controls Island fails to disable the panel (System Tray workaround only).
+- [ ] **Refactor**: Extend `image_journal` tool with `mode: "bg" | "widget" | "inline"` and `selfie: any` (boolean or expression).
+  - `bg`: Direct to background.
+  - `widget`: Open in standalone window.
+  - `inline`: Route to chat message.
+- [ ] **Character Photo Mode**: Trigger 3-2-1 countdown selfie natively via `image_journal(selfie: true)`.
+
 - [ ] **Caption System Overhaul**: Address critical usability issues with the current caption implementation:
     - **Alignment Stability**: Fix "alignment loss" where captions fail to follow their intended target.
     - **Font Customization**: Add controls for adjusting font size.

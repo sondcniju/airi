@@ -23,6 +23,9 @@ const heartbeatsContextWindowHistory = defineModel<boolean>('heartbeatsContextWi
 const heartbeatsContextSystemLoad = defineModel<boolean>('heartbeatsContextSystemLoad', { required: true })
 const heartbeatsContextUsageMetrics = defineModel<boolean>('heartbeatsContextUsageMetrics', { required: true })
 const heartbeatsRespectSchedule = defineModel<boolean>('heartbeatsRespectSchedule', { required: true })
+const dreamStateEnabled = defineModel<boolean>('dreamStateEnabled', { required: true })
+const dreamStateStrictAfkGating = defineModel<boolean>('dreamStateStrictAfkGating', { required: true })
+const groundingEnabled = defineModel<boolean>('groundingEnabled', { required: true })
 </script>
 
 <template>
@@ -63,10 +66,32 @@ const heartbeatsRespectSchedule = defineModel<boolean>('heartbeatsRespectSchedul
           </div>
           <span class="col-span-1 pl-6 text-xs text-neutral-500 sm:col-span-2">Only trigger the LLM if the user is currently idle (mouse/keyboard).</span>
 
+          <div class="col-span-1 mt-2 flex items-center gap-2 sm:col-span-2">
+            <input id="dream-state-enabled" v-model="dreamStateEnabled" type="checkbox" class="h-4 w-4 border-gray-300 rounded text-primary-600">
+            <label for="dream-state-enabled" class="text-sm text-neutral-700 font-medium dark:text-neutral-300">Enable Dream State</label>
+          </div>
+          <span class="col-span-1 pl-6 text-xs text-neutral-500 sm:col-span-2">Allows idle-time memory consolidation to generate chips for this character.</span>
+
+          <div class="col-span-1 mt-2 flex items-center gap-2 sm:col-span-2">
+            <input id="dream-state-afk" v-model="dreamStateStrictAfkGating" type="checkbox" class="h-4 w-4 border-gray-300 rounded text-primary-600">
+            <label for="dream-state-afk" class="text-sm text-neutral-700 font-medium dark:text-neutral-300">Strict AFK Gating (Dream State)</label>
+          </div>
+          <span class="col-span-1 pl-6 text-xs text-neutral-500 sm:col-span-2">Only allow Dream State synthesis once the user has been away long enough.</span>
+
           <div class="col-span-1 mt-2 sm:col-span-2">
             <FieldInput v-model="heartbeatsPrompt" label="Stealth Heartbeat Prompt" description="The hidden instruction sent to the LLM during a heartbeat tick." :single-line="false" placeholder="You are evaluating a proactive heartbeat. Provide a fun comment, or output NO_REPLY to remain silent." />
           </div>
         </div>
+      </div>
+
+      <div class="flex flex-col gap-1 border-l-2 border-neutral-100 pl-4 dark:border-neutral-700">
+        <div class="flex items-center gap-2">
+          <input id="grounding-enabled" v-model="groundingEnabled" type="checkbox" class="h-4 w-4 border-gray-300 rounded text-primary-600">
+          <label for="grounding-enabled" class="text-sm text-neutral-700 font-semibold dark:text-neutral-300">
+            Attach sensor data with each message
+          </label>
+        </div>
+        <span class="text-xs text-neutral-500">Injects real-time context into every manual chat message. Linked to the chatbox toggle.</span>
       </div>
 
       <!-- Situational Awareness / Rich Context -->

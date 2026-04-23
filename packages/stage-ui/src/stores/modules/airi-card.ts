@@ -35,6 +35,19 @@ export interface HeartbeatConfig {
   respectSchedule: boolean
 }
 
+export interface DreamStateConfig {
+  enabled: boolean
+  strictAfkGating: boolean
+  journalingThreshold: 'minimal' | 'balanced' | 'lush'
+  maxSessionsPerDay: number
+  sessionTimeoutMinutes: number
+  afkThresholdMinutes: number
+  minConversationTurns: number
+  lastProcessedAt?: number
+  dailyRunDate?: string
+  dailyRunCount?: number
+}
+
 export interface ActingConfig {
   modelExpressionPrompt: string
   speechExpressionPrompt: string
@@ -115,7 +128,11 @@ export interface AiriExtension {
     model?: string
     promptPrefix?: string
     widgetInstruction?: string
+    spawnMode?: 'bg' | 'widget' | 'inline' | 'bg_widget'
     options?: Record<string, any>
+    autonomousEnabled?: boolean
+    autonomousThreshold?: number
+    autonomousTarget?: 'user' | 'assistant'
   }
 
   generation?: CharacterGenerationConfig
@@ -132,6 +149,7 @@ export interface AiriExtension {
   }
 
   heartbeats?: HeartbeatConfig
+  dreamState?: DreamStateConfig
   groundingEnabled?: boolean
   proactivity_metrics?: {
     ttsCount: number
@@ -152,7 +170,14 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   const defaultSystemPrompt = t('settings.pages.card.creation.defaults.systemprompt')
   const defaultPostHistoryInstructions = t('settings.pages.card.creation.defaults.posthistoryinstructions')
 
-  const cards = useLocalStorageManualReset<Map<string, AiriCard>>('airi-cards', new Map())
+  const mapEntriesSerializer = {
+    read: (v: string) => new Map(JSON.parse(v)) as Map<string, AiriCard>,
+    write: (v: Map<string, AiriCard>) => JSON.stringify(Array.from(v.entries())),
+  }
+
+  const cards = useLocalStorageManualReset<Map<string, AiriCard>>('airi-cards', new Map(), {
+    serializer: mapEntriesSerializer,
+  })
   const activeCardId = useLocalStorageManualReset<string>('airi-card-active-id', 'default')
 
   const activeCard = computed(() => cards.value.get(activeCardId.value))
@@ -385,6 +410,19 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       respectSchedule: true,
     }
 
+    const defaultDreamState: DreamStateConfig = {
+      enabled: false,
+      strictAfkGating: true,
+      journalingThreshold: 'balanced',
+      maxSessionsPerDay: 4,
+      sessionTimeoutMinutes: 60,
+      afkThresholdMinutes: 5,
+      minConversationTurns: 4,
+      lastProcessedAt: undefined,
+      dailyRunDate: undefined,
+      dailyRunCount: 0,
+    }
+
     const defaultArtistry = {
       widgetInstruction: DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT,
     }
@@ -415,6 +453,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         acting: defaultActing,
         agents: {},
         heartbeats: defaultHeartbeats,
+        dreamState: defaultDreamState,
         artistry: defaultArtistry,
         generation: defaultGeneration,
         groundingEnabled: false,
@@ -455,6 +494,10 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       artistry: {
         ...existingExtension.artistry,
         widgetInstruction: existingExtension.artistry?.widgetInstruction ?? defaultArtistry.widgetInstruction,
+        spawnMode: existingExtension.artistry?.spawnMode ?? 'bg_widget',
+        autonomousEnabled: existingExtension.artistry?.autonomousEnabled ?? false,
+        autonomousThreshold: existingExtension.artistry?.autonomousThreshold ?? 70,
+        autonomousTarget: existingExtension.artistry?.autonomousTarget ?? 'user',
       },
       generation: {
         enabled: existingExtension.generation?.enabled ?? defaultGeneration.enabled,
@@ -493,6 +536,18 @@ export const useAiriCardStore = defineStore('airi-card', () => {
           end: existingExtension.heartbeats?.schedule?.end ?? defaultHeartbeats.schedule.end,
         },
         respectSchedule: existingExtension.heartbeats?.respectSchedule ?? defaultHeartbeats.respectSchedule,
+      },
+      dreamState: {
+        enabled: existingExtension.dreamState?.enabled ?? defaultDreamState.enabled,
+        strictAfkGating: existingExtension.dreamState?.strictAfkGating ?? defaultDreamState.strictAfkGating,
+        journalingThreshold: existingExtension.dreamState?.journalingThreshold ?? defaultDreamState.journalingThreshold,
+        maxSessionsPerDay: existingExtension.dreamState?.maxSessionsPerDay ?? defaultDreamState.maxSessionsPerDay,
+        sessionTimeoutMinutes: existingExtension.dreamState?.sessionTimeoutMinutes ?? defaultDreamState.sessionTimeoutMinutes,
+        afkThresholdMinutes: existingExtension.dreamState?.afkThresholdMinutes ?? defaultDreamState.afkThresholdMinutes,
+        minConversationTurns: existingExtension.dreamState?.minConversationTurns ?? defaultDreamState.minConversationTurns,
+        lastProcessedAt: existingExtension.dreamState?.lastProcessedAt ?? defaultDreamState.lastProcessedAt,
+        dailyRunDate: existingExtension.dreamState?.dailyRunDate ?? defaultDreamState.dailyRunDate,
+        dailyRunCount: existingExtension.dreamState?.dailyRunCount ?? defaultDreamState.dailyRunCount,
       },
       proactivity_metrics: {
         ttsCount: existingExtension.proactivity_metrics?.ttsCount ?? 0,
@@ -860,7 +915,7 @@ export function buildSystemPrompt(card: AiriCard | undefined) {
   }
 
   const artistry = card.extensions?.airi?.artistry
-  if (artistry?.provider && artistry.provider !== 'none' && artistry.widgetInstruction) {
+  if (artistry?.provider && artistry.provider !== 'none' && artistry.widgetInstruction && !artistry.autonomousEnabled) {
     components.push(artistry.widgetInstruction)
   }
 

@@ -7,7 +7,6 @@ import { useLiveSessionStore } from '@proj-airi/stage-ui/stores/modules/live-ses
 import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettings, useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
-import { useTheme } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, ref, toRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -21,6 +20,8 @@ import GeminiControls from './gemini-controls.vue'
 import IndicatorMicVolume from './indicator-mic-volume.vue'
 
 import {
+  electronCaptionSyncDocking,
+  electronCaptionToggleVisibility,
   electronOpenChat,
   electronOpenSettings,
   electronStartDraggingWindow,
@@ -31,7 +32,6 @@ import {
 const emit = defineEmits<{
   (e: 'take-photo'): void
 }>()
-const { isDark, toggleDark } = useTheme()
 const { t } = useI18n()
 
 const providersStore = useProvidersStore()
@@ -48,7 +48,7 @@ const liveSessionStore = useLiveSessionStore()
 const visionStore = useVisionStore()
 const { powerState } = storeToRefs(liveSessionStore)
 const { status: visionStatus } = storeToRefs(visionStore)
-const activeExpressions = computed(() => (modelStore as any).activeExpressions)
+const { interactionMode, detectedWardrobe, activeExpressions } = storeToRefs(modelStore)
 const vrmIdleAnimation = toRef(modelStore as any, 'vrmIdleAnimation')
 
 const hasGeminiKey = computed(() => {
@@ -69,13 +69,62 @@ const openChat = useElectronEventaInvoke(electronOpenChat)
 const isLinux = ref(false)
 const hideWindow = useElectronEventaInvoke(electronWindowHide)
 const setAlwaysOnTop = useElectronEventaInvoke(electronWindowSetAlwaysOnTop)
+const toggleCaptionVisibility = useElectronEventaInvoke(electronCaptionToggleVisibility)
+const syncCaptionDocking = useElectronEventaInvoke(electronCaptionSyncDocking)
 
 const expanded = ref(false)
 const geminiExpanded = ref(false)
 const islandRef = ref<HTMLElement>()
 
 // === Sub-menu state ===
-const view = ref<'main' | 'emotions' | 'wardrobe' | 'profiles'>('main')
+const view = ref<'main' | 'emotions' | 'wardrobe' | 'profiles' | 'captions' | 'view-window' | 'wardrobe-discovery'>('main')
+
+// Auto-expand to wardrobe-discovery when a tactile hit detects sibling outfits
+watch(() => detectedWardrobe.value.siblings, (siblings) => {
+  if (siblings.length > 0) {
+    expanded.value = true
+    view.value = 'wardrobe-discovery'
+  }
+})
+
+// Swap outfit by toggling VRM expression weights
+function swapOutfit(sibling: { display: string, raw: string }) {
+  // Deactivate all siblings for this slot (including current active)
+  const allSiblings = [...detectedWardrobe.value.siblings]
+  if (detectedWardrobe.value.active) {
+    allSiblings.push(detectedWardrobe.value.active)
+  }
+
+  // 1. Create a shallow copy of activeExpressions to ensure reference change triggers Vue watchers
+  const nextExpressions = { ...activeExpressions.value }
+
+  for (const s of allSiblings) {
+    if (s.raw)
+      nextExpressions[s.raw] = 0
+  }
+
+  // 2. Activate the target
+  nextExpressions[sibling.raw] = 1
+
+  // 3. Apply the updated object
+  activeExpressions.value = nextExpressions
+
+  // 4. Update the detection state so the UI reflects the swap (clicked item becomes active)
+  const newSiblings = allSiblings.filter(s => s.raw !== sibling.raw)
+  detectedWardrobe.value = {
+    active: sibling,
+    siblings: newSiblings,
+    texIndex: detectedWardrobe.value.texIndex,
+  }
+
+  // [WIRED] Ensure expressions are registered in modelStore so they are applied on next update
+  const rawNames = [sibling.raw, ...newSiblings.map(s => s.raw)]
+  rawNames.forEach((raw) => {
+    if (raw && !modelStore.availableExpressions.includes(raw)) {
+      modelStore.availableExpressions.push(raw)
+    }
+  })
+}
 
 // Expose whether hearing dialog is open so parent can disable click-through
 const hearingDialogOpen = ref(false)
@@ -108,6 +157,11 @@ function toggleAlwaysOnTop() {
   expanded.value = false
 }
 
+function toggleInteractionMode() {
+  interactionMode.value = interactionMode.value === 'orbit' ? 'tactile' : 'orbit'
+  toast.success(`Switched to ${interactionMode.value === 'orbit' ? 'Orbit (Camera)' : 'Tactile (Poke)'} Mode`, { id: 'interaction-mode' })
+}
+
 function handleOpenSettings() {
   expanded.value = false
   return openSettings({})
@@ -130,10 +184,7 @@ function handleManageProfiles() {
   expanded.value = false
 }
 
-function handleTakePhoto() {
-  emit('take-photo')
-  expanded.value = false
-}
+// === Capture Handles (Future) ===
 
 // Grouped classes for icon / border / padding and combined style class
 const adjustStyleClasses = computed(() => {
@@ -308,6 +359,7 @@ function isOutfitActive(outfitId: string) {
 }
 
 function triggerWardrobeItem(id: string) {
+  console.log(`[WIRED] CUSTOM OUTFIT CLICKED: ${id}`)
   cardStore.applyOutfit(id)
 }
 </script>
@@ -436,42 +488,43 @@ function triggerWardrobeItem(id: string) {
               </ControlButtonTooltip>
 
               <ControlButtonTooltip>
-                <ControlButton :button-style="adjustStyleClasses.button" @click="toggleDark(); expanded = false">
+                <ControlButton :button-style="adjustStyleClasses.button" @click="view = 'captions'">
                   <Transition name="fade" mode="out-in">
-                    <div v-if="isDark" i-solar:moon-outline :class="adjustStyleClasses.icon" text="purple-600 dark:purple-400" />
-                    <div v-else i-solar:sun-2-outline :class="adjustStyleClasses.icon" text="purple-600 dark:purple-400" />
+                    <div v-if="settingsStore.showCaptions" i-ph:closed-captioning-duotone :class="adjustStyleClasses.icon" text="purple-600 dark:purple-400" />
+                    <div v-else i-ph:closed-captioning-duotone :class="adjustStyleClasses.icon" text="neutral-600 dark:neutral-400 opacity-50" />
                   </Transition>
                 </ControlButton>
                 <template #tooltip>
-                  {{ isDark ? t('tamagotchi.stage.controls-island.switch-to-light-mode') : t('tamagotchi.stage.controls-island.switch-to-dark-mode') }}
+                  {{ settingsStore.showCaptions ? 'Hide Captions' : 'Show Captions' }}
                 </template>
               </ControlButtonTooltip>
 
-              <!-- Row 4: Window/Stage Management -->
-              <ControlButtonTooltip>
-                <ControlButton :button-style="adjustStyleClasses.button" @click="toggleAlwaysOnTop()">
-                  <div v-if="alwaysOnTop" i-solar:pin-bold :class="adjustStyleClasses.icon" text="neutral-600 dark:text-neutral-300 shadow-xl" />
-                  <div v-else i-solar:pin-linear :class="adjustStyleClasses.icon" text="neutral-600 dark:neutral-400 opacity-50" />
+              <!-- Row 4: Window/Stage Management (Consolidated) -->
+              <ControlButtonTooltip key="view-window-toggle">
+                <ControlButton
+                  :button-style="adjustStyleClasses.button"
+                  @click="view = 'view-window'"
+                >
+                  <div
+                    i-solar:window-frame-linear
+                    :class="[
+                      adjustStyleClasses.icon,
+                      interactionMode === 'tactile' ? 'text-sky-500 drop-shadow-[0_0_8px_rgba(14,165,233,0.5)]' : 'text-neutral-600 dark:text-neutral-300',
+                    ]"
+                  />
                 </ControlButton>
                 <template #tooltip>
-                  {{ alwaysOnTop ? t('tamagotchi.stage.controls-island.unpin-from-top') : t('tamagotchi.stage.controls-island.pin-on-top') }}
+                  View & Window Settings
                 </template>
               </ControlButtonTooltip>
 
-              <ControlsIslandFadeOnHover
-                :icon-class="adjustStyleClasses.icon"
-                :button-style="adjustStyleClasses.button"
-                @click="expanded = false"
-              />
+              <div key="spacer-1" class="flex items-center justify-center opacity-20">
+                <div i-solar:add-circle-linear :class="adjustStyleClasses.icon" />
+              </div>
 
-              <ControlButtonTooltip>
-                <ControlButton :button-style="adjustStyleClasses.button" hover:bg-red-500 hover:text-white @click="hideWindow(); expanded = false">
-                  <div i-solar:close-circle-outline :class="adjustStyleClasses.icon" />
-                </ControlButton>
-                <template #tooltip>
-                  {{ t('tamagotchi.stage.controls-island.hide') }}
-                </template>
-              </ControlButtonTooltip>
+              <div key="spacer-2" class="flex items-center justify-center opacity-20">
+                <div i-solar:add-circle-linear :class="adjustStyleClasses.icon" />
+              </div>
             </div>
 
             <!-- Emotions Sub-menu -->
@@ -588,15 +641,55 @@ function triggerWardrobeItem(id: string) {
               </div>
             </div>
 
+            <!-- Wardrobe Discovery Sub-menu -->
+            <div v-else-if="view === 'wardrobe-discovery'" key="wardrobe-discovery" w-48 flex flex-col gap-2>
+              <div flex flex-col gap-1>
+                <div flex items-center gap-2 px-1 pb-1>
+                  <div i-solar:stars-minimalistic-bold-duotone class="animate-pulse text-sm text-amber-500" />
+                  <span class="text-[10px] text-neutral-500 font-black tracking-widest uppercase">{{ detectedWardrobe.active?.display || 'Wardrobe Discovery' }}</span>
+                </div>
+                <div class="scrollbar-hide max-h-[200px] overflow-y-auto">
+                  <div flex flex-col gap-1.5 pb-1>
+                    <button
+                      v-for="sibling in detectedWardrobe.siblings"
+                      :key="sibling.raw"
+                      :class="['group relative w-full cursor-pointer rounded-xl bg-white/5 px-3 py-2 text-left backdrop-blur-md transition-all duration-300']"
+                      @click="swapOutfit(sibling)"
+                    >
+                      <div flex items-center justify-between gap-2>
+                        <div flex items-center gap-2>
+                          <div i-solar:tag-bold-duotone class="size-3 text-sky-400 opacity-50 transition-colors" />
+                          <span class="text-[11px] text-neutral-300 font-bold transition-colors group-hover:text-white">{{ sibling.display }}</span>
+                        </div>
+                        <div i-solar:arrow-right-linear class="size-3 text-transparent transition-all group-hover:text-white" />
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div grid grid-cols-3 gap-2 border-t border-neutral-700 border-solid pt-2>
+                <div />
+                <div />
+                <ControlButtonTooltip>
+                  <ControlButton :button-style="adjustStyleClasses.button" @click="view = 'main'">
+                    <div i-solar:arrow-left-outline :class="adjustStyleClasses.icon" text="neutral-500" />
+                  </ControlButton>
+                  <template #tooltip>
+                    Back
+                  </template>
+                </ControlButtonTooltip>
+              </div>
+            </div>
+
             <!-- Profiles Sub-menu -->
-            <div v-else-if="view === 'profiles'" key="profiles" flex flex-col gap-2>
+            <div v-else-if="view === 'profiles'" key="profiles" w-40 flex flex-col gap-2>
               <!-- Profile List (Scrollbox) -->
               <div class="scrollbar-hide max-h-[144px] overflow-y-auto">
                 <div flex flex-col gap-1 pb-1>
                   <button
                     v-for="[id, card] in cardStore.cards"
                     :key="id"
-                    class="cursor-pointer border-2 rounded-xl border-solid px-3 py-1.5 text-left text-xs backdrop-blur-md transition-all duration-300 transition-ease-out"
+                    class="w-full cursor-pointer border-2 rounded-xl border-solid px-2 py-1 text-left text-xs backdrop-blur-md transition-all duration-300 transition-ease-out"
                     :class="[
                       id === activeCardId
                         ? 'bg-sky-500/20 border-sky-400/50 text-sky-600 dark:text-sky-300'
@@ -605,7 +698,9 @@ function triggerWardrobeItem(id: string) {
                     @click="cardStore.activateCard(id)"
                   >
                     <div flex items-center gap-2>
-                      <div v-if="id === activeCardId" i-solar:check-circle-bold class="size-3" />
+                      <div w-4 flex items-center justify-center>
+                        <div v-if="id === activeCardId" i-solar:check-circle-bold class="size-3" />
+                      </div>
                       <span truncate>{{ card.name }}</span>
                     </div>
                   </button>
@@ -613,19 +708,7 @@ function triggerWardrobeItem(id: string) {
               </div>
 
               <!-- Fixed Utility Row -->
-              <div grid grid-cols-4 gap-2 border-t border-neutral-200 border-solid pt-2 dark:border-neutral-800>
-                <ControlButtonTooltip>
-                  <ControlButton
-                    :button-style="adjustStyleClasses.button"
-                    @click="handleTakePhoto"
-                  >
-                    <div i-solar:camera-outline :class="adjustStyleClasses.icon" text="amber-500" />
-                  </ControlButton>
-                  <template #tooltip>
-                    Photo Mode
-                  </template>
-                </ControlButtonTooltip>
-
+              <div grid grid-cols-3 gap-2 border-t border-neutral-200 border-solid pt-2 dark:border-neutral-800>
                 <ControlButtonTooltip>
                   <ControlButton
                     :button-style="adjustStyleClasses.button"
@@ -659,6 +742,194 @@ function triggerWardrobeItem(id: string) {
                   </template>
                 </ControlButtonTooltip>
               </div>
+            </div>
+
+            <!-- Captions Sub-menu -->
+            <div v-else-if="view === 'captions'" key="captions" grid grid-cols-3 gap-2>
+              <!-- Row 1: Power & Visuals -->
+              <ControlButtonTooltip>
+                <ControlButton
+                  :button-style="adjustStyleClasses.button"
+                  @click="toggleCaptionVisibility()"
+                >
+                  <div
+                    i-ph:power-bold
+                    :class="[
+                      adjustStyleClasses.icon,
+                      settingsStore.showCaptions ? 'text-green-500 opacity-100' : 'text-neutral-500 opacity-40',
+                    ]"
+                  />
+                </ControlButton>
+                <template #tooltip>
+                  {{ settingsStore.showCaptions ? 'Power: ON' : 'Power: OFF' }}
+                </template>
+              </ControlButtonTooltip>
+
+              <ControlButtonTooltip>
+                <ControlButton
+                  :button-style="adjustStyleClasses.button"
+                  @click="settingsStore.captionFontSize = (settingsStore.captionFontSize >= 150 ? 80 : settingsStore.captionFontSize + (settingsStore.captionFontSize === 125 ? 25 : 20))"
+                >
+                  <div i-ph:text-t-bold :class="adjustStyleClasses.icon" text="purple-600 dark:purple-400" />
+                </ControlButton>
+                <template #tooltip>
+                  Font Size: {{ settingsStore.captionFontSize }}%
+                </template>
+              </ControlButtonTooltip>
+
+              <ControlButtonTooltip>
+                <ControlButton
+                  :button-style="adjustStyleClasses.button"
+                  @click="settingsStore.captionOpacity = (settingsStore.captionOpacity === 80 ? 0 : (settingsStore.captionOpacity === 0 ? 20 : (settingsStore.captionOpacity === 20 ? 50 : 80)))"
+                >
+                  <div i-solar:layers-minimalistic-outline :class="adjustStyleClasses.icon" text="purple-600 dark:purple-400" />
+                </ControlButton>
+                <template #tooltip>
+                  Background: {{ settingsStore.captionOpacity }}%
+                </template>
+              </ControlButtonTooltip>
+
+              <!-- Row 2: Spatial & Reset -->
+              <ControlButtonTooltip>
+                <ControlButton
+                  :button-style="adjustStyleClasses.button"
+                  @click="() => {
+                    const next = (settingsStore.captionDocking === 'bottom' ? 'top' : 'bottom')
+                    console.log('[ControlIsland] Toggling Docking Mode from Island Button:', { current: settingsStore.captionDocking, next })
+                    settingsStore.captionDocking = next
+                    syncCaptionDocking(next)
+                  }"
+                >
+                  <div
+                    :class="[
+                      adjustStyleClasses.icon,
+                      settingsStore.captionDocking === 'top' ? 'i-solar:align-top-line-duotone' : 'i-solar:align-bottom-line-duotone',
+                    ]"
+                    text="purple-600 dark:purple-400"
+                  />
+                </ControlButton>
+                <template #tooltip>
+                  Docking: {{ settingsStore.captionDocking }}
+                </template>
+              </ControlButtonTooltip>
+
+              <ControlButtonTooltip>
+                <ControlButton
+                  :button-style="adjustStyleClasses.button"
+                  @click="settingsStore.captionFollowStage = !settingsStore.captionFollowStage"
+                >
+                  <div
+                    i-solar:magnet-bold-duotone
+                    :class="[
+                      adjustStyleClasses.icon,
+                      settingsStore.captionFollowStage ? 'text-purple-600 dark:text-purple-400 opacity-100' : 'text-neutral-500 opacity-40',
+                    ]"
+                  />
+                </ControlButton>
+                <template #tooltip>
+                  {{ settingsStore.captionFollowStage ? 'Following Stage' : 'Follow Position' }}
+                </template>
+              </ControlButtonTooltip>
+
+              <ControlButtonTooltip>
+                <ControlButton
+                  :button-style="adjustStyleClasses.button"
+                  @click="settingsStore.triggerCaptionReset"
+                >
+                  <div i-solar:restart-square-outline :class="adjustStyleClasses.icon" text="neutral-600 dark:text-neutral-300" />
+                </ControlButton>
+                <template #tooltip>
+                  Reset Position
+                </template>
+              </ControlButtonTooltip>
+
+              <!-- Row 3: Logic & Back -->
+              <ControlButtonTooltip>
+                <ControlButton
+                  :button-style="adjustStyleClasses.button"
+                  @click="settingsStore.captionLayoutMode = (settingsStore.captionLayoutMode === 'single' ? 'multi' : 'single')"
+                >
+                  <div
+                    i-solar:widget-2-outline
+                    :class="[
+                      adjustStyleClasses.icon,
+                      settingsStore.captionLayoutMode === 'multi' ? 'text-amber-500 opacity-100' : 'text-neutral-500 opacity-40',
+                    ]"
+                  />
+                </ControlButton>
+                <template #tooltip>
+                  Mode: {{ settingsStore.captionLayoutMode === 'single' ? 'Single Turn' : 'Multi-Turn' }}
+                </template>
+              </ControlButtonTooltip>
+
+              <ControlButtonTooltip>
+                <ControlButton :button-style="adjustStyleClasses.button" disabled opacity-20>
+                  <div i-solar:filters-outline :class="adjustStyleClasses.icon" />
+                </ControlButton>
+                <template #tooltip>
+                  Future: Effects
+                </template>
+              </ControlButtonTooltip>
+
+              <ControlButtonTooltip>
+                <ControlButton :button-style="adjustStyleClasses.button" @click="view = 'main'">
+                  <div i-solar:arrow-left-outline :class="adjustStyleClasses.icon" text="neutral-500" />
+                </ControlButton>
+                <template #tooltip>
+                  Back
+                </template>
+              </ControlButtonTooltip>
+            </div>
+
+            <!-- View & Window Sub-menu -->
+            <div v-else-if="view === 'view-window'" key="view-window" grid grid-cols-3 gap-2>
+              <ControlButtonTooltip>
+                <ControlButton :button-style="adjustStyleClasses.button" @click="toggleAlwaysOnTop()">
+                  <div v-if="alwaysOnTop" i-solar:pin-bold :class="adjustStyleClasses.icon" text="neutral-600 dark:text-neutral-300 shadow-xl" />
+                  <div v-else i-solar:pin-linear :class="adjustStyleClasses.icon" text="neutral-600 dark:neutral-400 opacity-50" />
+                </ControlButton>
+                <template #tooltip>
+                  {{ alwaysOnTop ? t('tamagotchi.stage.controls-island.unpin-from-top') : t('tamagotchi.stage.controls-island.pin-on-top') }}
+                </template>
+              </ControlButtonTooltip>
+
+              <ControlsIslandFadeOnHover
+                :icon-class="adjustStyleClasses.icon"
+                :button-style="adjustStyleClasses.button"
+                @click="expanded = false"
+              />
+
+              <ControlButtonTooltip>
+                <ControlButton :button-style="adjustStyleClasses.button" @click="toggleInteractionMode">
+                  <Transition name="fade" mode="out-in">
+                    <div v-if="interactionMode === 'orbit'" key="orbit" i-solar:camera-rotate-linear :class="adjustStyleClasses.icon" text="purple-600 dark:purple-400" />
+                    <div v-else key="tactile" i-ph:hand-pointing-duotone :class="adjustStyleClasses.icon" text="sky-600 dark:sky-400" />
+                  </Transition>
+                </ControlButton>
+                <template #tooltip>
+                  {{ interactionMode === 'orbit' ? 'Tactile Mode (Poke)' : 'Orbit Mode (Camera)' }}
+                </template>
+              </ControlButtonTooltip>
+
+              <ControlButtonTooltip>
+                <ControlButton :button-style="adjustStyleClasses.button" hover:bg-red-500 hover:text-white @click="hideWindow(); expanded = false">
+                  <div i-solar:close-circle-outline :class="adjustStyleClasses.icon" />
+                </ControlButton>
+                <template #tooltip>
+                  {{ t('tamagotchi.stage.controls-island.hide') }}
+                </template>
+              </ControlButtonTooltip>
+
+              <div class="opacity-10" />
+
+              <ControlButtonTooltip>
+                <ControlButton :button-style="adjustStyleClasses.button" @click="view = 'main'">
+                  <div i-solar:arrow-left-outline :class="adjustStyleClasses.icon" text="neutral-500" />
+                </ControlButton>
+                <template #tooltip>
+                  Back
+                </template>
+              </ControlButtonTooltip>
             </div>
           </Transition>
         </div>

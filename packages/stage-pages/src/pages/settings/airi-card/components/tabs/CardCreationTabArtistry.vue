@@ -14,12 +14,26 @@ const selectedArtistryProvider = defineModel<string>('selectedArtistryProvider',
 const selectedArtistryModel = defineModel<string>('selectedArtistryModel', { required: true })
 const selectedArtistryPromptPrefix = defineModel<string>('selectedArtistryPromptPrefix', { required: true })
 const selectedArtistryWidgetInstruction = defineModel<string>('selectedArtistryWidgetInstruction', { required: true })
+const selectedArtistryAutonomousEnabled = defineModel<boolean>('selectedArtistryAutonomousEnabled', { required: true })
+const selectedArtistryAutonomousThreshold = defineModel<number>('selectedArtistryAutonomousThreshold', { required: true })
+const selectedArtistryAutonomousTarget = defineModel<'user' | 'assistant'>('selectedArtistryAutonomousTarget', { required: true })
+const selectedArtistrySpawnMode = defineModel<'bg' | 'widget' | 'inline' | 'bg_widget'>('selectedArtistrySpawnMode', { required: true })
 const selectedArtistryConfigStr = defineModel<string>('selectedArtistryConfigStr', { required: true })
 
 const { t } = useI18n()
 
 const artistryStore = useArtistryStore()
 const comfyuiWorkflows = computed(() => artistryStore.comfyuiSavedWorkflows || [])
+const spawnModeOptions = computed(() => [
+  { value: 'bg', label: t('settings.pages.modules.artistry.spawn_mode.options.bg') },
+  { value: 'inline', label: t('settings.pages.modules.artistry.spawn_mode.options.inline') },
+  { value: 'widget', label: t('settings.pages.modules.artistry.spawn_mode.options.widget') },
+  { value: 'bg_widget', label: t('settings.pages.modules.artistry.spawn_mode.options.bg_widget') },
+])
+const autonomousTargetOptions = computed(() => [
+  { value: 'user', label: 'User Input (Standard)' },
+  { value: 'assistant', label: 'Companion Reaction (Impact Focus)' },
+])
 
 function handleModelSelect(model: any) {
   selectedArtistryModel.value = model.id
@@ -98,6 +112,75 @@ function openReplicateModel() {
       Configure how AIRI generates images and visual content.
     </p>
 
+    <!-- Autonomous Artist Section -->
+    <div :class="['mb-6', 'p-4', 'rounded-2xl', 'bg-primary-500/5', 'border', 'border-primary-500/10']">
+      <div :class="['flex', 'items-center', 'justify-between', 'mb-2']">
+        <label :class="['flex', 'items-center', 'gap-2', 'font-bold', 'text-primary-600', 'dark:text-primary-400']">
+          <div i-solar:magic-stick-bold-duotone />
+          Cinematic Autonomy (Autonomous Artist)
+        </label>
+        <button
+          type="button"
+          :class="[
+            'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+            selectedArtistryAutonomousEnabled ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
+          ]"
+          @click="selectedArtistryAutonomousEnabled = !selectedArtistryAutonomousEnabled"
+        >
+          <span
+            aria-hidden="true"
+            :class="[
+              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+              selectedArtistryAutonomousEnabled ? 'translate-x-5' : 'translate-x-0',
+            ]"
+          />
+        </button>
+      </div>
+      <p :class="['text-xs', 'text-neutral-500', 'mb-4']">
+        When enabled, the "Producer" runs in parallel to the character to decide if a visual is needed. This prevents the character from forgetting to manifest scenes.
+      </p>
+
+      <div v-if="selectedArtistryAutonomousEnabled" :class="['space-y-4', 'animate-in', 'fade-in', 'slide-in-from-top-2']">
+        <div :class="['flex', 'flex-col', 'gap-2']">
+          <div :class="['flex', 'justify-between', 'items-center']">
+            <label :class="['text-sm', 'font-medium', 'text-neutral-700', 'dark:text-neutral-300']">
+              Manifestation Threshold
+            </label>
+            <span :class="['text-xs', 'font-mono', 'bg-primary-500/10', 'text-primary-600', 'px-2', 'py-0.5', 'rounded']">
+              {{ selectedArtistryAutonomousThreshold }}%
+            </span>
+          </div>
+          <input
+            v-model.number="selectedArtistryAutonomousThreshold"
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            :class="['w-full', 'h-2', 'bg-neutral-200', 'dark:bg-neutral-700', 'rounded-lg', 'appearance-none', 'cursor-pointer', 'accent-primary-500']"
+          >
+          <div :class="['flex', 'justify-between', 'text-[10px]', 'text-neutral-400', 'uppercase', 'tracking-tighter']">
+            <span>Always Generate (0%)</span>
+            <span>Strict (100%)</span>
+          </div>
+        </div>
+
+        <!-- Target Mode Selection -->
+        <div :class="['flex', 'flex-col', 'gap-2', 'pt-2']">
+          <label :class="['text-[10px]', 'font-bold', 'text-neutral-500', 'uppercase', 'tracking-wider']">
+            Autonomous Target
+          </label>
+          <Select
+            v-model="selectedArtistryAutonomousTarget"
+            :options="autonomousTargetOptions"
+            class="w-full"
+          />
+          <p :class="['text-[10px]', 'text-neutral-400', 'px-1']">
+            Decide if the Director should judge your messages or the character's response for visual impact.
+          </p>
+        </div>
+      </div>
+    </div>
+
     <div :class="['grid', 'grid-cols-1', 'gap-4', 'ml-auto', 'mr-auto', 'w-90%']">
       <div :class="['flex', 'flex-col', 'gap-2']">
         <label :class="['flex', 'flex-row', 'items-center', 'gap-2', 'text-sm', 'text-neutral-500', 'dark:text-neutral-400']">
@@ -110,6 +193,21 @@ function openReplicateModel() {
           :placeholder="defaultArtistryProviderPlaceholder"
           class="w-full"
         />
+      </div>
+
+      <div :class="['flex', 'flex-col', 'gap-2']">
+        <label :class="['flex', 'flex-row', 'items-center', 'gap-2', 'text-sm', 'text-neutral-500', 'dark:text-neutral-400']">
+          <div i-solar:route-bold-duotone />
+          {{ t('settings.pages.modules.artistry.spawn_mode.label') }}
+        </label>
+        <Select
+          v-model="selectedArtistrySpawnMode"
+          :options="spawnModeOptions"
+          class="w-full"
+        />
+        <p :class="['text-[10px]', 'text-neutral-400', 'px-1']">
+          {{ t('settings.pages.modules.artistry.spawn_mode.description') }}
+        </p>
       </div>
 
       <div v-if="selectedArtistryProvider === 'replicate'" class="grid grid-cols-3 mb-2 gap-3">

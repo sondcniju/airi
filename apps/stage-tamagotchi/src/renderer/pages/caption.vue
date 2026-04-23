@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { defineInvoke } from '@moeru/eventa'
 import { useElectronEventaContext, useElectronMouseAroundWindowBorder, useElectronMouseInWindow } from '@proj-airi/electron-vueuse'
+import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { refDebounced, useBroadcastChannel } from '@vueuse/core'
 import { computed, onMounted, ref, watch } from 'vue'
 
 import { captionGetIsFollowingWindow, captionIsFollowingWindowChanged } from '../../shared/eventa'
 
 const attached = ref(true)
-const speakerText = ref('')
+const scrollContainer = ref<HTMLElement | null>(null)
+const settingsStore = useSettings()
+const speakerText = ref('') // NOTICE: do NOT add 'caption-speaker' or user speech to captions. This is intentionally AI-only.
 const assistantText = ref('')
 const { isOutside: isOutsideWindow } = useElectronMouseInWindow()
 const isOutsideWindowFor250Ms = refDebounced(isOutsideWindow, 250)
@@ -20,6 +23,10 @@ type CaptionChannelEvent
   = | { type: 'caption-speaker', text: string }
     | { type: 'caption-assistant', text: string }
 const { data } = useBroadcastChannel<CaptionChannelEvent, CaptionChannelEvent>({ name: 'airi-caption-overlay' })
+
+// NOTICE: Secondary broadcast channel to listen for turn-resets (user messages)
+// This is a hardware-level fix because the 'airi-caption-overlay' empty string reset was failing.
+const { data: sessionUpdate } = useBroadcastChannel<any, any>({ name: 'airi-chat-stream' })
 
 const context = useElectronEventaContext()
 const getAttached = defineInvoke(context.value, captionGetIsFollowingWindow)
@@ -39,44 +46,115 @@ onMounted(async () => {
   catch {}
 
   try {
+    // Hardware-level turn reset: clear everything when a new user message enters the session
+    watch(sessionUpdate, (event) => {
+      if (event?.type === 'session-updated' && event.message?.role === 'user') {
+        console.log('[Caption] New user turn detected (via session-updated), resetting panel.')
+        speakerText.value = ''
+        assistantText.value = ''
+      }
+    })
+
+    // Synchronize spatial follow with dashboard toggle
+    watch(() => settingsStore.captionFollowStage, (shouldFollow) => {
+      console.log('[Caption] Follow status changed:', shouldFollow)
+      attached.value = shouldFollow
+    }, { immediate: true })
+
+    // Listen for Layout Mode transitions
+    watch(() => settingsStore.captionLayoutMode, (mode) => {
+      console.log('[Caption] Layout mode changed:', mode)
+      // Future: Implement multi-turn historical view
+    }, { immediate: true })
+
+    // Listen for Home Snap triggers
+    watch(() => settingsStore.captionResetTrigger, () => {
+      console.log('[Caption] Reset Position triggered.')
+      // Recovery logic: re-attach if it was detached and lost
+      if (!settingsStore.captionFollowStage) {
+        settingsStore.captionFollowStage = true
+      }
+    })
+
     // Update texts from broadcast channel
     watch(data, (event) => {
+      console.log('[Caption] Received event (overlay):', event)
       if (!event)
         return
+
       if (event.type === 'caption-speaker') {
         speakerText.value = event.text
       }
       else if (event.type === 'caption-assistant') {
-        assistantText.value = event.text
+        // Fallback reset for when assistant sends a reset signal
+        if (event.text === '') {
+          speakerText.value = ''
+          assistantText.value = ''
+        }
+        else {
+          assistantText.value = event.text
+        }
       }
     }, { immediate: true })
   }
   catch {}
 })
+
+// Auto-scroll to bottom when text changes
+watch(assistantText, () => {
+  if (scrollContainer.value) {
+    scrollContainer.value.scrollTo({
+      top: scrollContainer.value.scrollHeight,
+      behavior: 'smooth',
+    })
+  }
+})
+
+const containerStyle = computed(() => ({
+  backgroundColor: `rgba(0, 0, 0, ${settingsStore.captionOpacity / 100})`,
+  transform: `scale(${settingsStore.captionFontSize / 100})`,
+  transformOrigin: settingsStore.captionDocking === 'top' ? 'top center' : 'bottom center',
+}))
 </script>
 
 <template>
-  <div class="pointer-events-none relative h-full w-full flex items-end justify-center">
+  <div
+    :class="[
+      'pointer-events-none relative h-full w-full flex justify-center overflow-hidden',
+      settingsStore.captionDocking === 'top' ? 'items-start' : 'items-end',
+    ]"
+  >
+    <!-- Content Wrapper (Clean) -->
     <div
+      ref="scrollContainer"
       :class="[
-        shouldFadeOnCursorWithin ? 'op-0' : 'op-100',
-        'pointer-events-auto relative select-none rounded-xl px-3 py-2',
-        'transition-opacity duration-250 ease-in-out',
+        'w-full h-full flex justify-center overflow-y-auto scrollbar-hide',
+        settingsStore.captionDocking === 'top' ? 'items-start pt-1' : 'items-end pb-1',
       ]"
     >
-      <div class="max-w-[80vw] flex flex-col gap-1">
-        <div
-          v-if="speakerText"
-          class="rounded-md px-2 py-1 text-[1.1rem] text-neutral-50 font-medium text-shadow-lg text-shadow-color-neutral-900/60"
-        >
-          {{ speakerText }}
-        </div>
-        <div
-          v-if="assistantText"
-          class="rounded-md px-2 py-1 text-[1.25rem] text-primary-50 font-semibold text-stroke-4 text-stroke-primary-300/50 text-shadow-lg text-shadow-color-primary-700/50"
-          :style="{ paintOrder: 'stroke fill' }"
-        >
-          {{ assistantText }}
+      <div
+        :class="[
+          (!settingsStore.showCaptions || shouldFadeOnCursorWithin) ? 'op-0' : 'op-100',
+          'pointer-events-auto relative select-none rounded-xl px-3 py-2',
+          'backdrop-blur-sm',
+          'transition-all duration-300 ease-in-out my-2',
+        ]"
+        :style="containerStyle"
+      >
+        <div class="max-w-[80vw] flex flex-col gap-1">
+          <div
+            v-if="speakerText"
+            class="rounded-md px-2 py-1 text-[1.1rem] text-neutral-50 font-medium text-shadow-lg text-shadow-color-neutral-900/60"
+          >
+            {{ speakerText }}
+          </div>
+          <div
+            v-if="assistantText"
+            class="rounded-md px-2 py-1 text-[1.25rem] text-primary-50 font-semibold text-stroke-4 text-stroke-primary-300/50 text-shadow-lg text-shadow-color-primary-700/50"
+            :style="{ paintOrder: 'stroke fill' }"
+          >
+            {{ assistantText }}
+          </div>
         </div>
       </div>
     </div>
@@ -120,6 +198,13 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 </style>
 
 <route lang="yaml">

@@ -180,17 +180,16 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
     :background="selectedOption"
     :top-color="sampledColor"
   >
-    <div flex="~ col" relative z-2 h-100dvh w-100vw of-hidden py-safe>
+    <div class="relative z-2 h-100dvh w-100vw flex flex-col overflow-hidden py-safe">
       <!-- header -->
-      <div class="px-0 py-1 md:px-3 md:py-3" w-full gap-2>
+      <div class="w-full flex gap-2 px-0 py-1 md:px-3 md:py-3">
         <Header class="hidden md:flex" />
         <MobileHeader class="flex md:hidden" />
       </div>
       <!-- page -->
-      <div relative flex="~ 1 row gap-y-0 gap-x-2 <md:col" min-h-0>
+      <div class="relative min-h-0 flex flex-1 flex-row gap-x-2 gap-y-0 <md:flex-col">
         <WidgetStage
-          min-w="1/2"
-          min-h-0 flex-1
+          class="min-h-0 min-w-1/2 flex-1"
           :paused="paused"
           :focus-at="{
             x: positionCursor.x.value,
@@ -200,7 +199,7 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
           :y-offset="positionInPercentageString.y"
           :scale="scale"
         />
-        <InteractiveArea v-if="!isMobile" h="85dvh" absolute right-4 flex flex-1 flex-col max-w="500px" min-w="30%" />
+        <InteractiveArea v-if="!isMobile" class="absolute right-4 h-[85dvh] max-w-[500px] min-w-[30%] flex flex-1 flex-col" />
         <MobileInteractiveArea v-if="isMobile" @settings-open="handleSettingsOpen" />
       </div>
     </div>

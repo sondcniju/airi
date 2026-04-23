@@ -53,6 +53,16 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
     ]))
 
     initializing.value = new Promise<void>((resolve) => {
+      // NOTICE: Safety Timeout (PipelineTTS)
+      // If authentication via WebSocket fails to complete within 5000ms, we resolve the promise
+      // anyway to prevent blocking the entire application startup sequence (App.vue).
+      // This is critical because a hung server connection should not "deafen" the window
+      // to cross-process broadcasts (ContextBridge).
+      const timeout = setTimeout(() => {
+        console.warn('[PipelineTTS:Server] Initialization timed out after 5000ms. Proceeding without immediate connection.')
+        resolve()
+      }, 5000)
+
       client.value = new Client({
         name: isStageWeb() ? WebSocketEventSource.StageWeb : isStageTamagotchi() ? WebSocketEventSource.StageTamagotchi : WebSocketEventSource.StageWeb,
         url: websocketUrl.value || defaultWebSocketUrl,
@@ -72,6 +82,8 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
           clearListeners()
 
           console.warn('WebSocket server connection error:', error)
+          clearTimeout(timeout)
+          resolve() // Still resolve to unblock app
         },
         onClose: () => {
           connected.value = false
@@ -79,11 +91,14 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
           clearListeners()
 
           console.warn('WebSocket server connection closed')
+          clearTimeout(timeout)
+          resolve() // Still resolve to unblock app
         },
       })
 
       client.value.onEvent('module:authenticated', (event) => {
         if (event.data.authenticated) {
+          clearTimeout(timeout)
           connected.value = true
           flush()
           initializeListeners()

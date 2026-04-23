@@ -6,18 +6,49 @@ This blueprint outlines the path to migrating AIRI's memory system from simple k
 
 ## 🏗️ 1. Architecture Overview: The "Human-Like" Brain
 
-We shift from "Search all messages" to **"Manage Episodic & Semantic Experiences."**
+We shift from "Search all messages" to **"Manage Episodic, Semantic & Emotional Experiences."**
 
 1.  **Episodic Memory (The "What Happened")**: Discrete conversation events (Episodes) that carry emotional "Surprise" and decay over time using **FSRS**.
 2.  **Semantic Memory (The "What is Known")**: Durable, non-decaying facts (Identity, Preferences, Goals) extracted from episodes and stored in IndexedDB.
-3.  **Tiered Retrieval**:
-    -   **Tier 1 (Instant)**: Recent conversation buffer (RAM).
-    -   **Tier 2 (Cognitive)**: FSRS-ranked episodic memory + Categorical semantic facts (Orama).
-    -   **Tier 3 (Deep)**: Archive retrieval from IndexedDB (Lazy/Categorical).
+3.  **Emotional Emission (The "How I Feel")**: During memory consolidation, the system emits "Emotional Deltas" (Mood shifts) based on interaction valence. This feeds the **Character Core** without requiring a second inference pass.
 
 ---
 
-## 🛠️ 2. Strategy: The "Cherry Picks" from Plast Mem
+## ⚖️ 2. The Philosophy: Hybrid Intelligence
+
+While projects like **Plast Mem** utilize standalone processes to run local 8B models, AIRI utilizes a **Hybrid Intelligence** architecture. We split the workload to achieve "Hyperscale" reasoning while maintaining a zero-install, browser-native storage runtime.
+
+| Layer | Technology | Result |
+| :--- | :--- | :--- |
+| **Reasoning (Extraction/PCL)** | **Configured User LLM** (Gemini/OpenAI/Anthropic) | Triple/Quad-digit parameter intelligence. |
+| **Embedding Vectorization** | **Local Web Worker** (e.g., `qwen3-embedding:0.6b` via Transformers.js) | Zero API cost, instant index generation. |
+| **Search (BM25 + Vector RRF)** | **Orama / IndexedDB** | Fast, private, browser-native storage. |
+| **Mood Extraction** | **Side-Effect of Reasoning** | Vibe is emitted during the LLM extraction pass. |
+
+---
+
+## 🎭 3. The Tamagotchi Heart: Emotional Awareness
+
+While semantic facts represent what AIRI *knows*, the Mood System represents how she *experiences* the world. Given the project's namesake (`stage-tamagotchi`), implementing emotional consistency is a vital extension of cognitive memory.
+
+### The "Exhaust" Pattern
+We treat emotional data as the "exhaust" of the memory engine.
+1. When the **Cognitive Worker** summarizes an episode, it extracts `Facts`.
+2. In the same prompt/pass, it returns a `SentimentDelta` (e.g., `valence: +0.2`).
+3. This delta is emitted to the UI, bypassing the need for a dedicated "Emotion Model."
+
+### Mood Mapping
+We track 6 core emotional baselines that correspond to standard VRM expressions:
+- **`Neutral`** (Baseline)
+- **`Happy`** (Positive Valence, High Arousal)
+- **`Sad`** (Negative Valence, Low Arousal)
+- **`Angry`** (Negative Valence, High Arousal)
+- **`Surprised`** (High Surprise, High Arousal)
+- **`Relaxed/Relaxed`** (Positive Valence, Low Arousal)
+
+---
+
+## 🛠️ 4. Strategy: The "Cherry Picks" from Plast Mem
 
 We adapt the best elements of cognitive science while maintaining AIRI's browser-native performance.
 
@@ -35,7 +66,7 @@ An offline background process (Web Worker) performs **Predict-Calibrate Learning
 
 ---
 
-## 🧠 3. Logic: Predict-Calibrate Learning (PCL)
+## 🧠 5. Logic: Predict-Calibrate Learning (PCL)
 
 To solve the **Contradiction Problem** (e.g., "I like tea" → "I hate tea now"), we use a two-pass "Contrast" strategy.
 
@@ -57,7 +88,7 @@ The agent compares the **Actual Messages** against its **Prediction**. The "Gaps
 
 ---
 
-## ⚙️ 4. Reliable Execution: The "Apalis" Equivalent
+## ⚙️ 6. Reliable Execution: The "Apalis" Equivalent
 
 The author of Plast Mem leverages **[Apalis](https://github.com/apalis-dev/apalis)** for job persistence and reliable background execution. In AIRI's browser-native environment, we implement a functional equivalent using standard Web APIs and IndexedDB:
 
@@ -71,7 +102,7 @@ The author of Plast Mem leverages **[Apalis](https://github.com/apalis-dev/apali
 
 ---
 
-## 🛠️ 5. Implementation Steps
+## 🛠️ 7. Implementation Steps
 
 ### Phase 1: Infrastructure
 Add the validated stack to `packages/stage-ui/package.json`:
@@ -81,13 +112,13 @@ Add the validated stack to `packages/stage-ui/package.json`:
 
 ### Phase 2: The Cognitive Worker (Job Runner)
 Create `packages/stage-ui/src/libs/workers/memory/cognitive-worker.ts`:
--   **Persistent Queue**: The worker monitors a "Job" store in IndexedDB or a `unconsolidated` flag on Episode entries.
--   **Execution Logic**: Runs the 2-pass PCL logic (Predict -> Calibrate).
--   **Concurrency**: Uses `p-queue` or a simple semaphore to limit parallel LLM calls.
+-   **Persistent Queue**: The worker monitors a "Job" store in IndexedDB.
+-   **Execution Logic**: Dispatches the 2-pass PCL summary prompt to the **User's Configured LLM API**.
+-   **Local Indexing**: Generates the vector embedding using `qwen3-embedding:0.6b` inside the worker via Transformers.js.
 
 ---
 
-## 🧪 6. Nuances & UX Guards
+## 🧪 8. Nuances & UX Guards
 
 > [!IMPORTANT]
 > **Zero-Lag Background Processing**
@@ -99,15 +130,21 @@ Create `packages/stage-ui/src/libs/workers/memory/cognitive-worker.ts`:
 
 ---
 
-## 📈 7. Benchmarks & Proof of Concept
-*Inspired by the Plast Mem vision.*
+## 📈 9. Benchmarks: The LoCoMo Target
 
-- **Contradiction Accuracy**: 95% successful resolution using PCL contrast vs. 40% with simple extraction.
-- **Queue Reliability**: 100% task recovery after unexpected browser crashes using IndexedDB persistence.
+To validate AIRI's memory quality, we benchmark against the **LoCoMo (Long-term Conversational Memory)** dataset.
+
+By utilizing a **Hybrid Intelligence** approach (remote Hyperscale reasoning + local BM25/Vector RRF search), our performance ceiling changes drastically.
+
+-   **Target Score**: **70%+ LoCoMo Score**.
+-   **Why**: Since we use the configured API (e.g., Gemini 1.5 Pro, Claude 3.5), we bypass the limitations of a local 8B model. Our reasoning engine has hundreds of billions of parameters.
+-   **Validation Axes**:
+    -   **Multi-hop Reasoning**: Connecting facts across distant sessions (Hyperscale excels here).
+    -   **Temporal Continuity**: Tracking when state changes occurred.
 
 ---
 
-## 🗺️ 8. Integration Points Summary
+## 📈 10. Integration Points Summary
 
 | File | Change |
 | :--- | :--- |

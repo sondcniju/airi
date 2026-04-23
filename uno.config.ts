@@ -135,6 +135,18 @@ export function sharedUnoConfig() {
         collections: {
           ...createExternalPackageIconLoader('@proj-airi/lobe-icons'),
           ...createExternalPackageIconLoader('@proj-airi/iconify-meteocons'),
+          ...createExternalPackageIconLoader('@iconify-json/solar'),
+          ...createExternalPackageIconLoader('@iconify-json/carbon'),
+          ...createExternalPackageIconLoader('@iconify-json/lucide'),
+          ...createExternalPackageIconLoader('@iconify-json/logos'),
+          ...createExternalPackageIconLoader('@iconify-json/tabler'),
+          ...createExternalPackageIconLoader('@iconify-json/ph'),
+          ...createExternalPackageIconLoader('@iconify-json/simple-icons'),
+          ...createExternalPackageIconLoader('@iconify-json/svg-spinners'),
+          ...createExternalPackageIconLoader('@iconify-json/vscode-icons'),
+          ...createExternalPackageIconLoader('@iconify-json/eos-icons'),
+          ...createExternalPackageIconLoader('@iconify-json/mingcute'),
+          ...createExternalPackageIconLoader('@iconify-json/twemoji'),
         },
       }),
       presetScrollbar(),
@@ -181,6 +193,7 @@ export function sharedUnoConfig() {
           /\.(vue|svelte|[jt]sx|mdx?|astro|elm|php|phtml|html)($|\?)/,
           // include js/ts files
           '(components|src)/**/*.{js,ts,vue}', // THIS CAN INCLUDE node_modules
+          'packages/**/*.{js,ts,vue}', // ADDED: include shared package pages and components
           '**/stage-ui/**/*.{vue,js,ts}', // THIS TOO
           '**/ui/**/*.{vue,js,ts}', // THIS TOO
         ],

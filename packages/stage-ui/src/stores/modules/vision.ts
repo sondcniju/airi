@@ -1,12 +1,14 @@
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { isWithinSchedule, visionCaptureScreen } from '@proj-airi/stage-shared'
+import { isWithinSchedule, visionCaptureScreen, visionCheckPermission, visionRequestPermission } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { defineStore, storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 
 import { useChatOrchestratorStore } from '../chat'
 import { useProvidersStore } from '../providers'
 import { useAiriCardStore } from './airi-card'
+import { useLiveSessionStore } from './live-session'
 
 export const useVisionStore = defineStore('vision', () => {
   const providersStore = useProvidersStore()
@@ -39,10 +41,48 @@ export const useVisionStore = defineStore('vision', () => {
   const { activeCard } = storeToRefs(airiCardStore)
 
   const captureInvoke = useElectronEventaInvoke(visionCaptureScreen)
+  const checkPermissionInvoke = useElectronEventaInvoke(visionCheckPermission)
+  const requestPermissionInvoke = useElectronEventaInvoke(visionRequestPermission)
+
+  /**
+   * Checks if the app has screen recording permissions on macOS.
+   * Returns 'granted' on non-macOS platforms.
+   */
+  async function checkPermissions() {
+    try {
+      // In renderer, we use the IPC handler to check via systemPreferences
+      const status = await checkPermissionInvoke()
+      console.log('[Vision Store] macOS Screen Capture Permission Status:', status)
+      return status
+    }
+    catch (err) {
+      console.warn('[Vision Store] Failed to check macOS permissions (likely non-macOS):', err)
+      return 'granted' // Fallback for non-macOS
+    }
+  }
+
+  /**
+   * Opens the macOS System Settings for Screen Recording.
+   */
+  async function openPermissionSettings() {
+    await requestPermissionInvoke()
+  }
 
   // Heartbeat Logic
   const heartbeat = async (options?: { force?: boolean }) => {
-    console.log('[Vision Store] Heartbeat checking...', { isWitnessEnabled: isWitnessEnabled.value, force: !!options?.force })
+    const liveSessionStore = useLiveSessionStore()
+    console.log('[Vision Store] Heartbeat checking...', {
+      isActive: liveSessionStore.isActive,
+      isWitnessEnabled: isWitnessEnabled.value,
+      force: !!options?.force,
+    })
+
+    // Master Gate Check: if the session is not active, we never capture.
+    if (!liveSessionStore.isActive) {
+      console.log('[Vision Store] Heartbeat aborted: Master Gate (Live API) is OFF.')
+      return
+    }
+
     if (!isWitnessEnabled.value && !options?.force)
       return
 
@@ -84,14 +124,18 @@ export const useVisionStore = defineStore('vision', () => {
     status.value = 'capturing'
 
     try {
-      console.log('[Vision Store] Invoking OS screen capture via Eventa...')
-      const result = await captureInvoke({ width: 1280, height: 720 })
+      const result = await captureSnapshot({ width: 1280, height: 720 }) as any
+
+      if (result?.error === 'permission_denied') {
+        console.error('[Vision Store] Heartbeat: Screen capture failed due to permissions.')
+        toast.error('Vision failed: Camera/Screen permissions required.', {
+          action: { label: 'Fix', onClick: () => openPermissionSettings() },
+        })
+        return
+      }
 
       if (result?.dataUrl) {
-        console.log('[Vision Store] Screen capture successful!', {
-          dataUrlLength: result.dataUrl.length,
-          timestamp: result.timestamp,
-        })
+        console.log('[Vision Store] Heartbeat: Screen capture successful!')
         lastWitnessTime.value = result.timestamp
 
         // Send to Gemini via Chat Orchestrator
@@ -109,15 +153,48 @@ export const useVisionStore = defineStore('vision', () => {
         })
       }
       else {
-        console.warn('[Vision Store] Screen capture failed: No data received.')
+        console.warn('[Vision Store] Heartbeat: Screen capture failed or returned no data.')
       }
     }
     catch (err) {
-      console.error('[Vision Store] Screen capture error:', err)
+      console.error('[Vision Store] Heartbeat error:', err)
     }
     finally {
       status.value = 'idle'
       console.log('[Vision Store] Heartbeat pulse complete.')
+    }
+  }
+
+  /**
+   * Captures a single snapshot of the screen via IPC.
+   * This is a "clean" capture that doesn't trigger ambient vision processing (ingestion).
+   */
+  async function captureSnapshot(options?: { width?: number, height?: number }) {
+    console.log('[Vision Store] captureSnapshot requested...')
+
+    // 1. Permission Check (macOS only)
+    const permission = await checkPermissions()
+    if (permission === 'denied' || permission === 'restricted') {
+      console.error('[Vision Store] Screen capture permission is DENIED.')
+      return { error: 'permission_denied' }
+    }
+
+    console.log('[Vision Store] Invoking OS screen capture via Eventa...')
+    try {
+      const result = await captureInvoke({
+        width: options?.width || 1280,
+        height: options?.height || 720,
+      })
+
+      if (!result || !result.dataUrl) {
+        console.warn('[Vision Store] captureInvoke returned null or empty data.')
+      }
+
+      return result
+    }
+    catch (err) {
+      console.error('[Vision Store] captureSnapshot error:', err)
+      return null
     }
   }
 
@@ -173,9 +250,9 @@ export const useVisionStore = defineStore('vision', () => {
   }
 
   // Self-healing: Reset active provider if it no longer exists
-  watch(activeProvider, (newVal) => {
-    if (newVal && !providersStore.providerMetadata[newVal]) {
-      console.warn(`[Vision] Provider ${newVal} no longer exists. Resetting.`)
+  watch(activeProvider, () => {
+    if (Object.keys(providersStore.providerMetadata).length > 0 && activeProvider.value && !providersStore.providerMetadata[activeProvider.value]) {
+      console.warn(`[Vision] Provider ${activeProvider.value} no longer exists. Resetting.`)
       activeProvider.value = ''
       resetModelSelection()
     }
@@ -209,6 +286,9 @@ export const useVisionStore = defineStore('vision', () => {
     getModelsForProvider,
     toggleWitness,
     heartbeat,
+    captureSnapshot,
+    checkPermissions,
+    openPermissionSettings,
     resetState,
   }
 })

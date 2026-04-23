@@ -138,7 +138,7 @@ function toggleExpansion() {
             :class="{ 'rotate-180': isExpanded }"
             class="transition-transform duration-200"
           >
-            <div i-solar:alt-arrow-down-linear ml-0.5 text-xs />
+            <div i-solar:alt-arrow-down-linear ml-0.5 class="text-xs" />
           </div>
         </button>
       </div>
@@ -154,7 +154,7 @@ function toggleExpansion() {
               'dark:bg-green-500/20 dark:text-green-400',
             ]"
           >
-            <div i-solar:wad-of-money-bold-duotone text-[10px] />
+            <div i-solar:wad-of-money-bold-duotone class="text-[10px]" />
             <span>Free</span>
           </div>
         </template>
@@ -167,7 +167,7 @@ function toggleExpansion() {
               'dark:bg-amber-500/20 dark:text-amber-400',
             ]"
           >
-            <div i-solar:card-2-bold-duotone text-[10px] />
+            <div i-solar:card-2-bold-duotone class="text-[10px]" />
             <span>Paid</span>
           </div>
         </template>
@@ -181,7 +181,7 @@ function toggleExpansion() {
               'dark:bg-blue-500/20 dark:text-blue-400',
             ]"
           >
-            <div i-solar:laptop-bold-duotone text-[10px] />
+            <div i-solar:laptop-bold-duotone class="text-[10px]" />
             <span>Local</span>
           </div>
         </template>
@@ -194,7 +194,7 @@ function toggleExpansion() {
               'dark:bg-purple-500/20 dark:text-purple-400',
             ]"
           >
-            <div i-solar:cloud-bold-duotone text-[10px] />
+            <div i-solar:cloud-bold-duotone class="text-[10px]" />
             <span>Cloud</span>
           </div>
         </template>
@@ -208,7 +208,7 @@ function toggleExpansion() {
               'dark:bg-pink-500/20 dark:text-pink-400',
             ]"
           >
-            <div i-solar:star-bold-duotone text-[10px] />
+            <div i-solar:star-bold-duotone class="text-[10px]" />
             <span>Suggested</span>
           </div>
         </template>

@@ -7,6 +7,7 @@ import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
+import { toast } from 'vue-sonner'
 
 const providersStore = useProvidersStore()
 const visionStore = useVisionStore()
@@ -25,6 +26,10 @@ const customModelName = ref('')
 const modelSearchQuery = ref('')
 
 const filteredModels = computed(() => {
+  // Bypass strict modality filtering for local/BYOM providers as they often lack metadata
+  if (['lm-studio', 'ollama', 'openai-compatible'].includes(activeProvider.value)) {
+    return providerModels.value
+  }
   const models = providerModels.value.filter((model: any) => model.capabilities?.includes('vision'))
   if (typeof localStorage !== 'undefined' && localStorage.getItem('airi:debug') === '1') {
     console.log(`[Vision UI] Provider Models: ${providerModels.value.length}, Filtered Models: ${models.length}`)
@@ -54,6 +59,13 @@ watch(activeProvider, async (provider, oldProvider) => {
   await visionStore.loadModelsForProvider(provider)
 }, { immediate: true })
 
+// Feedback when model is set
+watch(activeModel, (newModel, oldModel) => {
+  if (newModel && oldModel !== undefined && newModel !== oldModel) {
+    toast.success(`Vision model updated to: ${newModel}`)
+  }
+})
+
 function updateCustomModelName(value: string) {
   customModelName.value = value
 }
@@ -72,9 +84,25 @@ function handleDeleteProvider(providerId: string) {
     <div>
       <div flex="~ col gap-4">
         <div>
-          <h2 class="text-lg text-neutral-500 md:text-2xl dark:text-neutral-500">
-            Vision Provider
-          </h2>
+          <div flex="~ row items-center justify-between gap-2">
+            <h2 class="text-lg text-neutral-500 md:text-2xl dark:text-neutral-500">
+              Vision Provider
+            </h2>
+            <div
+              v-if="visionStore.configured"
+              class="flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-0.5 text-xs text-green-700 font-bold dark:bg-green-900/30 dark:text-green-400"
+            >
+              <div i-solar:check-circle-bold class="text-sm" />
+              <span>Configured</span>
+            </div>
+            <div
+              v-else
+              class="flex items-center gap-1.5 rounded-full bg-neutral-200 px-2.5 py-0.5 text-xs text-neutral-500 font-bold dark:bg-neutral-800 dark:text-neutral-500"
+            >
+              <div i-solar:info-circle-bold class="text-sm" />
+              <span>Not Configured</span>
+            </div>
+          </div>
           <div text="neutral-400 dark:neutral-400">
             <span>Select the AI provider and model you want to use for visual analysis and image processing.</span>
           </div>
@@ -154,7 +182,11 @@ function handleDeleteProvider(providerId: string) {
           </h2>
           <div class="flex flex-col items-start gap-1 text-neutral-400 md:flex-row md:items-center md:justify-between dark:text-neutral-400">
             <span>Select the model architecture.</span>
-            <span v-if="activeModel" class="text-sm text-neutral-400 font-medium dark:text-neutral-400">Current Model: {{ activeModel }}</span>
+            <div class="flex items-center gap-2 text-sm font-medium">
+              <span class="text-neutral-400 dark:text-neutral-400">Current Model:</span>
+              <span v-if="activeModel" class="text-primary-500 dark:text-primary-400">{{ activeModel }}</span>
+              <span v-else class="text-neutral-400/50 italic">Not Set</span>
+            </div>
           </div>
         </div>
 
@@ -303,7 +335,17 @@ function handleDeleteProvider(providerId: string) {
             title="Forward to LLM"
             description="Forward the description of the image to your consciousness model"
             class="min-w-65"
-          />
+            :disabled="true"
+          >
+            <template #title>
+              <div flex="~ row items-center gap-2">
+                <span>Forward to LLM</span>
+                <span class="rounded bg-neutral-200 px-1.5 py-0.5 text-[10px] text-neutral-500 font-bold tracking-wider uppercase dark:bg-neutral-800 dark:text-neutral-400">
+                  Planned
+                </span>
+              </div>
+            </template>
+          </RadioCardSimple>
         </div>
       </div>
     </div>

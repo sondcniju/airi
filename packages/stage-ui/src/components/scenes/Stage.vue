@@ -17,13 +17,13 @@ import { Live2DScene, useLive2d } from '@proj-airi/stage-ui-live2d'
 import { ThreeScene, useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { animations } from '@proj-airi/stage-ui-three/assets/vrm'
 import { createQueue } from '@proj-airi/stream-kit'
-import { useBroadcastChannel } from '@vueuse/core'
+import { useBroadcastChannel, useEventListener } from '@vueuse/core'
 // import { createTransformers } from '@xsai-transformers/embed'
 // import embedWorkerURL from '@xsai-transformers/embed/worker?worker&url'
 // import { embed } from '@xsai/embed'
 import { generateSpeech } from '@xsai/generate-speech'
 import { storeToRefs } from 'pinia'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import { useSpecialTokenQueue } from '../../composables/queues'
 import { categorizeResponse } from '../../composables/response-categoriser'
@@ -95,7 +95,13 @@ const viewUpdateCleanups: Array<() => void> = []
 type CaptionChannelEvent
   = | { type: 'caption-speaker', text: string }
     | { type: 'caption-assistant', text: string }
+// NOTICE: do NOT add 'caption-speaker' or user speech to captions. This is intentionally AI-only.
 const { post: postCaption } = useBroadcastChannel<CaptionChannelEvent, CaptionChannelEvent>({ name: 'airi-caption-overlay' })
+
+// NOTICE: Secondary broadcast channel to listen for turn-resets (user messages)
+// This is a hardware-level fix because the 'airi-caption-overlay' empty string reset was failing.
+const { data: sessionUpdate } = useBroadcastChannel<any, any>({ name: 'airi-chat-stream' })
+
 const assistantCaption = ref('')
 
 type PresentEvent
@@ -141,6 +147,11 @@ function handleResizeStateChange(event: Event) {
   const customEvent = event as CustomEvent<{ active?: boolean }>
   isWindowResizing.value = !!customEvent.detail?.active
 }
+
+useEventListener(typeof window !== 'undefined' ? window : null, 'vrm-node-visibility-toggle', (e: Event) => {
+  const customEvent = e as CustomEvent<{ uuid: string, node: any }>
+  vhackStore.toggleNodeVisibility(customEvent.detail.uuid, customEvent.detail.node)
+})
 
 const { currentMotion } = storeToRefs(live2dStore)
 
@@ -611,6 +622,19 @@ function ensureSpeechIntent() {
   return currentChatIntent
 }
 
+// Hardware-level turn reset: clear everything when a new user message enters the session
+// This is the absolute truth for turn boundaries and prevents 'blob' accumulation.
+chatHookCleanups.push(watch(sessionUpdate, (event) => {
+  if (event?.type === 'session-updated' && event.message?.role === 'user') {
+    console.log('[Stage] New user turn detected (via session-updated), resetting caption accumulator.')
+    assistantCaption.value = ''
+    try {
+      postCaption({ type: 'caption-assistant', text: '' })
+    }
+    catch {}
+  }
+}))
+
 chatHookCleanups.push(onBeforeMessageComposed(async () => {
   // NOTICE: chat and proactivity share the same speech lane. Stopping playback alone is not
   // enough if a previous turn left an active or queued intent inside the speech pipeline.
@@ -652,11 +676,21 @@ chatHookCleanups.push(onBeforeSend(async () => {
 }))
 
 chatHookCleanups.push(onTokenLiteral(async (literal) => {
+  // const orchestrator = useChatOrchestratorStore()
   const intent = ensureSpeechIntent()
+  if (import.meta.env.DEV) {
+    console.log('[PipelineTTS:Stage] onTokenLiteral triggered:', {
+      hash: window.location.hash,
+      hasIntent: !!intent,
+      intentId: intent?.intentId,
+      literalPreview: literal.slice(0, 10),
+    })
+  }
+
   if (!intent)
     return
   currentChatIntentReceivedLiteral.value = true
-  console.log('[Stage] onTokenLiteral -> forwarding to speech', {
+  console.log('[PipelineTTS:Stage] onTokenLiteral -> forwarding to speech', {
     intentId: intent.intentId,
     length: literal.length,
     preview: literal.slice(0, 120),

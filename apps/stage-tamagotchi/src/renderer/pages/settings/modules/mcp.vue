@@ -2,7 +2,7 @@
 import type { ElectronMcpStdioConfigFile, ElectronMcpStdioRuntimeStatus, ElectronMcpToolDescriptor } from '../../../../shared/eventa'
 
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { getMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
+import { tryGetMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { Button } from '@proj-airi/ui'
 import { useDebounceFn } from '@vueuse/core'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -78,7 +78,11 @@ async function refreshStatus() {
   console.log('[MCP] Refreshing status via Bridge...')
 
   try {
-    const bridge = getMcpToolBridge()
+    const bridge = tryGetMcpToolBridge()
+    if (!bridge) {
+      throw new Error('MCP tool bridge is not available in this runtime.')
+    }
+
     console.log('[MCP] Bridge found:', bridge)
 
     // Use Bridge for runtime data

@@ -273,6 +273,14 @@ pages:
   memory:
     description: Where memories got stored, and organized
     title: Memory
+  docs:
+    title: Documentation
+    description: Learn how to use AIRI and its features
+    sections:
+      overview: Overview
+      manual: Manual
+      advanced: Advanced
+      chronicles: Chronicles
   data:
     title: Data
     description: Manage stored AIRI data, exports, and resets
@@ -385,6 +393,14 @@ pages:
         label: Widget Spawning Instructions
         description: The instructions provided to the AI LLM to teach it how to use the
           artistry widget system. If empty, the system default will be used.
+      spawn_mode:
+        label: Image Spawn Route
+        description: Decide how generated images are delivered to the system.
+        options:
+          bg: Stage Background
+          inline: Chat History (Inline)
+          widget: Standalone Widget
+          bg_widget: Background & Widget (Default)
     beat_sync:
       description: Vibe with beats from the audio source
       title: Beat Sync
