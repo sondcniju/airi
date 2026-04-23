@@ -284,6 +284,48 @@ export function setupDiscordService() {
     }
   })
 
+  // ── Native IPC Bypass ───────────────────────────────────────────────────
+  // We use native ipcMain.handle for images because the Eventa Context Bridge (WebSocket)
+  // often has a 1MB payload limit that chokes on high-res base64 strings.
+  ipcMain.handle('eventa:invoke:electron:discord:send-image', async (_event, payload: DiscordOutboundImage) => {
+    if (!discordClient?.isReady() || !payload?.channelId || !payload?.base64) {
+      pushLog('ERROR', `SendImage skipped: ClientReady=${discordClient?.isReady()}, Channel=${payload?.channelId}`)
+      return { success: false, error: 'Client not ready or invalid payload' }
+    }
+
+    try {
+      const channel = await discordClient.channels.fetch(payload.channelId)
+
+      if (channel?.isTextBased() && 'send' in channel && typeof (channel as any).send === 'function') {
+        let base64Data = payload.base64
+        if (base64Data.startsWith('data:')) {
+          base64Data = base64Data.split(',')[1]
+        }
+
+        const buffer = Buffer.from(base64Data, 'base64')
+
+        await (channel as any).send({
+          content: payload.content || null,
+          files: [{
+            attachment: buffer,
+            name: payload.filename || 'airi-manifestation.png',
+          }],
+        })
+        pushLog('IMAGE_SEND', `Successfully sent image to ${payload.channelId} (Native Bypass)`)
+        return { success: true }
+      }
+      else {
+        pushLog('ERROR', `Channel ${payload.channelId} is not text-based or lacks send()`)
+        return { success: false, error: 'Invalid channel type' }
+      }
+    }
+    catch (err: any) {
+      pushLog('ERROR', `Failed to send image: ${err?.message || 'Unknown Error'}`)
+      console.error('[DiscordService/Native] sendImage Error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
   // ── Force Sync: Push AIRI Card identity to Discord ─────────────────────
 
   defineInvokeHandler(context, discordServiceForceSync, async (payload) => {

@@ -255,6 +255,18 @@ export const useBackgroundStore = defineStore('background', () => {
     })).sort((a, b) => b.createdAt - a.createdAt)
   })
 
+  // ── Hooks ─────────────────────────────────────────────────────────────────
+  const onBackgroundAddedHooks: Array<(entry: BackgroundEntry) => void | Promise<void>> = []
+
+  function onBackgroundAdded(cb: (entry: BackgroundEntry) => void | Promise<void>) {
+    onBackgroundAddedHooks.push(cb)
+    return () => {
+      const index = onBackgroundAddedHooks.indexOf(cb)
+      if (index >= 0)
+        onBackgroundAddedHooks.splice(index, 1)
+    }
+  }
+
   async function addBackground(
     type: 'scene' | 'journal' | 'selfie',
     blob: Blob,
@@ -292,6 +304,12 @@ export const useBackgroundStore = defineStore('background', () => {
 
       initializeStore()
       await sync()
+
+      // Emit hook for other stores (like Discord) to react
+      for (const hook of onBackgroundAddedHooks) {
+        void hook(entry)
+      }
+
       console.log(`[BackgroundStore] Successfully added background: ${id} (${type})`)
       return id
     }
@@ -332,6 +350,7 @@ export const useBackgroundStore = defineStore('background', () => {
     activeBackgroundUrl,
     addBackground,
     removeBackground,
+    onBackgroundAdded,
     getBackgroundUrl: (id: string) => backgroundUrls[id] ?? null,
     initializeStore,
   }

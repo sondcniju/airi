@@ -83,6 +83,18 @@ export const discordServiceSendMessage = defineInvokeEventa<void, DiscordOutboun
   'eventa:invoke:electron:discord:send-message',
 )
 
+export interface DiscordOutboundImage {
+  channelId: string
+  content?: string
+  base64: string
+  filename?: string
+}
+
+/** Send an image (base64) from the assistant to a Discord channel. */
+export const discordServiceSendImage = defineInvokeEventa<void, DiscordOutboundImage>(
+  'eventa:invoke:electron:discord:send-image',
+)
+
 // ── Event Contracts (Main → Renderer, push-based) ──────────────────────────────
 
 /** Emitted when the service connection state changes. */

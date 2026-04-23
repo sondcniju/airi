@@ -4,6 +4,7 @@ import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import {
   discordServiceForceSync,
   discordServiceGetStatus,
+  discordServiceSendImage,
   discordServiceSendMessage,
   discordServiceSimulateEvent,
   discordServiceStart,
@@ -11,8 +12,9 @@ import {
 } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { defineStore } from 'pinia'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 
+import { useBackgroundStore } from '../background'
 import { useChatOrchestratorStore } from '../chat'
 import { useChatSessionStore } from '../chat/session-store'
 
@@ -58,6 +60,10 @@ export const useDiscordStore = defineStore('discord', () => {
   const invokeForceSync = isElectron ? useElectronEventaInvoke(discordServiceForceSync) : null
   const invokeSimulate = isElectron ? useElectronEventaInvoke(discordServiceSimulateEvent) : null
   const invokeSendMessage = isElectron ? useElectronEventaInvoke(discordServiceSendMessage) : null
+  const invokeSendImage = isElectron ? useElectronEventaInvoke(discordServiceSendImage) : null
+
+  // ── Routing Cache ──────────────────────────────────────────────────────────
+  const lastChannelId = ref<string | null>(null)
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -119,10 +125,28 @@ export const useDiscordStore = defineStore('discord', () => {
 
   async function sendMessageToDiscord(channelId: string, content: string) {
     try {
+      lastChannelId.value = channelId
       await invokeSendMessage?.({ channelId, content })
     }
     catch (err) {
       console.error('[DiscordStore] Send message failed:', err)
+    }
+  }
+
+  async function sendImageToDiscord(channelId: string, base64: string, content?: string, filename?: string) {
+    if (!isElectron)
+      return
+
+    try {
+      lastChannelId.value = channelId
+      // Native Bypass to handle large payloads over the 1MB WebSocket limit
+      await (window as any).electron.ipcRenderer.invoke(
+        'eventa:invoke:electron:discord:send-image',
+        toRaw({ channelId, base64, content, filename }),
+      )
+    }
+    catch (err) {
+      console.error('[DiscordStore] Native image send failed:', err)
     }
   }
 
@@ -156,6 +180,8 @@ export const useDiscordStore = defineStore('discord', () => {
     if (!ipcRenderer)
       return
 
+    console.log('[DiscordStore] Initializing IPC listeners...')
+
     const onStatusChanged = (_event: any, status: DiscordServiceStatus) => {
       serviceStatus.value = status
     }
@@ -165,18 +191,26 @@ export const useDiscordStore = defineStore('discord', () => {
     }
 
     const onInboundMessage = (_event: any, msg: DiscordInboundMessage) => {
+      console.log(`[DiscordStore] Inbound message received: ${msg.messageId.slice(-6)} from ${msg.username}`)
+
       // 0. Deduplicate by ID within this window process
       if (processedMessageIds.has(msg.messageId))
         return
       processedMessageIds.add(msg.messageId)
 
+      // Update routing cache
+      lastChannelId.value = msg.channelId
+
       // 1. Leadership Election: Only the "Stage" window (root hash) handles the Brain handover.
-      // Settings window (#/settings) and others should only log.
       const hash = window.location.hash || '#/'
       const isStage = hash === '#/' || hash.startsWith('#/stage')
 
-      if (!isStage)
+      if (!isStage) {
+        console.log(`[DiscordStore] Skipping Brain handover: Window (${hash}) is not Stage.`)
         return
+      }
+
+      console.log(`[DiscordStore] Handing over message ${msg.messageId.slice(-6)} to Brain...`)
 
       // 3. BRAIN HANDOVER (Stage only)
       const handoverEntry: DiscordEventLogEntry = {
@@ -205,17 +239,23 @@ export const useDiscordStore = defineStore('discord', () => {
       if (!source?.channelId)
         return
 
+      console.log(`[DiscordStore] Outbound response ready for ${source.username} in channel ${source.channelId.slice(-4)}`)
+
       // Leadership Election: Only the "Stage" window handles the Outbound reply
       const hash = window.location.hash || '#/'
       const isStage = hash === '#/' || hash.startsWith('#/stage')
 
-      if (!isStage)
+      if (!isStage) {
+        console.log(`[DiscordStore] Skipping Outbound: Window (${hash}) is not Stage.`)
         return
+      }
 
       const ttsText = chat.output.content
       const error = chat.output.error
 
       if (error) {
+        console.warn('[DiscordStore] Relaying error back to Discord:', error)
+        // ... (error handling)
         // Notify Discord about the technical failure so the user isn't left hanging
         const errorMsg = typeof error === 'string' ? error : (error.message || 'Unknown Error')
         const technicalFeedback = `⚠️ **AIRI encountered a technical problem.**\n*(Error: ${errorMsg})*`
@@ -251,19 +291,55 @@ export const useDiscordStore = defineStore('discord', () => {
 
     const cleanupChatHooks = chatOrchestrator.onChatTurnComplete(onChatTurnComplete)
 
+    const backgroundStore = useBackgroundStore()
+    const cleanupBackgroundHook = backgroundStore.onBackgroundAdded(async (entry) => {
+      // Only route Journal or Selfie images to Discord
+      if (entry.type !== 'journal' && entry.type !== 'selfie')
+        return
+
+      if (!isConnected.value || !lastChannelId.value)
+        return
+
+      // Leadership Election: Only the "Stage" window handles the Image Routing
+      const hash = window.location.hash || '#/'
+      const isStage = hash === '#/' || hash.startsWith('#/stage')
+
+      if (!isStage)
+        return
+
+      try {
+        // Convert Blob to Base64 for IPC transfer
+        const reader = new FileReader()
+        const base64Promise = new Promise<string>((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string)
+        })
+        reader.readAsDataURL(entry.blob)
+        const base64 = await base64Promise
+
+        await sendImageToDiscord(lastChannelId.value, base64, `🎨 **New Visual Manifestation: ${entry.title}**`)
+      }
+      catch (err: any) {
+        console.error('[DiscordStore] Failed to route image to discord:', err)
+      }
+    })
+
     cleanupListeners = () => {
       ipcRenderer.removeListener(STATUS_CHANGED_CHANNEL, onStatusChanged)
       ipcRenderer.removeListener(EVENT_LOG_CHANNEL, onEventLog)
       ipcRenderer.removeListener(INBOUND_MESSAGE_CHANNEL, onInboundMessage)
       cleanupChatHooks()
+      cleanupBackgroundHook()
     }
   }
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
-  onMounted(async () => {
-    setupEventListeners()
+  // ── Lifecycle & Initialization ──────────────────────────────────────────
 
+  // Initialize listeners immediately so the store is "always awake"
+  setupEventListeners()
+
+  onMounted(async () => {
     // Always fetch the true status from the main process on mount
     await refreshStatus()
 

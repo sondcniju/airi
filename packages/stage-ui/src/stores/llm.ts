@@ -64,7 +64,7 @@ export function sanitizeMessages(messages: unknown[], options?: { vision?: boole
     // 400/502 errors on strict providers like OpenRouter/Phala.
     const sanitized: Message = {
       role: m.role,
-      content: m.content,
+      content: m.content ?? '',
     }
 
     if (m.name)
