@@ -35,6 +35,7 @@ import { useChatOrchestratorStore } from '../../stores/chat'
 import { useModsServerChannelStore } from '../../stores/mods/api/channel-server'
 import { useAiriCardStore } from '../../stores/modules'
 import { useConsciousnessStore } from '../../stores/modules/consciousness'
+import { useDiscordStore } from '../../stores/modules/discord'
 import { useSpeechStore } from '../../stores/modules/speech'
 import { useProvidersStore } from '../../stores/providers'
 import { useSettings } from '../../stores/settings'
@@ -137,6 +138,7 @@ const speechRuntimeStore = useSpeechRuntimeStore()
 const backgroundStore = useBackgroundStore()
 
 const { activeBackgroundUrl } = storeToRefs(backgroundStore)
+const discordStore = useDiscordStore()
 const resizeStateEventName = useElectronWindowResizeStateEvent()
 const isWindowResizing = ref(false)
 const reducedRenderScale = computed(() => {
@@ -515,6 +517,10 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
       if (signal.aborted || !res || res.byteLength === 0)
         return null
 
+      // Tap into the audio stream for Discord Voice Notes
+      // We slice() because decodeAudioData(res) will detach the original buffer.
+      discordStore.addAudioToTurn(res.slice(0))
+
       const audioBuffer = await audioContext.decodeAudioData(res)
       return audioBuffer
     }
@@ -641,6 +647,7 @@ chatHookCleanups.push(onBeforeMessageComposed(async () => {
   // Reset the entire host pipeline on each new assistant turn so later chat TTS cannot inherit
   // stale proactivity/chat intent state.
   speechPipeline.stopAll('new-message')
+  discordStore.clearAudioTurn()
 
   setupAnalyser()
   await setupLipSync()

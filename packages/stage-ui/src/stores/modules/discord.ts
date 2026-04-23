@@ -64,6 +64,9 @@ export const useDiscordStore = defineStore('discord', () => {
 
   // ── Routing Cache ──────────────────────────────────────────────────────────
   const lastChannelId = ref<string | null>(null)
+  const audioTurnBuffer = ref<ArrayBuffer[]>([])
+  const isTurnTextComplete = ref(false)
+  let audioSettleTimer: ReturnType<typeof setTimeout> | null = null
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -130,6 +133,82 @@ export const useDiscordStore = defineStore('discord', () => {
     }
     catch (err) {
       console.error('[DiscordStore] Send message failed:', err)
+    }
+  }
+
+  function addAudioToTurn(buffer: ArrayBuffer) {
+    if (buffer.byteLength === 0)
+      return
+    console.log(`[DiscordStore] Aggregating audio chunk: ${Math.round(buffer.byteLength / 1024)}KB`)
+    audioTurnBuffer.value.push(buffer)
+
+    // If the text is already done, every new chunk resets the "Final Settle" timer
+    if (isTurnTextComplete.value) {
+      resetAudioSettleTimer()
+    }
+  }
+
+  function resetAudioSettleTimer() {
+    if (audioSettleTimer)
+      clearTimeout(audioSettleTimer)
+
+    console.log(`[DiscordStore] Audio settle timer reset (3000ms wait)...`)
+    audioSettleTimer = setTimeout(() => {
+      void flushAudioTurn()
+    }, 3000) // Give slow TTS providers plenty of time to send the first chunk
+  }
+
+  async function flushAudioTurn(content?: string) {
+    if (audioSettleTimer) {
+      clearTimeout(audioSettleTimer)
+      audioSettleTimer = null
+    }
+
+    if (audioTurnBuffer.value.length === 0 || !lastChannelId.value) {
+      console.log('[DiscordStore] Flush skipped: Bucket empty. Still waiting for chunks if turn is active.')
+      // We do NOT reset isTurnTextComplete here - we keep waiting until a chunk arrives or a new turn starts
+      return
+    }
+
+    const channelId = lastChannelId.value
+    console.log(`[DiscordStore] FLUSHING Voice Note: ${audioTurnBuffer.value.length} chunks to ${channelId}`)
+
+    try {
+      const channelName = 'eventa:invoke:electron:discord:send-voice-note'
+
+      // Explicitly convert buffers to Uint8Arrays to ensure they are cloneable via IPC
+      // and strip any Vue reactivity proxies.
+      const buffers = audioTurnBuffer.value.map(buf => new Uint8Array(buf))
+
+      // We send the array of buffers to the main process for merging and delivery
+      const result = await (window as any).electron.ipcRenderer.invoke(
+        channelName,
+        {
+          channelId,
+          audioBuffers: buffers,
+          content,
+          filename: `voice-note-${Date.now()}.mp3`,
+        },
+      )
+
+      console.log('[DiscordStore] Voice Note IPC successful. Result:', result)
+    }
+    catch (err) {
+      console.error('[DiscordStore] Voice Note delivery failed:', err)
+    }
+    finally {
+      audioTurnBuffer.value = []
+      isTurnTextComplete.value = false
+    }
+  }
+
+  function clearAudioTurn() {
+    console.log('[DiscordStore] Clearing audio turn bucket.')
+    audioTurnBuffer.value = []
+    isTurnTextComplete.value = false
+    if (audioSettleTimer) {
+      clearTimeout(audioSettleTimer)
+      audioSettleTimer = null
     }
   }
 
@@ -292,6 +371,10 @@ export const useDiscordStore = defineStore('discord', () => {
       eventLog.value = [...eventLog.value.slice(-(MAX_EVENT_LOG_ENTRIES - 1)), logEntry]
 
       await sendMessageToDiscord(source.channelId, ttsText)
+
+      // Mark text as done and start the "Wait for Audio" settle timer
+      isTurnTextComplete.value = true
+      resetAudioSettleTimer()
     }
 
     ipcRenderer.on(STATUS_CHANGED_CHANNEL, onStatusChanged)
@@ -432,6 +515,9 @@ export const useDiscordStore = defineStore('discord', () => {
     forceCardSync,
     simulateEvent,
     sendMessageToDiscord,
+    addAudioToTurn,
+    flushAudioTurn,
+    clearAudioTurn,
     clearEventLog,
     resetState,
   }

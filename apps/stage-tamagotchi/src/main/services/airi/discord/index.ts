@@ -337,6 +337,49 @@ export function setupDiscordService() {
     }
   })
 
+  ipcMain.handle('eventa:invoke:electron:discord:send-voice-note', async (_event, payload: { channelId: string, audioBuffers: Uint8Array[], content?: string, filename?: string }) => {
+    // 0. Hard Terminal Log
+    console.log(`[DiscordService/Native] IPC Received Voice Note. Chunks: ${payload?.audioBuffers?.length}, Total Chunks: ${payload?.audioBuffers?.length}`)
+
+    if (!discordClient?.isReady() || !payload?.channelId || !payload?.audioBuffers || payload.audioBuffers.length === 0) {
+      pushLog('ERROR', `SendVoiceNote skipped: ClientReady=${discordClient?.isReady()}, Channel=${payload?.channelId}, BufferCount=${payload?.audioBuffers?.length}`)
+      return { success: false, error: 'Client not ready or empty buffers' }
+    }
+
+    try {
+      pushLog('VOICE_PUSH', `Fetching channel ${payload.channelId} for voice note...`)
+      const channel = await discordClient.channels.fetch(payload.channelId)
+
+      if (channel?.isTextBased() && 'send' in channel && typeof (channel as any).send === 'function') {
+        pushLog('VOICE_PUSH', `Merging ${payload.audioBuffers.length} audio chunks...`)
+
+        // In Electron IPC, ArrayBuffers/Uint8Arrays come across as Uint8Arrays.
+        // We can use Buffer.concat directly after wrapping them.
+        const buffer = Buffer.concat(payload.audioBuffers.map(b => Buffer.from(b)))
+
+        pushLog('VOICE_PUSH', `Attempting Discord send to ${payload.channelId} (Size: ${Math.round(buffer.length / 1024)}KB)...`)
+        await (channel as any).send({
+          content: payload.content || null,
+          files: [{
+            attachment: buffer,
+            name: payload.filename || 'voice-note.mp3',
+          }],
+        })
+        pushLog('VOICE_SEND', `Successfully sent voice note to ${payload.channelId} (Native Bypass)`)
+        return { success: true }
+      }
+      else {
+        pushLog('ERROR', `Channel ${payload.channelId} is not text-based or lacks send()`)
+        return { success: false, error: 'Invalid channel type' }
+      }
+    }
+    catch (err: any) {
+      pushLog('ERROR', `Failed to send voice note: ${err?.message || 'Unknown Error'}`)
+      console.error('[DiscordService/Native] sendVoiceNote Error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
   // ── Force Sync: Push AIRI Card identity to Discord ─────────────────────
 
   defineInvokeHandler(context, discordServiceForceSync, async (payload) => {
