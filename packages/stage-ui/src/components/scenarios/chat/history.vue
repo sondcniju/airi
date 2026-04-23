@@ -10,8 +10,8 @@ import DirectorNoteBubble from './DirectorNoteBubble.vue'
 import ChatErrorItem from './error-item.vue'
 import ChatUserItem from './user-item.vue'
 
+import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useAutonomousArtistryStore } from '../../../stores/modules/artistry-autonomous'
-import { useSettingsChat } from '../../../stores/settings/chat'
 import { chatScrollContainerKey } from './constants'
 import { getChatHistoryItemKey } from './message-key'
 
@@ -107,8 +107,9 @@ function shouldShowPlaceholder(message: ChatHistoryItem) {
 }
 const renderMessages = computed<(ChatHistoryItem | DirectorNote)[]>(() => {
   const artistryStore = useAutonomousArtistryStore()
-  const chatSettings = useSettingsChat()
-  const directorNotes = chatSettings.showDirectorNotes ? (artistryStore.directorNotes || []) : []
+  const cardStore = useAiriCardStore()
+  const monitorEnabled = cardStore.activeCard?.extensions?.airi?.artistry?.autonomousMonitorEnabled ?? true
+  const directorNotes = monitorEnabled ? (artistryStore.directorNotes || []) : []
 
   let baseMessages: (ChatHistoryItem | DirectorNote)[] = props.messages
 

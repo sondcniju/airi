@@ -17,7 +17,9 @@ import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 import { useBackgroundStore } from '../background'
 import { useChatOrchestratorStore } from '../chat'
 import { useChatSessionStore } from '../chat/session-store'
+import { useAiriCardStore } from './airi-card'
 import { useAutonomousArtistryStore } from './artistry-autonomous'
+import { useConsciousnessStore } from './consciousness'
 
 // ── IPC Event Channel Names ────────────────────────────────────────────────────
 
@@ -446,12 +448,14 @@ export const useDiscordStore = defineStore('discord', () => {
         reader.readAsDataURL(entry.blob)
         const base64 = await base64Promise
 
-        // Fetch the Director's reasoning to include in the caption
+        // Fetch the Director's reasoning to include in the caption (if enabled)
         const artistryStore = useAutonomousArtistryStore()
+        const cardStore = useAiriCardStore()
+        const monitorEnabled = cardStore.activeCard?.extensions?.airi?.artistry?.autonomousMonitorEnabled ?? true
         const recentNote = [...artistryStore.directorNotes].reverse().find(n => n.title === entry.title || n.prompt === entry.prompt)
 
         let caption = `🎨 **New Visual Manifestation: ${entry.title}**`
-        if (recentNote && recentNote.content) {
+        if (monitorEnabled && recentNote && recentNote.content) {
           caption += `\n\n🎬 **Director's Note (${recentNote.intensity}/100):** *${recentNote.content}*`
         }
 
