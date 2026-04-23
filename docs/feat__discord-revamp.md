@@ -66,7 +66,45 @@ Instead of a standard `Text -> STT -> LLM -> TTS -> Text` loop:
 
 ---
 
-## 3. Implementation Roadmap
+## 3. Revamped Settings UI: `messaging-discord.vue`
+
+The Settings page will evolve from a simple configuration box into a **Mission Control** dashboard for the Discord service. This provides essential telemetry for the user and critical debugging tools for development.
+
+### UI Summary Table
+
+| Section | Component | Description |
+| :--- | :--- | :--- |
+| **Connectivity** | Status Badge + Ping | Real-time Gateway health. |
+| **Authentication** | Masked Token + Reset | Secure credential management. |
+| **Active Presence** | Table of Guilds/VCs | Shows where AIRI is currently "Summoned." |
+| **Logic Routing** | Toggle Group | Enable VLM, Global Artistry Sync, Auto-Prefixing. |
+| **Developer Console** | Collapsible Log View | Real-time stream of Discord service events. |
+| **Debug Actions** | Button Row | [Test Auth] [Force Card Sync] [Restart Service]. |
+
+---
+
+### UI Feature Detail
+
+#### 1. Live Telemetry (The "Heartbeat")
+Provides real-time insight into the native service state:
+- **Gateway Status**: A "Connected/Disconnected" indicator with a Ping/Latency readout.
+- **Active Guilds/Channels**: A list of where AIRI is currently "present" or "summoned."
+- **Shard Info**: Visible scaling data (which shard the local process is handling).
+
+#### 2. Implementation Helpers (The "Dev Dashboard")
+Tools to ease development and verification of the new pipeline:
+- **Event Stream**: A small, scrollable log of raw Discord events (`MESSAGE_CREATE`, `INTERACTION_CREATE`) to monitor incoming traffic without checking the terminal.
+- **"Force Sync" Button**: Immediately pushes the current AIRI Card (Avatar/Bio) to Discord's API to test identity synchronization.
+- **"Simulate Event"**: Triggers a mock Discord message from the UI to test context routing and attribution logic.
+
+#### 3. Granular Configuration (The "Controls")
+- **Identity Sync Toggle**: Options for how AIRI appears (e.g., "Always use Desktop Character Name" vs. "Use Discord Nickname").
+- **Multimodal Toggles**: Enabling/disabling inbound image processing for VLM context.
+- **Voice Gates**: Configuration for "Kill Switch" sensitivity and Voice Activity thresholds for the Phase 4 bridge.
+
+---
+
+## 4. Implementation Roadmap
 
 ### Phase 1: Service Migration (No 2nd Process)
 The logic will be moved from `services/discord-bot` into a native Electron service. This removes the need for a separate process and WebSocket bridge.
@@ -92,7 +130,7 @@ The "Holy Grail" of voice interaction on Discord.
 
 ---
 
-## 4. Key Files for Adjustment
+## 5. Key Files for Adjustment
 
 ### [Main Process (Tamagotchi)]
 - **[NEW]** `apps/stage-tamagotchi/src/main/services/airi/discord/service.ts`
