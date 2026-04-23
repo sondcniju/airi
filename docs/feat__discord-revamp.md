@@ -23,7 +23,9 @@ Transitioning the Discord integration from a disconnected "second process" bot i
 | `/status` | Connection report (Character sync, Provider health). | Planned |
 | `/live` | Experimental Gemini Live audio bridging. | Planned |
 | `/character` | Switches the active AIRI card/profile directly from Discord. | Planned |
-| `/emotion` | Manually triggers character expressions/animations on the desktop avatar. | Planned |
+| `/voicemode` | `puppet` (Local) \| `voicenote` (Discord) \| `none` (Text-only). | Planned |
+| `/voicecall` | `gemini` (Modern) \| `tts` (Classic STT/TTS). | Planned |
+| `/emotion` | Manually triggers character expressions/animations. | Planned |
 
 ---
 
@@ -55,14 +57,20 @@ The unified service layer exposes deep hooks into existing AIRI store logic:
 - **State Sync Hook**: Mirrors `airiCardStore` (Name/Avatar/Bio) directly to the Discord Bot's identity via `@moeru/eventa` and `discord.js`.
 - **Camera Hook**: Integrates the **Control Island's** capture logic into the messaging flow via the **Image Journal**.
 
-### Live Mode Bridge
-Instead of a standard `Text -> STT -> LLM -> TTS -> Text` loop:
-1. Discord raw audio receiver.
-2. Direct pipe to the **Gemini Live API WebSocket**.
-3. Raw audio return from API.
-4. Direct pipe to Discord VC audio sender.
-5. **No text is involved in this cycle.**
-6. **Interruption & Barge-in**: Researching technical feasibility for natural, overlapping dialogue in the Discord VC context.
+### 🎙️ Audio Delivery & Voice Modes
+The `/voicemode` command dictates how speech is handled for standard text messages:
+- **`puppet` (Default)**: Audio is played locally on the Desktop app. Ideal for "Home Base" usage.
+- **`voicenote`**: The TTS audio chunks are collected, combined into a single `.ogg` or `.mp3` file, and uploaded to the Discord channel as a Voice Note / Attachment.
+- **`none`**: No TTS is generated. Saves significant API credits and local resources.
+
+### 📞 Voice Call Engines
+The `/voicecall` command selects the underlying technology for real-time VC sessions:
+1. **`gemini` (Modern)**:
+   - Discord raw audio -> Gemini Live WebSocket -> Discord raw audio.
+   - Low latency, "No text" involved.
+2. **`tts` (Classic)**:
+   - Discord audio -> STT -> LLM -> TTS -> Discord audio.
+   - Slower, but utilizes the high-fidelity desktop TTS providers and maintains a full text log of the VC interaction.
 
 ---
 
@@ -112,10 +120,11 @@ The logic will be moved from `services/discord-bot` into a native Electron servi
 - **Entry Point**: `apps/stage-tamagotchi/src/main/services/airi/discord/index.ts`
 - **DI Registration**: Injected into `Injeca` via `apps/stage-tamagotchi/src/main/index.ts`.
 
-### Phase 2: Native Slash Command "Plugin"
-Instead of parsing raw text guide triggers, we use a structured command registration.
-- **Registry**: `apps/stage-tamagotchi/src/main/services/airi/discord/registry.ts`
-- **Command Handlers**: Ported and cleaned up from `services/discord-bot/src/bots/discord/commands/`.
+### Phase 2: Native Interaction Plugin
+Transitioning from passive message listening to a structured Interaction model.
+- **REST Registration**: On service start, the bot will use `REST` and `Routes.applicationCommands` to push the schema (built via `SlashCommandBuilder`) to Discord. This enables the native `/` autocomplete UI.
+- **Registry Structure**: A new `commands/` directory in the main process will house individual command files. Each file exports a `data` (schema) and an `execute` (logic) function.
+- **Interaction Handler**: The service will listen for `Events.InteractionCreate`. It will map the `commandName` to our local registry and execute the corresponding function, ensuring a native "AIRI is thinking..." state is shown during long operations.
 
 ### Phase 3: Character & Context Unification
 Synchronizing the bot with the Desktop renderer state.
