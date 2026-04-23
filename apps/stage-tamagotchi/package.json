@@ -96,6 +96,7 @@
     "date-fns": "^4.1.0",
     "defu": "^6.1.4",
     "destr": "^2.0.5",
+    "discord.js": "^14.25.1",
     "dompurify": "^3.3.1",
     "electron-click-drag-plugin": "2.0.2",
     "es-toolkit": "^1.44.0",
