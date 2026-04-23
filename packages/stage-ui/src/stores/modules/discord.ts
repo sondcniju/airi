@@ -134,19 +134,28 @@ export const useDiscordStore = defineStore('discord', () => {
   }
 
   async function sendImageToDiscord(channelId: string, base64: string, content?: string, filename?: string) {
-    if (!isElectron)
+    console.log(`[DiscordStore] Preparing to invoke IPC sendImage. Channel: ${channelId}, Payload Size: ${Math.round(base64.length / 1024)}KB, Shape: ${base64.substring(0, 30)}...`)
+
+    if (!invokeSendImage) {
+      console.error('[DiscordStore] IPC Invoker "invokeSendImage" is NULL! Are you in a browser instead of Electron?')
       return
+    }
 
     try {
       lastChannelId.value = channelId
-      // Native Bypass to handle large payloads over the 1MB WebSocket limit
-      await (window as any).electron.ipcRenderer.invoke(
-        'eventa:invoke:electron:discord:send-image',
+      const channelName = 'eventa:invoke:electron:discord:send-image'
+      console.log(`[DiscordStore] NATIVE BYPASS: Invoking ${channelName}. Shape: ${base64.substring(0, 50)}...`)
+
+      // We bypass the wrapper and use the literal channel name to avoid "undefined" contract issues
+      const result = await (window as any).electron.ipcRenderer.invoke(
+        channelName,
         toRaw({ channelId, base64, content, filename }),
       )
+
+      console.log('[DiscordStore] Native IPC successful. Result:', result)
     }
     catch (err) {
-      console.error('[DiscordStore] Native image send failed:', err)
+      console.error('[DiscordStore] Send image failed during IPC invoke:', err)
     }
   }
 
@@ -293,21 +302,58 @@ export const useDiscordStore = defineStore('discord', () => {
 
     const backgroundStore = useBackgroundStore()
     const cleanupBackgroundHook = backgroundStore.onBackgroundAdded(async (entry) => {
+      console.log(`[DiscordStore] Background detected: ${entry.id} (${entry.type})`)
+
+      // 1. Detection Log
+      const detectLog: DiscordEventLogEntry = {
+        timestamp: Date.now(),
+        type: 'DEBUG_IMAGE',
+        summary: `New background detected: ${entry.id} (Type: ${entry.type})`,
+      }
+      eventLog.value = [...eventLog.value.slice(-(MAX_EVENT_LOG_ENTRIES - 1)), detectLog]
+
       // Only route Journal or Selfie images to Discord
       if (entry.type !== 'journal' && entry.type !== 'selfie')
         return
 
-      if (!isConnected.value || !lastChannelId.value)
-        return
+      console.log('[DiscordStore] Candidate image for Discord routing found.')
 
-      // Leadership Election: Only the "Stage" window handles the Image Routing
+      // 2. Connection/Channel Check
+      if (!isConnected.value || !lastChannelId.value) {
+        console.log(`[DiscordStore] Skipping image routing: isConnected=${isConnected.value}, lastChannelId=${lastChannelId.value}`)
+        const failLog: DiscordEventLogEntry = {
+          timestamp: Date.now(),
+          type: 'DEBUG_IMAGE',
+          summary: `Routing skipped: Connected=${isConnected.value}, LastChannel=${lastChannelId.value}`,
+        }
+        eventLog.value = [...eventLog.value.slice(-(MAX_EVENT_LOG_ENTRIES - 1)), failLog]
+        return
+      }
+
+      // 3. Leadership Election Check
       const hash = window.location.hash || '#/'
       const isStage = hash === '#/' || hash.startsWith('#/stage')
 
-      if (!isStage)
+      if (!isStage) {
+        console.log(`[DiscordStore] Skipping image routing: Window (${hash}) is not Stage leader.`)
+        const leaderLog: DiscordEventLogEntry = {
+          timestamp: Date.now(),
+          type: 'DEBUG_IMAGE',
+          summary: `Routing skipped: This window (${hash}) is not the Stage leader.`,
+        }
+        eventLog.value = [...eventLog.value.slice(-(MAX_EVENT_LOG_ENTRIES - 1)), leaderLog]
         return
+      }
 
       try {
+        console.log(`[DiscordStore] Routing image to Discord: ${entry.title}`)
+        const routeLog: DiscordEventLogEntry = {
+          timestamp: Date.now(),
+          type: 'IMAGE_ROUTE',
+          summary: `Routing image "${entry.title}" to channel ${lastChannelId.value.slice(-4)}`,
+        }
+        eventLog.value = [...eventLog.value.slice(-(MAX_EVENT_LOG_ENTRIES - 1)), routeLog]
+
         // Convert Blob to Base64 for IPC transfer
         const reader = new FileReader()
         const base64Promise = new Promise<string>((resolve) => {
@@ -320,6 +366,12 @@ export const useDiscordStore = defineStore('discord', () => {
       }
       catch (err: any) {
         console.error('[DiscordStore] Failed to route image to discord:', err)
+        const errLog: DiscordEventLogEntry = {
+          timestamp: Date.now(),
+          type: 'ERROR',
+          summary: `Image routing failed: ${err.message}`,
+        }
+        eventLog.value = [...eventLog.value.slice(-(MAX_EVENT_LOG_ENTRIES - 1)), errLog]
       }
     })
 

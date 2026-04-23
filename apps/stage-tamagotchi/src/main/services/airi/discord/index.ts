@@ -287,16 +287,26 @@ export function setupDiscordService() {
   // ── Native IPC Bypass ───────────────────────────────────────────────────
   // We use native ipcMain.handle for images because the Eventa Context Bridge (WebSocket)
   // often has a 1MB payload limit that chokes on high-res base64 strings.
+  // Electron's native IPC can handle hundreds of megabytes without breaking.
   ipcMain.handle('eventa:invoke:electron:discord:send-image', async (_event, payload: DiscordOutboundImage) => {
+    // 0. Hard Terminal Log (Visible in the shell where AIRI started)
+    console.log(`[DiscordService/Native] IPC Received Image. Size: ${Math.round((payload?.base64?.length || 0) / 1024)}KB, Shape: ${payload?.base64?.substring(0, 30)}...`)
+
+    // 0. UI Receipt Log
+    pushLog('IMAGE_PUSH', `IPC Received: Image Payload (${Math.round((payload?.base64?.length || 0) / 1024)}KB)`)
+
     if (!discordClient?.isReady() || !payload?.channelId || !payload?.base64) {
       pushLog('ERROR', `SendImage skipped: ClientReady=${discordClient?.isReady()}, Channel=${payload?.channelId}`)
       return { success: false, error: 'Client not ready or invalid payload' }
     }
 
     try {
+      pushLog('IMAGE_PUSH', `Fetching channel ${payload.channelId}...`)
       const channel = await discordClient.channels.fetch(payload.channelId)
 
       if (channel?.isTextBased() && 'send' in channel && typeof (channel as any).send === 'function') {
+        pushLog('IMAGE_PUSH', `Converting base64 buffer (${Math.round(payload.base64.length / 1024)}KB)...`)
+
         let base64Data = payload.base64
         if (base64Data.startsWith('data:')) {
           base64Data = base64Data.split(',')[1]
@@ -304,6 +314,7 @@ export function setupDiscordService() {
 
         const buffer = Buffer.from(base64Data, 'base64')
 
+        pushLog('IMAGE_PUSH', `Attempting Discord send to ${payload.channelId}...`)
         await (channel as any).send({
           content: payload.content || null,
           files: [{
