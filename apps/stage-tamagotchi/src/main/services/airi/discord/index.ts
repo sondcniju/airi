@@ -5,6 +5,7 @@ import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
 import { Client, Events, GatewayIntentBits, Partials } from 'discord.js'
 import { BrowserWindow, ipcMain } from 'electron'
+import { nanoid } from 'nanoid'
 
 import {
   discordServiceForceSync,
@@ -210,6 +211,7 @@ export function setupDiscordService() {
       pushLog('MESSAGE_CREATE', `${message.author.username}: ${content.substring(0, 80)}${content.length > 80 ? '...' : ''}`)
 
       const inbound: DiscordInboundMessage = {
+        messageId: message.id,
         channelId: message.channelId,
         guildId: message.guildId ?? null,
         guildName: message.guild?.name ?? null,
@@ -309,6 +311,7 @@ export function setupDiscordService() {
 
   defineInvokeHandler(context, discordServiceSimulateEvent, async (payload) => {
     const mock: DiscordInboundMessage = {
+      messageId: `sim-${nanoid()}`,
       channelId: activeChannelId || 'simulated-channel',
       guildId: null,
       guildName: null,

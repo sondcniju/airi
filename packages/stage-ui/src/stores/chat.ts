@@ -912,6 +912,19 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         chatSession.setSessionMessages(sessionId, [...currentMessages, { ...toRaw(buildingMessage) }])
       }
 
+      // Emit turn complete with error so downstream consumers (e.g. Discord outbound)
+      // can detect and relay failures instead of silently swallowing them.
+      try {
+        await hooks.emitChatTurnCompleteHooks({
+          output: { ...buildingMessage, error: { message: errorMessage, detail: technicalDetail } },
+          outputText: fullText,
+          toolCalls: [],
+        }, streamingMessageContext)
+      }
+      catch (hookErr) {
+        console.error('Error in turn-complete hooks (error path):', hookErr)
+      }
+
       throw error
     }
     finally {

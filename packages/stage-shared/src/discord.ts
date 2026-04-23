@@ -24,6 +24,7 @@ export interface DiscordEventLogEntry {
 }
 
 export interface DiscordInboundMessage {
+  messageId: string
   channelId: string
   guildId: string | null
   guildName: string | null
