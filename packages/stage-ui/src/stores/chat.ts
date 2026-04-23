@@ -42,6 +42,10 @@ export interface SendOptions {
    * and skip triggering the assistant's response.
    */
   skipAssistant?: boolean
+  /**
+   * Optional metadata to attach to the user message (e.g. source platform info).
+   */
+  metadata?: Record<string, any>
 }
 
 interface ForkOptions {
@@ -151,7 +155,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
     const sendingCreatedAt = Date.now()
     const streamingMessageContext: ChatStreamEventContext = {
-      message: { role: 'user', content: sendingMessage, createdAt: sendingCreatedAt, id: nanoid() },
+      message: { role: 'user', content: sendingMessage, createdAt: sendingCreatedAt, id: nanoid(), ...options.metadata },
       contexts: chatContext.getContextsSnapshot(),
       composedMessage: [],
       input: options.input,
@@ -248,7 +252,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         return
 
       const userMessageId = nanoid()
-      const historicalUserMessage = { role: 'user' as const, content: historicalContent, createdAt: sendingCreatedAt, id: userMessageId }
+      const historicalUserMessage = { role: 'user' as const, content: historicalContent, createdAt: sendingCreatedAt, id: userMessageId, ...options.metadata }
       const inferenceUserMessage = { role: 'user' as const, content: inferenceContent, createdAt: sendingCreatedAt, id: userMessageId }
 
       const sessionMessagesForSend = chatSession.getSessionMessages(sessionId)

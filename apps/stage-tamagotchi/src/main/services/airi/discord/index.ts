@@ -199,18 +199,7 @@ export function setupDiscordService() {
       if (message.author.bot)
         return
 
-      const isDM = !message.guild
-      const isMentioned = discordClient?.user && message.mentions.has(discordClient.user)
-
-      // MVP: Respond if the bot is mentioned OR if it's a DM
-      if (!isMentioned && !isDM)
-        return
-
-      // Strip the mention tag from the content
-      const rawContent = message.content
-      const content = isMentioned
-        ? rawContent.replace(/<@!?\d+>/g, '').trim()
-        : rawContent.trim()
+      const content = message.content.trim()
 
       if (!content)
         return

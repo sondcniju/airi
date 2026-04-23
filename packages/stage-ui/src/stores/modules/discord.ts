@@ -13,6 +13,7 @@ import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { defineStore } from 'pinia'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
+import { useChatOrchestratorStore } from '../chat'
 import { useChatSessionStore } from '../chat/session-store'
 
 // ── IPC Event Channel Names ────────────────────────────────────────────────────
@@ -29,6 +30,8 @@ export const useDiscordStore = defineStore('discord', () => {
   // ── Persisted Config ───────────────────────────────────────────────────────
   const enabled = useLocalStorageManualReset<boolean>('settings/discord/enabled', false)
   const token = useLocalStorageManualReset<string>('settings/discord/token', '')
+
+  const chatOrchestrator = useChatOrchestratorStore()
 
   // ── Live Service State ─────────────────────────────────────────────────────
   const serviceStatus = ref<DiscordServiceStatus>({
@@ -162,22 +165,27 @@ export const useDiscordStore = defineStore('discord', () => {
     }
 
     const onInboundMessage = (_event: any, msg: DiscordInboundMessage) => {
-      // Route Discord inbound message to the chat session as a user turn
-      // Using the agreed template: "<username> says:\n<content>"
+      // 1. Log the handover in the Mission Control console
+      const logEntry: DiscordEventLogEntry = {
+        timestamp: Date.now(),
+        type: 'BRAIN_HANDOVER',
+        summary: `Triggering Brain for "${msg.content.substring(0, 20)}..." from ${msg.username}`,
+      }
+      eventLog.value = [...eventLog.value.slice(-(MAX_EVENT_LOG_ENTRIES - 1)), logEntry]
+
+      // 2. Format for Brain
       const formattedContent = `${msg.displayName} says:\n${msg.content}`
 
-      chatSession.inscribeTurn({
-        role: 'user',
-        content: formattedContent,
-        id: `discord-${Date.now()}-${msg.userId}`,
-        createdAt: Date.now(),
-        // Tag with source metadata so outbound hook knows to forward the response
-        _discordSource: {
-          channelId: msg.channelId,
-          userId: msg.userId,
-          username: msg.username,
+      // 3. Handover to Brain (Trigger LLM response)
+      void chatOrchestrator.ingest(formattedContent, {
+        metadata: {
+          _discordSource: {
+            channelId: msg.channelId,
+            userId: msg.userId,
+            username: msg.username,
+          },
         },
-      } as any)
+      })
     }
 
     ipcRenderer.on(STATUS_CHANGED_CHANNEL, onStatusChanged)
