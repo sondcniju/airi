@@ -13,19 +13,28 @@ Transitioning the Discord integration from a disconnected "second process" bot i
 
 ## 1. Planned Slash Commands
 
-| Command | Description | Implementation Status |
+### Core Priority
+Commands essential for the baseline Discord integration.
+
+| Command | Arguments | Description |
 | :--- | :--- | :--- |
-| `/new` | Equivalent to the trash can icon (Clear Context). | Planned |
-| `/summon` | Joins the user's current Voice Channel. | Built-in (to be announced) |
-| `/leave` | Leaves the Voice Channel. | Built-in (to be announced) |
-| `/context` | Rollup summary of context usage (token metrics). | Planned |
-| `/history` | Dumps the last 5 messages from the current conversation. | Planned |
-| `/status` | Connection report (Character sync, Provider health). | Planned |
-| `/live` | Experimental Gemini Live audio bridging. | Planned |
-| `/character` | Switches the active AIRI card/profile directly from Discord. | Planned |
-| `/voicemode` | `puppet` (Local) \| `voicenote` (Discord) \| `none` (Text-only). | Planned |
-| `/voicecall` | `gemini` (Modern) \| `tts` (Classic STT/TTS). | Planned |
-| `/emotion` | Manually triggers character expressions/animations. | Planned |
+| `/character` | `[id: string]` | Switches the active AIRI card/profile directly from Discord. If `id` is omitted, it brings up a form view with a 4-row layout selection. |
+| `/new` | `[msg: string]` | Creates a new session where the character actually follows the initial messages that are part of its context. If `msg` is provided, the user has the first message and the assistant is responding to the user's initial message. |
+| `/history` | `[turns: numeric]` | Dumps the last 5 messages from the current conversation. The optional `turns` parameter overrides the default of 5. |
+| `/summon` | none | Joins the user's current Voice Channel. |
+| `/leave` | none | Leaves the Voice Channel. |
+
+### Deferred / Extended Features
+Advanced toggles and routing capabilities scheduled for post-MVP.
+
+| Command | Arguments | Description |
+| :--- | :--- | :--- |
+| `/voicemode` | `mode: puppet \| voicenote \| none` | Controls TTS audio playback location (Desktop speakers, Discord voice notes, or muted). |
+| `/voicecall` | `mode: classic \| gemini` | Selects the underlying technology for real-time VC sessions (Standard TTS vs Native Gemini Live). |
+| `/director` | `mode: on \| off` | Toggles the Director's Monitor visibility and reasoning notes for the Discord channel. |
+| `/vision` | `mode: on \| off` | Toggles VLM processing for image attachments. |
+| `/manifest` | `prompt: string` | Forces a visual generation using the Artistry pipeline based on the provided prompt. |
+| `/selfie` | `[emotion: string]` | Captures a stage screenshot as is. Optional `emotion` argument overrides expression (1 of 6 core emotions). |
 
 ---
 
