@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import type { ChatAssistantMessage, ChatHistoryItem, ContextMessage } from '../../../types/chat'
+import type { DirectorNote } from '../../../types/director'
 
 import { computed, onMounted, onUnmounted, provide, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import ChatAssistantItem from './assistant-item.vue'
+import DirectorNoteBubble from './DirectorNoteBubble.vue'
 import ChatErrorItem from './error-item.vue'
 import ChatUserItem from './user-item.vue'
 
+import { useAutonomousArtistryStore } from '../../../stores/modules/artistry-autonomous'
+import { useSettingsChat } from '../../../stores/settings/chat'
 import { chatScrollContainerKey } from './constants'
 import { getChatHistoryItemKey } from './message-key'
 
@@ -101,19 +105,24 @@ function shouldShowPlaceholder(message: ChatHistoryItem) {
 
   return message.context?.createdAt === ts || message.createdAt === ts
 }
-const renderMessages = computed<ChatHistoryItem[]>(() => {
-  if (!props.sending)
-    return props.messages
+const renderMessages = computed<(ChatHistoryItem | DirectorNote)[]>(() => {
+  const artistryStore = useAutonomousArtistryStore()
+  const chatSettings = useSettingsChat()
+  const directorNotes = chatSettings.showDirectorNotes ? (artistryStore.directorNotes || []) : []
+
+  let baseMessages: (ChatHistoryItem | DirectorNote)[] = props.messages
 
   const streamTs = streamingTs.value
-  if (!streamTs)
-    return props.messages
+  if (props.sending && streamTs) {
+    const hasStreamAlready = props.messages.some(msg => msg?.role === 'assistant' && msg?.createdAt === streamTs)
+    if (!hasStreamAlready) {
+      baseMessages = [...props.messages, streaming.value]
+    }
+  }
 
-  const hasStreamAlready = streamTs && props.messages.some(msg => msg?.role === 'assistant' && msg?.createdAt === streamTs)
-  if (hasStreamAlready)
-    return props.messages
-
-  return [...props.messages, streaming.value]
+  // Merge and sort
+  const merged = [...baseMessages, ...directorNotes]
+  return merged.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
 })
 </script>
 
@@ -127,8 +136,12 @@ const renderMessages = computed<ChatHistoryItem[]>(() => {
     :class="[variant === 'mobile' ? 'gap-1' : 'gap-2']"
     @scroll="handleScroll"
   >
-    <template v-for="(message, index) in renderMessages" :key="getChatHistoryItemKey(message, index)">
-      <div v-if="message.role === 'error'">
+    <template v-for="(message, index) in renderMessages" :key="'id' in message && message.id ? message.id : index">
+      <div v-if="'type' in message && message.type === 'director-note'">
+        <DirectorNoteBubble :note="message" />
+      </div>
+
+      <div v-else-if="'role' in message && message.role === 'error'">
         <ChatErrorItem
           :message="message"
           :label="labels.error"
@@ -137,18 +150,18 @@ const renderMessages = computed<ChatHistoryItem[]>(() => {
         />
       </div>
 
-      <div v-else-if="message.role === 'assistant'">
+      <div v-else-if="'role' in message && message.role === 'assistant'">
         <ChatAssistantItem
-          :message="message"
+          :message="message as any"
           :label="labels.assistant"
-          :show-placeholder="shouldShowPlaceholder(message) && showStreamingPlaceholder"
+          :show-placeholder="shouldShowPlaceholder(message as any) && showStreamingPlaceholder"
           :variant="variant"
         />
       </div>
 
-      <div v-else-if="message.role === 'user'">
+      <div v-else-if="'role' in message && message.role === 'user'">
         <ChatUserItem
-          :message="message"
+          :message="message as any"
           :label="labels.user"
           :variant="variant"
         />

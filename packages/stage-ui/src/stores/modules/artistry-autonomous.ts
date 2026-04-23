@@ -1,12 +1,15 @@
 import type { Message } from '@xsai/shared-chat'
 
+import type { DirectorNote } from '../../types/director'
+
 import { defineInvoke, defineInvokeEventa } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/renderer'
 import { artistryGenerateHeadless } from '@proj-airi/stage-shared'
 import { defineStore } from 'pinia'
-import { ref, toRaw } from 'vue'
+import { ref, toRaw, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
+import { directorNotesRepo } from '../../database/repos/director-notes.repo'
 import { useBackgroundStore } from '../background'
 import { useChatSessionStore } from '../chat/session-store'
 import { useLLM } from '../llm'
@@ -27,6 +30,34 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
   const chatSessionStore = useChatSessionStore()
 
   const isProcessing = ref(false)
+  const directorNotes = ref<DirectorNote[]>([])
+
+  async function loadDirectorNotes(sessionId: string) {
+    directorNotes.value = await directorNotesRepo.getNotes(sessionId)
+  }
+
+  async function recordDirectorDecision(note: DirectorNote) {
+    directorNotes.value.push(note)
+    await directorNotesRepo.saveNotes(note.sessionId, directorNotes.value)
+  }
+
+  async function updateDirectorDecision(noteId: string, updates: Partial<DirectorNote>) {
+    const note = directorNotes.value.find(n => n.id === noteId)
+    if (note) {
+      Object.assign(note, updates)
+      await directorNotesRepo.saveNotes(note.sessionId, directorNotes.value)
+    }
+  }
+
+  // Auto-load notes when session changes
+  watch(() => chatSessionStore.activeSessionId, (newId) => {
+    if (newId) {
+      void loadDirectorNotes(newId)
+    }
+    else {
+      directorNotes.value = []
+    }
+  }, { immediate: true })
 
   /**
    * Safe IPC Invoker for headless generation
@@ -81,8 +112,10 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       // 1. Compose the "Director" prompt based on target
       const systemPrompt = target === 'assistant'
         ? `You are the Cinematic Director for AIRI. 
-Your job is to analyze the character's response and reaction to the user, and decide if it warrants a visual manifestation (a generative image).
-Manifestation is warranted for:
+Your job is to ALWAYS generate a visual manifestation (a generative image) summarizing the current scene, and then grade how interesting the resulting scene is from 1 to 100.
+You should draw inspiration from the entire context history provided. If the latest response is mundane, use your artistic freedom to craft an image that captures the broader narrative arc or the environment established in the recent turns.
+
+A high grade (warranted) should be given for:
 - Descriptions of beautiful scenery or environment changes in the response
 - Expressive emotional reactions or body language from the character
 - Direct mentions of food, items, or gifts in the narrative
@@ -93,14 +126,16 @@ Character Personality: ${activeCard.personality}
 
 Output EXACTLY this JSON format and nothing else:
 {
-  "reasoning": "Quick explanation of why this reaction warrants/doesn't warrant a visual",
-  "intensity": 0-100,
+  "reasoning": "Quick explanation of why this scene is visually interesting or boring",
+  "intensity": 1-100,
   "prompt": "Highly detailed, illustrative prompt for the image generator capturing the character's reaction and scene. Use Mori's style (masterpiece, high quality, manga style, intricate details)",
   "title": "Short descriptive title for the scene"
 }`
         : `You are the Cinematic Director for AIRI. 
-Your job is to analyze the user's input and decide if it warrants a visual manifestation (a generative image).
-Manifestation is warranted for:
+Your job is to ALWAYS generate a visual manifestation (a generative image) summarizing the current scene, and then grade how interesting the resulting scene is from 1 to 100.
+You should draw inspiration from the entire context history provided. If the latest input is mundane, use your artistic freedom to craft an image that captures the broader narrative arc or the environment established in the recent turns.
+
+A high grade (warranted) should be given for:
 - Descriptions of beautiful scenery or environment changes
 - Direct mentions of food, items, or gifts
 - Narrative actions that would look stunning as a manga/anime scene
@@ -110,8 +145,8 @@ Character Personality: ${activeCard.personality}
 
 Output EXACTLY this JSON format and nothing else:
 {
-  "reasoning": "Quick explanation of why this warrants/doesn't warrant a visual",
-  "intensity": 0-100,
+  "reasoning": "Quick explanation of why this scene is visually interesting or boring",
+  "intensity": 1-100,
   "prompt": "Highly detailed, illustrative prompt for the image generator. Use Mori's style (masterpiece, high quality, manga style, intricate details)",
   "title": "Short descriptive title for the scene"
 }`
@@ -198,6 +233,23 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
         duration: 7000,
       })
 
+      const sessionId = chatSessionStore.activeSessionId
+      const noteId = Date.now().toString()
+      const noteState = thresholdMet ? 'pending' : 'done'
+
+      await recordDirectorDecision({
+        id: noteId,
+        sessionId,
+        type: 'director-note',
+        content: analysis.reasoning,
+        intensity: analysis.intensity,
+        title: analysis.title,
+        prompt: analysis.prompt,
+        target,
+        state: noteState,
+        createdAt: Date.now(),
+      })
+
       // 3. Evaluate Threshold
       if (analysis.intensity >= threshold) {
         artistLog(`Threshold met (${analysis.intensity} >= ${threshold}). Triggering generation...`)
@@ -258,6 +310,8 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
 
           const entryId = await backgroundStore.addBackground('journal', blob, analysis.title || 'Autonomous Scene', analysis.prompt, cardId)
           artistLog('Generation complete and added to journal.', { entryId })
+
+          await updateDirectorDecision(noteId, { state: 'done' })
 
           // 5. Route based on spawnMode
           const spawnMode = artistry.spawnMode || 'bg_widget'
@@ -366,6 +420,8 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
 
   return {
     isProcessing,
+    directorNotes,
     runArtistTask,
+    loadDirectorNotes,
   }
 })

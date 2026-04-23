@@ -45,6 +45,15 @@ export interface ErrorMessage {
   content: string
 }
 
+export interface DirectorMessage {
+  role: 'director'
+  content: string
+  intensity: number
+  title?: string
+  prompt?: string
+  target?: 'user' | 'assistant'
+}
+
 export interface ContextMessage extends ContextUpdate<Record<string, unknown>, string | CommonContentPart[]> {
   metadata?: {
     source: MetadataEventSource
@@ -52,7 +61,7 @@ export interface ContextMessage extends ContextUpdate<Record<string, unknown>, s
   createdAt: number
 }
 
-export type ChatHistoryItem = (ChatMessage | ErrorMessage) & { context?: ContextMessage } & { createdAt?: number, id?: string }
+export type ChatHistoryItem = (ChatMessage | ErrorMessage | DirectorMessage) & { context?: ContextMessage } & { createdAt?: number, id?: string }
 
 export interface ChatStreamEventContext {
   message: ChatHistoryItem

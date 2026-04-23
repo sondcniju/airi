@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { RadioCardSimple } from '@proj-airi/stage-ui/components'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
+import { useSettingsChat } from '@proj-airi/stage-ui/stores/settings/chat'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const artistryStore = useArtistryStore()
+const chatSettings = useSettingsChat()
 const { activeProvider } = storeToRefs(artistryStore)
 
 const availableProviders = [
@@ -63,6 +65,34 @@ const availableProviders = [
             @click="router.push(provider.configRoute)"
           />
         </fieldset>
+      </div>
+    </div>
+
+    <div class="h-fit w-full flex flex-col gap-4 rounded-xl bg-neutral-100 p-4 dark:bg-[rgba(0,0,0,0.3)]">
+      <div>
+        <h2 class="text-lg text-neutral-500 md:text-2xl dark:text-neutral-400">
+          UI Feedback
+        </h2>
+        <div class="text-neutral-400 dark:text-neutral-500">
+          Configure how Autonomous Artistry decisions are surfaced in the chat view.
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-2 rounded-lg bg-neutral-200/50 p-3 dark:bg-black/20">
+        <div class="flex items-center justify-between">
+          <div class="flex flex-col">
+            <span class="text-sm font-medium dark:text-neutral-200">Director's Monitor</span>
+            <span class="text-xs text-neutral-500 dark:text-neutral-400">
+              Display the Director's reasoning and grading in the chat stream when evaluating scenes.
+            </span>
+          </div>
+          <!-- We use a simple checkbox since FormSwitch isn't explicitly known to be imported -->
+          <input
+            v-model="chatSettings.showDirectorNotes"
+            type="checkbox"
+            class="toggle"
+          >
+        </div>
       </div>
     </div>
   </div>

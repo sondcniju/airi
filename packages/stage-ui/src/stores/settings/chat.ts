@@ -6,6 +6,7 @@ export type ChatSendMode = 'enter' | 'ctrl-enter' | 'double-enter'
 export const useSettingsChat = defineStore('settings-chat', () => {
   const sendMode = useLocalStorageManualReset<ChatSendMode>('settings/chat/send-mode', 'enter')
   const streamIdleTimeoutMs = useLocalStorageManualReset<number>('settings/chat/stream-idle-timeout-ms', 600000)
+  const showDirectorNotes = useLocalStorageManualReset<boolean>('settings/chat/show-director-notes', true)
 
   // Migration: force-update existing users from 30s to 10min
   if (streamIdleTimeoutMs.value === 30000) {
@@ -15,11 +16,13 @@ export const useSettingsChat = defineStore('settings-chat', () => {
   function resetState() {
     sendMode.reset()
     streamIdleTimeoutMs.reset()
+    showDirectorNotes.reset()
   }
 
   return {
     sendMode,
     streamIdleTimeoutMs,
+    showDirectorNotes,
     resetState,
   }
 })
