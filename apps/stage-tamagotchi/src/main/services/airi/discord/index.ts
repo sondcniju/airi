@@ -10,7 +10,11 @@ import { nanoid } from 'nanoid'
 import {
   discordServiceForceSync,
   discordServiceGetStatus,
+  discordServiceInteraction,
+  discordServiceRegisterCommands,
+  discordServiceReplyInteraction,
   discordServiceSendMessage,
+  discordServiceSendTyping,
   discordServiceSimulateEvent,
   discordServiceStart,
   discordServiceStop,
@@ -22,11 +26,13 @@ const log = useLogg('discord-service').useGlobalConfig()
 const STATUS_CHANGED_CHANNEL = 'eventa:event:electron:discord:status-changed'
 const EVENT_LOG_CHANNEL = 'eventa:event:electron:discord:event-log'
 const INBOUND_MESSAGE_CHANNEL = 'eventa:event:electron:discord:inbound-message'
+const INTERACTION_CHANNEL = 'eventa:event:electron:discord:interaction'
 
 // ── Internal State ─────────────────────────────────────────────────────────────
 
 let discordClient: Client | null = null
 let activeChannelId: string | null = null
+const activeInteractions = new Map<string, any>()
 let lastError: string | null = null
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -113,6 +119,47 @@ function chunkMessage(content: string): string[] {
 export function setupDiscordService() {
   const { context } = createContext(ipcMain)
 
+  // ── Interaction Logic ──────────────────────────────────────────────────
+
+  const handleInteraction = async (interaction: any) => {
+    if (!interaction.isChatInputCommand())
+      return
+
+    try {
+      pushLog('INTERACTION', `Received /${interaction.commandName} from ${interaction.user.tag}`)
+
+      // 1. Defer the reply immediately to satisfy the 3s timeout
+      await interaction.deferReply()
+
+      // 2. Cache the interaction so the renderer can reply to it later
+      activeInteractions.set(interaction.id, interaction)
+
+      // 3. Extract options into a simple key-value map
+      const options: Record<string, any> = {}
+      interaction.options.data.forEach((opt: any) => {
+        options[opt.name] = opt.value
+      })
+
+      // 4. Forward to Renderer
+      pushInteraction({
+        interactionId: interaction.id,
+        commandName: interaction.commandName,
+        options,
+        channelId: interaction.channelId,
+        userId: interaction.user.id,
+        username: interaction.user.username,
+      })
+
+      // 5. Auto-cleanup interactions after 15 minutes (Discord's token limit)
+      setTimeout(() => {
+        activeInteractions.delete(interaction.id)
+      }, 15 * 60 * 1000)
+    }
+    catch (err: any) {
+      pushLog('ERROR', `Interaction handling failed: ${err.message}`)
+    }
+  }
+
   function pushLog(type: string, summary: string) {
     const entry: DiscordEventLogEntry = {
       timestamp: Date.now(),
@@ -129,6 +176,10 @@ export function setupDiscordService() {
 
   function pushInboundMessage(msg: DiscordInboundMessage) {
     broadcastToAllWindows(INBOUND_MESSAGE_CHANNEL, msg)
+  }
+
+  function pushInteraction(payload: DiscordInteractionPayload) {
+    broadcastToAllWindows(INTERACTION_CHANNEL, payload)
   }
 
   // ── Invoke Handlers ────────────────────────────────────────────────────────
@@ -225,9 +276,7 @@ export function setupDiscordService() {
       pushInboundMessage(inbound)
     })
 
-    discordClient.on(Events.InteractionCreate, (interaction) => {
-      pushLog('INTERACTION_CREATE', `/${interaction.isCommand() ? (interaction as any).commandName : interaction.type} from ${interaction.user.tag}`)
-    })
+    discordClient.on(Events.InteractionCreate, handleInteraction)
 
     // ── Login ──────────────────────────────────────────────────────────────
 
@@ -438,6 +487,44 @@ export function setupDiscordService() {
 
     pushLog('SIMULATE', `Injected mock message from ${mock.username}: ${mock.content.substring(0, 60)}`)
     pushInboundMessage(mock)
+  })
+
+  // ── Registration: Slash Commands ───────────────────────────────────────
+
+  defineInvokeHandler(context, discordServiceRegisterCommands, async (payload) => {
+    if (!discordClient?.isReady() || !discordClient.application) {
+      throw new Error('Discord client not ready for command registration')
+    }
+
+    try {
+      pushLog('COMMAND_REG', `Registering ${payload.commands.length} global commands...`)
+      await discordClient.application.commands.set(payload.commands)
+      pushLog('COMMAND_REG', 'Commands registered successfully')
+    }
+    catch (err: any) {
+      pushLog('ERROR', `Command registration failed: ${err.message}`)
+      throw err
+    }
+  })
+
+  defineInvokeHandler(context, discordServiceReplyInteraction, async (payload) => {
+    const interaction = activeInteractions.get(payload.interactionId)
+    if (!interaction) {
+      pushLog('ERROR', `Cannot reply: Interaction ${payload.interactionId} not found or expired`)
+      return
+    }
+
+    try {
+      if (payload.followUp) {
+        await interaction.followUp({ content: payload.content, ephemeral: payload.ephemeral })
+      }
+      else {
+        await interaction.editReply({ content: payload.content })
+      }
+    }
+    catch (err: any) {
+      pushLog('ERROR', `Failed to reply to interaction: ${err.message}`)
+    }
   })
 
   log.log('Discord service handlers registered')

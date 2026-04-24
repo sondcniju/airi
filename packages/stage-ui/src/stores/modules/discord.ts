@@ -1,9 +1,12 @@
-import type { DiscordEventLogEntry, DiscordInboundMessage, DiscordServiceStatus } from '@proj-airi/stage-shared'
+import type { DiscordCommandDefinition, DiscordEventLogEntry, DiscordInboundMessage, DiscordInteractionPayload, DiscordServiceStatus } from '@proj-airi/stage-shared'
 
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import {
   discordServiceForceSync,
   discordServiceGetStatus,
+  discordServiceInteraction,
+  discordServiceRegisterCommands,
+  discordServiceReplyInteraction,
   discordServiceSendImage,
   discordServiceSendMessage,
   discordServiceSendTyping,
@@ -18,6 +21,7 @@ import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 import { useBackgroundStore } from '../background'
 import { useChatOrchestratorStore } from '../chat'
 import { useChatSessionStore } from '../chat/session-store'
+import { stripMarkers } from '../composables/response-categoriser'
 import { useAiriCardStore } from './airi-card'
 import { useAutonomousArtistryStore } from './artistry-autonomous'
 import { useConsciousnessStore } from './consciousness'
@@ -27,17 +31,71 @@ import { useConsciousnessStore } from './consciousness'
 const STATUS_CHANGED_CHANNEL = 'eventa:event:electron:discord:status-changed'
 const EVENT_LOG_CHANNEL = 'eventa:event:electron:discord:event-log'
 const INBOUND_MESSAGE_CHANNEL = 'eventa:event:electron:discord:inbound-message'
+const INTERACTION_CHANNEL = 'eventa:event:electron:discord:interaction'
 
 const MAX_EVENT_LOG_ENTRIES = 200
+
+// ── Slash Command Definitions ──────────────────────────────────────────────────
+
+const COMMANDS_VERSION = 1
+const CORE_COMMANDS: DiscordCommandDefinition[] = [
+  {
+    name: 'character',
+    description: 'Switch the active AIRI character profile',
+    options: [
+      {
+        name: 'id',
+        description: 'The unique ID of the character to switch to',
+        type: 3, // String
+        required: false,
+        autocomplete: true,
+      },
+    ],
+  },
+  {
+    name: 'new',
+    description: 'Reset the current chat session and start fresh',
+    options: [
+      {
+        name: 'message',
+        description: 'Optional initial message to start the new session with',
+        type: 3, // String
+        required: false,
+      },
+    ],
+  },
+  {
+    name: 'history',
+    description: 'Catch up on the last few turns of the conversation',
+    options: [
+      {
+        name: 'turns',
+        description: 'Number of conversation turns to retrieve (default: 5)',
+        type: 4, // Integer
+        required: false,
+      },
+    ],
+  },
+  {
+    name: 'summon',
+    description: 'Summon the bot to your current voice channel',
+  },
+  {
+    name: 'leave',
+    description: 'Disconnect the bot from the voice channel',
+  },
+]
 
 export const useDiscordStore = defineStore('discord', () => {
   const chatSession = useChatSessionStore()
 
+  const chatOrchestrator = useChatOrchestratorStore()
+  const airiCard = useAiriCardStore()
+
   // ── Persisted Config ───────────────────────────────────────────────────────
   const enabled = useLocalStorageManualReset<boolean>('settings/discord/enabled', false)
   const token = useLocalStorageManualReset<string>('settings/discord/token', '')
-
-  const chatOrchestrator = useChatOrchestratorStore()
+  const lastRegisteredVersion = useLocalStorageManualReset<number>('settings/discord/lastRegisteredVersion', 0)
 
   // ── Live Service State ─────────────────────────────────────────────────────
   const serviceStatus = ref<DiscordServiceStatus>({
@@ -65,6 +123,8 @@ export const useDiscordStore = defineStore('discord', () => {
   const invokeSimulate = isElectron ? useElectronEventaInvoke(discordServiceSimulateEvent) : null
   const invokeSendMessage = isElectron ? useElectronEventaInvoke(discordServiceSendMessage) : null
   const invokeSendTyping = isElectron ? useElectronEventaInvoke(discordServiceSendTyping) : null
+  const invokeRegisterCommands = isElectron ? useElectronEventaInvoke(discordServiceRegisterCommands) : null
+  const invokeReplyInteraction = isElectron ? useElectronEventaInvoke(discordServiceReplyInteraction) : null
   const invokeSendImage = isElectron ? useElectronEventaInvoke(discordServiceSendImage) : null
 
   // ── Routing Cache ──────────────────────────────────────────────────────────
@@ -84,11 +144,36 @@ export const useDiscordStore = defineStore('discord', () => {
     enabled.value = true
     try {
       const status = await invokeStart?.({ token: token.value })
-      if (status)
+      if (status) {
         serviceStatus.value = status
+        // Sync commands on successful start
+        await syncCommands()
+      }
     }
     catch (err) {
       console.error('[DiscordStore] Failed to start service:', err)
+    }
+  }
+
+  /**
+   * Register slash commands with Discord if the version has increased.
+   */
+  async function syncCommands(force = false) {
+    if (!isConnected.value || !invokeRegisterCommands)
+      return
+
+    if (!force && lastRegisteredVersion.value >= COMMANDS_VERSION) {
+      console.log(`[DiscordStore] Slash commands are up to date (v${lastRegisteredVersion.value})`)
+      return
+    }
+
+    try {
+      console.log(`[DiscordStore] Registering slash commands (v${COMMANDS_VERSION})...`)
+      await invokeRegisterCommands({ commands: CORE_COMMANDS })
+      lastRegisteredVersion.value = COMMANDS_VERSION
+    }
+    catch (err) {
+      console.error('[DiscordStore] Failed to register commands:', err)
     }
   }
 
@@ -382,9 +467,82 @@ export const useDiscordStore = defineStore('discord', () => {
       resetAudioSettleTimer()
     }
 
+    const onInteraction = async (_event: any, payload: DiscordInteractionPayload) => {
+      console.log(`[DiscordStore] Handling interaction: ${payload.commandName}`)
+
+      if (payload.commandName === 'history') {
+        const turns = payload.options.turns || 5
+        const history = chatSession.history.slice(-turns * 2) // * 2 because history includes user and assistant
+
+        if (history.length === 0) {
+          await invokeReplyInteraction?.({
+            interactionId: payload.interactionId,
+            content: 'There is no conversation history to display.',
+          })
+          return
+        }
+
+        const lines: string[] = []
+        for (const msg of history) {
+          const role = msg.role === 'user' ? 'User' : (airiCard.activeCard?.name || 'Assistant')
+          const content = stripMarkers(msg.content).trim()
+          if (content) {
+            lines.push(`**${role}**: ${content}`)
+          }
+        }
+
+        // Chunking per turn logic
+        let currentMessage = ''
+        const messagesToSend: string[] = []
+
+        for (const line of lines) {
+          // Check if adding this line would exceed Discord's 2000 limit
+          if (currentMessage.length + line.length + 2 > 2000) {
+            messagesToSend.push(currentMessage.trim())
+            currentMessage = `${line}\n\n`
+          }
+          else {
+            currentMessage += `${line}\n\n`
+          }
+        }
+        if (currentMessage) {
+          messagesToSend.push(currentMessage.trim())
+        }
+
+        // Send the first chunk as the initial reply
+        try {
+          await invokeReplyInteraction?.({
+            interactionId: payload.interactionId,
+            content: messagesToSend[0],
+          })
+
+          // Send subsequent chunks as follow-ups
+          for (let i = 1; i < messagesToSend.length; i++) {
+            await invokeReplyInteraction?.({
+              interactionId: payload.interactionId,
+              content: messagesToSend[i],
+              followUp: true,
+            })
+          }
+        }
+        catch (err) {
+          console.error('[DiscordStore] Failed to send history chunks:', err)
+        }
+      }
+      else {
+        // Fallback for other commands not yet implemented
+        await invokeReplyInteraction?.({
+          interactionId: payload.interactionId,
+          content: `The command \`/${payload.commandName}\` is not yet implemented in the AIRI core.`,
+          ephemeral: true,
+        })
+      }
+    }
+
     ipcRenderer.on(STATUS_CHANGED_CHANNEL, onStatusChanged)
     ipcRenderer.on(EVENT_LOG_CHANNEL, onEventLog)
     ipcRenderer.on(INBOUND_MESSAGE_CHANNEL, onInboundMessage)
+    ipcRenderer.on(INTERACTION_CHANNEL, onInteraction)
 
     const onBeforeSend = async (message: string, options: any) => {
       const source = options?.metadata?._discordSource
@@ -494,6 +652,7 @@ export const useDiscordStore = defineStore('discord', () => {
       ipcRenderer.removeListener(STATUS_CHANGED_CHANNEL, onStatusChanged)
       ipcRenderer.removeListener(EVENT_LOG_CHANNEL, onEventLog)
       ipcRenderer.removeListener(INBOUND_MESSAGE_CHANNEL, onInboundMessage)
+      ipcRenderer.removeListener(INTERACTION_CHANNEL, onInteraction)
       cleanupChatHooks.forEach(cleanup => cleanup())
       cleanupBackgroundHook()
     }
