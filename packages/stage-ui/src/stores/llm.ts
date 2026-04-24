@@ -70,11 +70,11 @@ export function sanitizeMessages(messages: unknown[], options?: { vision?: boole
     if (m.name)
       sanitized.name = m.name
     if (m.tool_calls)
-      sanitized.tool_calls = m.tool_calls
+      (sanitized as any).tool_calls = m.tool_calls
     if (m.tool_call_id)
-      sanitized.tool_call_id = m.tool_call_id
+      (sanitized as any).tool_call_id = m.tool_call_id
 
-    if (sanitized.role === 'error') {
+    if ((sanitized as any).role === 'error') {
       sanitized.role = 'user'
       sanitized.content = `User encountered error: ${String(sanitized.content ?? '')}`
     }

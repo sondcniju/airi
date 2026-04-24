@@ -1,4 +1,10 @@
-import type { DiscordEventLogEntry, DiscordInboundMessage, DiscordServiceStatus } from '@proj-airi/stage-shared'
+import type {
+  DiscordEventLogEntry,
+  DiscordInboundMessage,
+  DiscordInteractionPayload,
+  DiscordOutboundImage,
+  DiscordServiceStatus,
+} from '@proj-airi/stage-shared'
 
 import { useLogg } from '@guiiai/logg'
 import { defineInvokeHandler } from '@moeru/eventa'
@@ -10,7 +16,6 @@ import { nanoid } from 'nanoid'
 import {
   discordServiceForceSync,
   discordServiceGetStatus,
-  discordServiceInteraction,
   discordServiceRegisterCommands,
   discordServiceReplyInteraction,
   discordServiceSendMessage,

@@ -4,7 +4,6 @@ import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import {
   discordServiceForceSync,
   discordServiceGetStatus,
-  discordServiceInteraction,
   discordServiceRegisterCommands,
   discordServiceReplyInteraction,
   discordServiceSendImage,
@@ -16,15 +15,14 @@ import {
 } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { defineStore } from 'pinia'
-import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, toRaw } from 'vue'
 
+import { stripMarkers } from '../../composables/response-categoriser'
 import { useBackgroundStore } from '../background'
 import { useChatOrchestratorStore } from '../chat'
 import { useChatSessionStore } from '../chat/session-store'
-import { stripMarkers } from '../composables/response-categoriser'
 import { useAiriCardStore } from './airi-card'
 import { useAutonomousArtistryStore } from './artistry-autonomous'
-import { useConsciousnessStore } from './consciousness'
 
 // ── IPC Event Channel Names ────────────────────────────────────────────────────
 
@@ -472,7 +470,7 @@ export const useDiscordStore = defineStore('discord', () => {
 
       if (payload.commandName === 'history') {
         const turns = payload.options.turns || 5
-        const history = chatSession.history.slice(-turns * 2) // * 2 because history includes user and assistant
+        const history = chatSession.messages.slice(-turns * 2) // * 2 because history includes user and assistant
 
         if (history.length === 0) {
           await invokeReplyInteraction?.({
@@ -485,7 +483,7 @@ export const useDiscordStore = defineStore('discord', () => {
         const lines: string[] = []
         for (const msg of history) {
           const role = msg.role === 'user' ? 'User' : (airiCard.activeCard?.name || 'Assistant')
-          const content = stripMarkers(msg.content).trim()
+          const content = stripMarkers(String(msg.content || '')).trim()
           if (content) {
             lines.push(`**${role}**: ${content}`)
           }
@@ -544,7 +542,7 @@ export const useDiscordStore = defineStore('discord', () => {
     ipcRenderer.on(INBOUND_MESSAGE_CHANNEL, onInboundMessage)
     ipcRenderer.on(INTERACTION_CHANNEL, onInteraction)
 
-    const onBeforeSend = async (message: string, options: any) => {
+    const onBeforeSend = async (_message: string, options: any) => {
       const source = options?.metadata?._discordSource
       if (source?.channelId) {
         // Leadership Election: Only Stage window sends the typing indicator
@@ -627,7 +625,7 @@ export const useDiscordStore = defineStore('discord', () => {
         // Fetch the Director's reasoning to include in the caption (if enabled)
         const artistryStore = useAutonomousArtistryStore()
         const cardStore = useAiriCardStore()
-        const monitorEnabled = cardStore.activeCard?.extensions?.airi?.artistry?.autonomousMonitorEnabled ?? true
+        const monitorEnabled = (cardStore.activeCard?.extensions?.airi?.artistry as any)?.autonomousMonitorEnabled ?? true
         const recentNote = [...artistryStore.directorNotes].reverse().find(n => n.title === entry.title || n.prompt === entry.prompt)
 
         let caption = `🎨 **New Visual Manifestation: ${entry.title}**`
