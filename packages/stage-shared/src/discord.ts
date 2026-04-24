@@ -83,6 +83,11 @@ export const discordServiceSendMessage = defineInvokeEventa<void, DiscordOutboun
   'eventa:invoke:electron:discord:send-message',
 )
 
+/** Send a typing indicator to a Discord channel. */
+export const discordServiceSendTyping = defineInvokeEventa<void, { channelId: string }>(
+  'eventa:invoke:electron:discord:send-typing',
+)
+
 export interface DiscordOutboundImage {
   channelId: string
   content?: string

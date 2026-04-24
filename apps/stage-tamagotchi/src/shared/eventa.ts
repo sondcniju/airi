@@ -274,6 +274,7 @@ export {
   discordServiceGetStatus,
   discordServiceInboundMessage,
   discordServiceSendMessage,
+  discordServiceSendTyping,
   discordServiceSimulateEvent,
   discordServiceStart,
   discordServiceStatusChanged,

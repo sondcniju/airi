@@ -6,6 +6,7 @@ import {
   discordServiceGetStatus,
   discordServiceSendImage,
   discordServiceSendMessage,
+  discordServiceSendTyping,
   discordServiceSimulateEvent,
   discordServiceStart,
   discordServiceStop,
@@ -63,6 +64,7 @@ export const useDiscordStore = defineStore('discord', () => {
   const invokeForceSync = isElectron ? useElectronEventaInvoke(discordServiceForceSync) : null
   const invokeSimulate = isElectron ? useElectronEventaInvoke(discordServiceSimulateEvent) : null
   const invokeSendMessage = isElectron ? useElectronEventaInvoke(discordServiceSendMessage) : null
+  const invokeSendTyping = isElectron ? useElectronEventaInvoke(discordServiceSendTyping) : null
   const invokeSendImage = isElectron ? useElectronEventaInvoke(discordServiceSendImage) : null
 
   // ── Routing Cache ──────────────────────────────────────────────────────────
@@ -384,7 +386,23 @@ export const useDiscordStore = defineStore('discord', () => {
     ipcRenderer.on(EVENT_LOG_CHANNEL, onEventLog)
     ipcRenderer.on(INBOUND_MESSAGE_CHANNEL, onInboundMessage)
 
-    const cleanupChatHooks = chatOrchestrator.onChatTurnComplete(onChatTurnComplete)
+    const onBeforeSend = async (message: string, options: any) => {
+      const source = options?.metadata?._discordSource
+      if (source?.channelId) {
+        // Leadership Election: Only Stage window sends the typing indicator
+        const hash = window.location.hash || '#/'
+        const isStage = hash === '#/' || hash.startsWith('#/stage')
+        if (isStage && invokeSendTyping) {
+          console.log(`[DiscordStore] LLM generating, sending typing indicator to ${source.channelId.slice(-4)}`)
+          await invokeSendTyping({ channelId: source.channelId }).catch(() => {})
+        }
+      }
+    }
+
+    const cleanupChatHooks = [
+      chatOrchestrator.onChatTurnComplete(onChatTurnComplete),
+      chatOrchestrator.onBeforeSend(onBeforeSend),
+    ]
 
     const backgroundStore = useBackgroundStore()
     const cleanupBackgroundHook = backgroundStore.onBackgroundAdded(async (entry) => {
@@ -476,7 +494,7 @@ export const useDiscordStore = defineStore('discord', () => {
       ipcRenderer.removeListener(STATUS_CHANGED_CHANNEL, onStatusChanged)
       ipcRenderer.removeListener(EVENT_LOG_CHANNEL, onEventLog)
       ipcRenderer.removeListener(INBOUND_MESSAGE_CHANNEL, onInboundMessage)
-      cleanupChatHooks()
+      cleanupChatHooks.forEach(cleanup => cleanup())
       cleanupBackgroundHook()
     }
   }

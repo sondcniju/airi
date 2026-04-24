@@ -284,6 +284,24 @@ export function setupDiscordService() {
     }
   })
 
+  // ── Outbound: Send typing indicator to Discord ────────────────────────
+
+  defineInvokeHandler(context, discordServiceSendTyping, async (payload) => {
+    if (!discordClient?.isReady() || !payload?.channelId)
+      return
+
+    try {
+      const channel = await discordClient.channels.fetch(payload.channelId)
+      if (channel?.isTextBased() && 'sendTyping' in channel && typeof (channel as any).sendTyping === 'function') {
+        await (channel as any).sendTyping()
+        // We don't push log for typing to avoid spamming the debug console
+      }
+    }
+    catch (err: any) {
+      // Ignore typing errors silently to avoid spam
+    }
+  })
+
   // ── Native IPC Bypass ───────────────────────────────────────────────────
   // We use native ipcMain.handle for images because the Eventa Context Bridge (WebSocket)
   // often has a 1MB payload limit that chokes on high-res base64 strings.
