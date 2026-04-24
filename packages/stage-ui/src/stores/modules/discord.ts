@@ -504,6 +504,11 @@ export const useDiscordStore = defineStore('discord', () => {
 
       console.log(`[DiscordStore] Handling interaction: /${payload.commandName} (${payload.interactionId})`)
 
+      // Keep channel context updated for things like image routing (e.g. /imagine)
+      if (payload.channelId) {
+        lastChannelId.value = payload.channelId
+      }
+
       if (payload.commandName === 'history') {
         const turns = payload.options.turns || 5
         const history = chatSession.messages.slice(-turns * 2) // * 2 because history includes user and assistant
