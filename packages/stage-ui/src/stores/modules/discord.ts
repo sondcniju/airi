@@ -35,7 +35,7 @@ const MAX_EVENT_LOG_ENTRIES = 200
 
 // ── Slash Command Definitions ──────────────────────────────────────────────────
 
-const COMMANDS_VERSION = 1
+const COMMANDS_VERSION = 2
 const CORE_COMMANDS: DiscordCommandDefinition[] = [
   {
     name: 'character',
@@ -466,7 +466,16 @@ export const useDiscordStore = defineStore('discord', () => {
     }
 
     const onInteraction = async (_event: any, payload: DiscordInteractionPayload) => {
-      console.log(`[DiscordStore] Handling interaction: ${payload.commandName}`)
+      // Leadership Election: Only the 'Stage' window should handle interactions
+      // to prevent duplicate responses when multiple windows (like Settings) are open.
+      const hash = window.location.hash || '#/'
+      const isStage = hash === '#/' || hash.startsWith('#/stage')
+      if (!isStage) {
+        console.log(`[DiscordStore] Ignoring interaction ${payload.interactionId}: Not the leader window.`)
+        return
+      }
+
+      console.log(`[DiscordStore] Handling interaction: /${payload.commandName} (${payload.interactionId})`)
 
       if (payload.commandName === 'history') {
         const turns = payload.options.turns || 5
