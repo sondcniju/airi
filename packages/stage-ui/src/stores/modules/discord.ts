@@ -536,6 +536,64 @@ export const useDiscordStore = defineStore('discord', () => {
           console.error('[DiscordStore] Failed to send history chunks:', err)
         }
       }
+      else if (payload.commandName === 'character') {
+        const query = (payload.options.id || payload.options.name || '').toString().trim()
+
+        if (!query) {
+          const charList = Array.from(airiCard.cards.values())
+            .map(c => `- **${c.name}**`)
+            .join('\n')
+
+          await invokeReplyInteraction?.({
+            interactionId: payload.interactionId,
+            content: `Active: **${airiCard.activeCard?.name || 'None'}**\n\nAvailable Characters:\n${charList}`,
+          })
+          return
+        }
+
+        // Fuzzy match: Try exact ID, then exact name, then partial name
+        const allCards = Array.from(airiCard.cards.entries())
+        const target = allCards.find(([id]) => id === query)
+          || allCards.find(([, card]) => card.name.toLowerCase() === query.toLowerCase())
+          || allCards.find(([, card]) => card.name.toLowerCase().includes(query.toLowerCase()))
+
+        if (target) {
+          const [id, card] = target
+          await airiCard.activateCard(id)
+          await invokeReplyInteraction?.({
+            interactionId: payload.interactionId,
+            content: `Successfully switched active character to **${card.name}**!`,
+          })
+        }
+        else {
+          await invokeReplyInteraction?.({
+            interactionId: payload.interactionId,
+            content: `Could not find a character matching "**${query}**".`,
+          })
+        }
+      }
+      else if (payload.commandName === 'new') {
+        const initialMessage = payload.options.message?.toString()
+
+        // Reset the session for the current character
+        // In AIRI, we can just trigger a new session creation
+        const sessionId = await chatSession.setActiveSession('') // Clear current
+        await chatSession.ensureSession(sessionId)
+
+        if (initialMessage) {
+          // If they provided a message, send it immediately
+          await chatOrchestrator.send(initialMessage, {
+            metadata: { _discordSource: payload },
+          })
+        }
+
+        await invokeReplyInteraction?.({
+          interactionId: payload.interactionId,
+          content: initialMessage
+            ? `Started a new session with your message!`
+            : `Chat session has been reset. Fresh start!`,
+        })
+      }
       else {
         // Fallback for other commands not yet implemented
         await invokeReplyInteraction?.({
