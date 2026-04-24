@@ -9,7 +9,18 @@ import { safeParse } from 'valibot'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { DEFAULT_ACTING_MODEL_EXPRESSION_PROMPT, DEFAULT_ACTING_SPEECH_EXPRESSION_PROMPT, DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT, DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT, DEFAULT_HEARTBEATS_PROMPT, DEFAULT_POST_HISTORY_INSTRUCTIONS } from '../../constants/prompts/character-defaults'
+import {
+  DEFAULT_ACTING_MODEL_EXPRESSION_PROMPT,
+  DEFAULT_ACTING_SPEECH_EXPRESSION_PROMPT,
+  DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT,
+  DEFAULT_ARTISTRY_ARIA_PROMPT_PREFIX,
+  DEFAULT_ARTISTRY_LUPIN_PROMPT_PREFIX,
+  DEFAULT_ARTISTRY_MORI_PROMPT_PREFIX,
+  DEFAULT_ARTISTRY_RELU_PROMPT_PREFIX,
+  DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT,
+  DEFAULT_HEARTBEATS_PROMPT,
+  DEFAULT_POST_HISTORY_INSTRUCTIONS,
+} from '../../constants/prompts/character-defaults'
 import { AiriCardSchema } from '../../types/card.schema'
 import { useBackgroundStore } from '../background'
 import { DisplayModelFormat, useDisplayModelsStore } from '../display-models'
@@ -661,6 +672,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
               speechMannerismPrompt: DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT,
             },
             artistry: {
+              promptPrefix: DEFAULT_ARTISTRY_RELU_PROMPT_PREFIX,
               widgetInstruction: DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT,
             },
             heartbeats: {
@@ -707,6 +719,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
               speechMannerismPrompt: DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT,
             },
             artistry: {
+              promptPrefix: DEFAULT_ARTISTRY_ARIA_PROMPT_PREFIX,
               widgetInstruction: DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT,
             },
             heartbeats: {
@@ -753,6 +766,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
               speechMannerismPrompt: DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT,
             },
             artistry: {
+              promptPrefix: DEFAULT_ARTISTRY_LUPIN_PROMPT_PREFIX,
               widgetInstruction: DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT,
             },
             heartbeats: {
