@@ -258,13 +258,14 @@ export function setupDiscordService() {
 
       const content = message.content.trim()
 
-      if (!content)
+      // Allow empty text if there are attachments
+      if (!content && message.attachments.size === 0)
         return
 
       // Track active channel for outbound routing
       activeChannelId = message.channelId
 
-      pushLog('MESSAGE_CREATE', `${message.author.username}: ${content.substring(0, 80)}${content.length > 80 ? '...' : ''}`)
+      pushLog('MESSAGE_CREATE', `${message.author.username}: ${content.substring(0, 80)}${content.length > 80 ? '...' : ''} (${message.attachments.size} attachments)`)
 
       const inbound: DiscordInboundMessage = {
         messageId: message.id,
@@ -276,6 +277,24 @@ export function setupDiscordService() {
         displayName: message.member?.displayName ?? message.author.username,
         content,
         attachments: [],
+      }
+
+      // Handle image attachments
+      if (message.attachments.size > 0) {
+        for (const attachment of message.attachments.values()) {
+          if (attachment.contentType?.startsWith('image/')) {
+            try {
+              pushLog('ATTACHMENT', `Downloading ${attachment.name} (${attachment.contentType})...`)
+              const response = await fetch(attachment.url)
+              const buffer = await response.arrayBuffer()
+              const base64 = Buffer.from(buffer).toString('base64')
+              inbound.attachments.push(`data:${attachment.contentType};base64,${base64}`)
+            }
+            catch (err: any) {
+              pushLog('ERROR', `Failed to download attachment: ${err.message}`)
+            }
+          }
+        }
       }
 
       pushInboundMessage(inbound)

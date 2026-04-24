@@ -425,7 +425,20 @@ export const useDiscordStore = defineStore('discord', () => {
 
       const formattedContent = `${msg.displayName} says:\n${msg.content}`
 
+      const attachments = (msg.attachments || []).map((att) => {
+        const match = att.match(/^data:([^;]+);base64,(.*)$/)
+        if (match) {
+          return {
+            type: 'image' as const,
+            mimeType: match[1],
+            data: match[2],
+          }
+        }
+        return null
+      }).filter(Boolean) as any[]
+
       void chatOrchestrator.ingest(formattedContent, {
+        attachments,
         metadata: {
           _discordSource: {
             messageId: msg.messageId,
