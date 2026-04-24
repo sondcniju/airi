@@ -15,7 +15,7 @@ import {
 } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { defineStore } from 'pinia'
-import { computed, onMounted, onUnmounted, ref, toRaw } from 'vue'
+import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 
 import { stripMarkers } from '../../composables/response-categoriser'
 import { useBackgroundStore } from '../background'
@@ -678,6 +678,14 @@ export const useDiscordStore = defineStore('discord', () => {
       if (isStage) {
         void startService()
       }
+    }
+  })
+
+  // Automatically sync commands once we actually connect
+  watch(isConnected, (connected) => {
+    if (connected) {
+      console.log('[DiscordStore] Service connected, triggering command sync...')
+      void syncCommands()
     }
   })
 
