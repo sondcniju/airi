@@ -22,7 +22,12 @@ import { useBackgroundStore } from '../background'
 import { useChatOrchestratorStore } from '../chat'
 import { useChatSessionStore } from '../chat/session-store'
 import { useAiriCardStore } from './airi-card'
+import { useArtistryStore } from './artistry'
 import { useAutonomousArtistryStore } from './artistry-autonomous'
+import { useConsciousnessStore } from './consciousness'
+import { useLiveSessionStore } from './live-session'
+import { useSpeechStore } from './speech'
+import { useVisionStore } from './vision'
 
 // ── IPC Event Channel Names ────────────────────────────────────────────────────
 
@@ -35,8 +40,24 @@ const MAX_EVENT_LOG_ENTRIES = 200
 
 // ── Slash Command Definitions ──────────────────────────────────────────────────
 
-const COMMANDS_VERSION = 2
+const COMMANDS_VERSION = 3
 const CORE_COMMANDS: DiscordCommandDefinition[] = [
+  {
+    name: 'status',
+    description: 'View the current AIRI system status, active modules, and AI brains',
+  },
+  {
+    name: 'imagine',
+    description: 'Manually trigger an image generation using the current Autonomous Artistry pipeline',
+    options: [
+      {
+        name: 'prompt',
+        description: 'What do you want the active character to visualize?',
+        type: 3, // String
+        required: true,
+      },
+    ],
+  },
   {
     name: 'character',
     description: 'Switch the active AIRI character profile',
@@ -89,6 +110,12 @@ export const useDiscordStore = defineStore('discord', () => {
 
   const chatOrchestrator = useChatOrchestratorStore()
   const airiCard = useAiriCardStore()
+  const artistryStore = useArtistryStore()
+  const artistryAutonomousStore = useAutonomousArtistryStore()
+  const consciousnessStore = useConsciousnessStore()
+  const liveSessionStore = useLiveSessionStore()
+  const speechStore = useSpeechStore()
+  const visionStore = useVisionStore()
 
   // ── Persisted Config ───────────────────────────────────────────────────────
   const enabled = useLocalStorageManualReset<boolean>('settings/discord/enabled', false)
@@ -593,6 +620,63 @@ export const useDiscordStore = defineStore('discord', () => {
             ? `Started a new session with your message!`
             : `Chat session has been reset. Fresh start!`,
         })
+      }
+      else if (payload.commandName === 'status') {
+        const activeCardName = airiCard.activeCard?.name || 'None'
+        const turns = chatSession.messages.length
+
+        const llmProvider = consciousnessStore.activeProvider || 'Unknown'
+        const llmModel = consciousnessStore.activeModel || 'Unknown'
+
+        const ttsProvider = speechStore.activeSpeechProvider || 'Unknown'
+        const ttsVoice = speechStore.activeSpeechVoiceId || 'Unknown'
+
+        const artistryExt = airiCard.activeCard?.extensions?.airi?.artistry
+        const artProvider = artistryExt?.provider || artistryStore.activeProvider || 'Unknown'
+        const artModelId = artistryExt?.model || 'Unknown'
+        let artModelName = artModelId
+
+        if (artProvider === 'comfyui') {
+          const wf = artistryStore.comfyuiSavedWorkflows?.find((w: any) => w.id === artModelId)
+          if (wf)
+            artModelName = wf.name
+        }
+
+        const visionEnabled = visionStore.isWitnessEnabled
+        const directorEnabled = artistryExt?.autonomousEnabled || false
+        const liveActive = liveSessionStore.isActive
+
+        const content = `**AIRI System Status**
+-------------------------
+**Active Character:** ${activeCardName}
+**Conversation:** ${turns} turns in current session
+
+**🧠 Brains (LLM):** ${llmProvider} / ${llmModel}
+**🗣️ Voice (TTS):** ${ttsProvider} / ${ttsVoice}
+**🎨 Artistry:** ${artProvider} / ${artProvider === 'comfyui' ? 'Workflow' : 'Model'}: \`${artModelName}\`
+
+**Active Modules:**
+- [${visionEnabled ? 'ON' : 'OFF'}] 👁️ **Vision:** Witness Mode ${visionEnabled ? 'active' : 'disabled'}
+- [${directorEnabled ? 'ON' : 'OFF'}] 🎬 **Director:** Autonomous Artistry ${directorEnabled ? 'active' : 'disabled'}
+- [${liveActive ? 'ON' : 'OFF'}] 🧠 **Live API:** ${liveActive ? 'Active' : 'Offline'}`
+
+        await invokeReplyInteraction?.({
+          interactionId: payload.interactionId,
+          content,
+        })
+      }
+      else if (payload.commandName === 'imagine') {
+        const prompt = payload.options.prompt?.toString()
+        if (!prompt)
+          return
+
+        await invokeReplyInteraction?.({
+          interactionId: payload.interactionId,
+          content: `🎨 Directing the Artistry pipeline to visualize: *"${prompt}"*...`,
+        })
+
+        // Fire autonomous task with assistant target to force display
+        await artistryAutonomousStore.runArtistTask(prompt, chatSession.messages as any, 'assistant')
       }
       else {
         // Fallback for other commands not yet implemented
