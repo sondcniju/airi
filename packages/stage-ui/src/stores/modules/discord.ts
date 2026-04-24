@@ -40,7 +40,7 @@ const MAX_EVENT_LOG_ENTRIES = 200
 
 // ── Slash Command Definitions ──────────────────────────────────────────────────
 
-const COMMANDS_VERSION = 3
+const COMMANDS_VERSION = 4
 const CORE_COMMANDS: DiscordCommandDefinition[] = [
   {
     name: 'status',
@@ -55,6 +55,22 @@ const CORE_COMMANDS: DiscordCommandDefinition[] = [
         description: 'What do you want the active character to visualize?',
         type: 3, // String
         required: true,
+      },
+    ],
+  },
+  {
+    name: 'director',
+    description: 'Toggle Autonomous Artistry (stops generation requests)',
+    options: [
+      {
+        name: 'mode',
+        description: 'Set to on or off',
+        type: 3, // String
+        required: true,
+        choices: [
+          { name: 'on', value: 'on' },
+          { name: 'off', value: 'off' },
+        ],
       },
     ],
   },
@@ -682,6 +698,18 @@ export const useDiscordStore = defineStore('discord', () => {
           interactionId: payload.interactionId,
           content,
         })
+      }
+      else if (payload.commandName === 'director') {
+        const mode = payload.options.mode?.toString()
+        const enabled = mode === 'on'
+
+        if (airiCard.activeCardId) {
+          airiCard.setAutonomousArtistry(airiCard.activeCardId, enabled)
+          await invokeReplyInteraction?.({
+            interactionId: payload.interactionId,
+            content: `🎬 Autonomous Artistry has been set to **${mode?.toUpperCase()}**.`,
+          })
+        }
       }
       else if (payload.commandName === 'imagine') {
         const prompt = payload.options.prompt?.toString()

@@ -306,6 +306,25 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     console.log('[AiriCard] toggleGrounding result:', updated?.extensions?.airi?.groundingEnabled)
   }
 
+  const setAutonomousArtistry = (id: string, enabled: boolean) => {
+    const card = cards.value.get(id)
+    if (!card)
+      return
+
+    updateCard(id, {
+      extensions: {
+        ...card.extensions,
+        airi: {
+          ...card.extensions?.airi,
+          artistry: {
+            ...card.extensions?.airi?.artistry,
+            autonomousEnabled: enabled,
+          },
+        },
+      },
+    } as any)
+  }
+
   const getCard = (id: string) => {
     return cards.value.get(id)
   }
@@ -821,6 +840,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     updateCard,
     getCard,
     toggleGrounding,
+    setAutonomousArtistry,
     getCardDisplayModelId,
     resetState,
     initialize,
