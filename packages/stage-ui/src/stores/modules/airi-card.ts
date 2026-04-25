@@ -133,6 +133,8 @@ export interface AiriExtension {
     autonomousEnabled?: boolean
     autonomousThreshold?: number
     autonomousTarget?: 'user' | 'assistant'
+    autonomousMonitorEnabled?: boolean
+    autonomousHistoryDepth?: number
   }
 
   generation?: CharacterGenerationConfig
@@ -498,6 +500,8 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         autonomousEnabled: existingExtension.artistry?.autonomousEnabled ?? false,
         autonomousThreshold: existingExtension.artistry?.autonomousThreshold ?? 70,
         autonomousTarget: existingExtension.artistry?.autonomousTarget ?? 'user',
+        autonomousMonitorEnabled: existingExtension.artistry?.autonomousMonitorEnabled ?? true,
+        autonomousHistoryDepth: existingExtension.artistry?.autonomousHistoryDepth ?? 3,
       },
       generation: {
         enabled: existingExtension.generation?.enabled ?? defaultGeneration.enabled,

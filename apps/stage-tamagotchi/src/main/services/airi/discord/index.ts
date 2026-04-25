@@ -1,4 +1,4 @@
-import type { DiscordEventLogEntry, DiscordInboundMessage, DiscordServiceStatus } from '@proj-airi/stage-shared'
+import type { DiscordEventLogEntry, DiscordInboundMessage, DiscordOutboundImage, DiscordServiceStatus } from '@proj-airi/stage-shared'
 
 import { useLogg } from '@guiiai/logg'
 import { defineInvokeHandler } from '@moeru/eventa'
@@ -34,8 +34,17 @@ let lastError: string | null = null
 /** Broadcast an event payload to all BrowserWindows. */
 function broadcastToAllWindows(channel: string, payload: unknown) {
   for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed() && win.webContents) {
-      win.webContents.send(channel, payload)
+    try {
+      if (!win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+        win.webContents.send(channel, payload)
+      }
+    }
+    catch (err: any) {
+      // NOTICE: We ignore 'Render frame was disposed' errors as they occur normally
+      // when a window is closed while a broadcast is in flight.
+      if (!err?.message?.includes('disposed')) {
+        log.warn(`Broadcast failed for window ${win.id}: ${err?.message}`)
+      }
     }
   }
 }

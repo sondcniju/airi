@@ -62,7 +62,7 @@ export function sanitizeMessages(messages: unknown[], options?: { vision?: boole
     // accepted by common LLM APIs (OpenAI, Anthropic, etc.). Extra fields like
     // "id", "createdAt", or our custom "_discordSource" metadata can cause
     // 400/502 errors on strict providers like OpenRouter/Phala.
-    const sanitized: Message = {
+    const sanitized: any = {
       role: m.role,
       content: m.content ?? '',
     }
@@ -74,9 +74,9 @@ export function sanitizeMessages(messages: unknown[], options?: { vision?: boole
     if (m.tool_call_id)
       sanitized.tool_call_id = m.tool_call_id
 
-    if (sanitized.role === 'error') {
+    if ((m.role as string) === 'error') {
       sanitized.role = 'user'
-      sanitized.content = `User encountered error: ${String(sanitized.content ?? '')}`
+      sanitized.content = `User encountered error: ${String(m.content ?? '')}`
     }
 
     if (Array.isArray(sanitized.content)) {

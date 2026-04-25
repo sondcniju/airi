@@ -12,14 +12,12 @@ import {
 } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { defineStore } from 'pinia'
-import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, toRaw } from 'vue'
 
 import { useBackgroundStore } from '../background'
 import { useChatOrchestratorStore } from '../chat'
-import { useChatSessionStore } from '../chat/session-store'
 import { useAiriCardStore } from './airi-card'
 import { useAutonomousArtistryStore } from './artistry-autonomous'
-import { useConsciousnessStore } from './consciousness'
 
 // ── IPC Event Channel Names ────────────────────────────────────────────────────
 
@@ -30,8 +28,6 @@ const INBOUND_MESSAGE_CHANNEL = 'eventa:event:electron:discord:inbound-message'
 const MAX_EVENT_LOG_ENTRIES = 200
 
 export const useDiscordStore = defineStore('discord', () => {
-  const chatSession = useChatSessionStore()
-
   // ── Persisted Config ───────────────────────────────────────────────────────
   const enabled = useLocalStorageManualReset<boolean>('settings/discord/enabled', false)
   const token = useLocalStorageManualReset<string>('settings/discord/token', '')

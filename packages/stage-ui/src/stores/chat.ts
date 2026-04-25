@@ -190,6 +190,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     proactivityStore.incrementMetric('chat')
     let streamIdleTimeout: ReturnType<typeof setTimeout> | undefined
 
+    let fullText = ''
     try {
       sending.value = true
       let effectiveModel = options.model || activeModel.value
@@ -603,7 +604,6 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         ],
       })
 
-      let fullText = ''
       let turnSpeechContent = ''
       const bridgedTurnsHistory: { content: string, tool_calls?: any[], tool_results: any[] }[] = []
 
@@ -919,7 +919,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           output: { ...buildingMessage, error: { message: errorMessage, detail: technicalDetail } },
           outputText: fullText,
           toolCalls: [],
-        }, streamingMessageContext)
+        } as any, streamingMessageContext)
       }
       catch (hookErr) {
         console.error('Error in turn-complete hooks (error path):', hookErr)

@@ -36,6 +36,7 @@ export interface ChatAssistantMessage extends AssistantMessage {
     queries: string[]
     chunks: { title: string, uri: string }[]
   }
+  error?: { message: string, detail: string }
 }
 
 export type ChatMessage = ChatAssistantMessage | SystemMessage | ToolMessage | UserMessage

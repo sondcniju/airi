@@ -13,7 +13,6 @@ import ChatUserItem from './user-item.vue'
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useAutonomousArtistryStore } from '../../../stores/modules/artistry-autonomous'
 import { chatScrollContainerKey } from './constants'
-import { getChatHistoryItemKey } from './message-key'
 
 const props = withDefaults(defineProps<{
   messages: ChatHistoryItem[]
