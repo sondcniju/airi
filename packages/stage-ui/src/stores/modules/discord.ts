@@ -15,7 +15,7 @@ import {
 } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { defineStore } from 'pinia'
-import { computed, onMounted, onUnmounted, ref, toRaw } from 'vue'
+import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 
 import { stripMarkers } from '../../composables/response-categoriser'
 import { useBackgroundStore } from '../background'
@@ -636,12 +636,11 @@ export const useDiscordStore = defineStore('discord', () => {
 
         // Reset the session for the current character
         // In AIRI, we can just trigger a new session creation
-        const sessionId = await chatSession.setActiveSession('') // Clear current
-        await chatSession.ensureSession(sessionId)
+        await chatSession.createSession(airiCard.activeCardId!)
 
         if (initialMessage) {
           // If they provided a message, send it immediately
-          await chatOrchestrator.send(initialMessage, {
+          await chatOrchestrator.ingest(initialMessage, {
             metadata: { _discordSource: payload },
           })
         }
