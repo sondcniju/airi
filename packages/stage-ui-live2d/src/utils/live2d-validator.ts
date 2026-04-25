@@ -64,6 +64,11 @@ export async function validateLive2DZip(file: File | Blob): Promise<Live2DValida
     }
     else {
       report.checks.push(`MOC3 Header Valid (Sub-version: ${ver}, Size: ${sizeMb.toFixed(2)} MB)`)
+
+      // Cubism 5.3+ models (Sub-version 6) are currently incompatible with the project's core
+      if (ver >= 6) {
+        report.errors.push(`INCOMPATIBLE SDK: This model was exported with Cubism 5.3+ (Sub-version ${ver}). Only Cubism 5.0 and older are currently supported.`)
+      }
     }
 
     if (sizeMb > 100) {
@@ -87,7 +92,7 @@ export async function validateLive2DZip(file: File | Blob): Promise<Live2DValida
 
   for (const [base, paths] of basenames.entries()) {
     if (paths.length > 1) {
-      report.errors.push(`BASENAME COLLISION: Filename "${base}" exists in multiple locations: ${paths.join(', ')}. This causes data loss in AIRI's loader.`)
+      report.warnings.push(`BASENAME COLLISION: Filename "${base}" exists in multiple locations: ${paths.join(', ')}. While the loader now supports subfolders, some legacy expression mapping might still be ambiguous.`)
     }
   }
 
