@@ -152,7 +152,7 @@ Output EXACTLY this JSON format and nothing else:
 }`
 
       // 2. Rollup history and text into a single prompt to help the LLM "see" the full context
-      const historyDepth = artistry.autonomousHistoryDepth ?? 3
+      const historyDepth = (artistry as any).autonomousHistoryDepth ?? 3
       const recentHistory = history.slice(-historyDepth)
       const historyText = recentHistory.map(m => `[${m.role === 'assistant' ? 'Companion' : 'User'}]: ${m.content}`).join('\n\n')
 

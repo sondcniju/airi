@@ -916,8 +916,8 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       // can detect and relay failures instead of silently swallowing them.
       try {
         await hooks.emitChatTurnCompleteHooks({
-          output: { ...buildingMessage, error: { message: errorMessage, detail: technicalDetail } },
-          outputText: fullText,
+          output: { ...buildingMessage, error: { message: errorMessage, detail: technicalDetail } } as any,
+          outputText: String(buildingMessage.content || ''),
           toolCalls: [],
         } as any, streamingMessageContext)
       }

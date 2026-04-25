@@ -1,11 +1,14 @@
-import type { DiscordEventLogEntry, DiscordInboundMessage, DiscordServiceStatus } from '@proj-airi/stage-shared'
+import type { DiscordCommandDefinition, DiscordEventLogEntry, DiscordInboundMessage, DiscordInteractionPayload, DiscordServiceStatus } from '@proj-airi/stage-shared'
 
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import {
   discordServiceForceSync,
   discordServiceGetStatus,
+  discordServiceRegisterCommands,
+  discordServiceReplyInteraction,
   discordServiceSendImage,
   discordServiceSendMessage,
+  discordServiceSendTyping,
   discordServiceSimulateEvent,
   discordServiceStart,
   discordServiceStop,
@@ -14,25 +17,124 @@ import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { defineStore } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, toRaw } from 'vue'
 
+import { stripMarkers } from '../../composables/response-categoriser'
 import { useBackgroundStore } from '../background'
 import { useChatOrchestratorStore } from '../chat'
+import { useChatSessionStore } from '../chat/session-store'
 import { useAiriCardStore } from './airi-card'
+import { useArtistryStore } from './artistry'
 import { useAutonomousArtistryStore } from './artistry-autonomous'
+import { useConsciousnessStore } from './consciousness'
+import { useLiveSessionStore } from './live-session'
+import { useSpeechStore } from './speech'
+import { useVisionStore } from './vision'
 
 // ── IPC Event Channel Names ────────────────────────────────────────────────────
 
 const STATUS_CHANGED_CHANNEL = 'eventa:event:electron:discord:status-changed'
 const EVENT_LOG_CHANNEL = 'eventa:event:electron:discord:event-log'
 const INBOUND_MESSAGE_CHANNEL = 'eventa:event:electron:discord:inbound-message'
+const INTERACTION_CHANNEL = 'eventa:event:electron:discord:interaction'
 
 const MAX_EVENT_LOG_ENTRIES = 200
 
+// ── Slash Command Definitions ──────────────────────────────────────────────────
+
+const COMMANDS_VERSION = 4
+const CORE_COMMANDS: DiscordCommandDefinition[] = [
+  {
+    name: 'status',
+    description: 'View the current AIRI system status, active modules, and AI brains',
+  },
+  {
+    name: 'imagine',
+    description: 'Manually trigger an image generation using the current Autonomous Artistry pipeline',
+    options: [
+      {
+        name: 'prompt',
+        description: 'What do you want the active character to visualize?',
+        type: 3, // String
+        required: true,
+      },
+    ],
+  },
+  {
+    name: 'director',
+    description: 'Toggle Autonomous Artistry (stops generation requests)',
+    options: [
+      {
+        name: 'mode',
+        description: 'Set to on or off',
+        type: 3, // String
+        required: true,
+        choices: [
+          { name: 'on', value: 'on' },
+          { name: 'off', value: 'off' },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'character',
+    description: 'Switch the active AIRI character profile',
+    options: [
+      {
+        name: 'id',
+        description: 'The unique ID of the character to switch to',
+        type: 3, // String
+        required: false,
+        autocomplete: true,
+      },
+    ],
+  },
+  {
+    name: 'new',
+    description: 'Reset the current chat session and start fresh',
+    options: [
+      {
+        name: 'message',
+        description: 'Optional initial message to start the new session with',
+        type: 3, // String
+        required: false,
+      },
+    ],
+  },
+  {
+    name: 'history',
+    description: 'Catch up on the last few turns of the conversation',
+    options: [
+      {
+        name: 'turns',
+        description: 'Number of conversation turns to retrieve (default: 5)',
+        type: 4, // Integer
+        required: false,
+      },
+    ],
+  },
+  {
+    name: 'summon',
+    description: 'Summon the bot to your current voice channel',
+  },
+  {
+    name: 'leave',
+    description: 'Disconnect the bot from the voice channel',
+  },
+]
+
 export const useDiscordStore = defineStore('discord', () => {
+  const chatSession = useChatSessionStore()
+  const chatOrchestrator = useChatOrchestratorStore()
+  const airiCard = useAiriCardStore()
+  const artistryStore = useArtistryStore()
+  const artistryAutonomousStore = useAutonomousArtistryStore()
+  const consciousnessStore = useConsciousnessStore()
+  const liveSessionStore = useLiveSessionStore()
+  const speechStore = useSpeechStore()
+  const visionStore = useVisionStore()
   // ── Persisted Config ───────────────────────────────────────────────────────
   const enabled = useLocalStorageManualReset<boolean>('settings/discord/enabled', false)
   const token = useLocalStorageManualReset<string>('settings/discord/token', '')
-
-  const chatOrchestrator = useChatOrchestratorStore()
+  const lastRegisteredVersion = useLocalStorageManualReset<number>('settings/discord/lastRegisteredVersion', 0)
 
   // ── Live Service State ─────────────────────────────────────────────────────
   const serviceStatus = ref<DiscordServiceStatus>({
@@ -59,6 +161,9 @@ export const useDiscordStore = defineStore('discord', () => {
   const invokeForceSync = isElectron ? useElectronEventaInvoke(discordServiceForceSync) : null
   const invokeSimulate = isElectron ? useElectronEventaInvoke(discordServiceSimulateEvent) : null
   const invokeSendMessage = isElectron ? useElectronEventaInvoke(discordServiceSendMessage) : null
+  const invokeSendTyping = isElectron ? useElectronEventaInvoke(discordServiceSendTyping) : null
+  const invokeRegisterCommands = isElectron ? useElectronEventaInvoke(discordServiceRegisterCommands) : null
+  const invokeReplyInteraction = isElectron ? useElectronEventaInvoke(discordServiceReplyInteraction) : null
   const invokeSendImage = isElectron ? useElectronEventaInvoke(discordServiceSendImage) : null
 
   // ── Routing Cache ──────────────────────────────────────────────────────────
@@ -78,11 +183,36 @@ export const useDiscordStore = defineStore('discord', () => {
     enabled.value = true
     try {
       const status = await invokeStart?.({ token: token.value })
-      if (status)
+      if (status) {
         serviceStatus.value = status
+        // Sync commands on successful start
+        await syncCommands()
+      }
     }
     catch (err) {
       console.error('[DiscordStore] Failed to start service:', err)
+    }
+  }
+
+  /**
+   * Register slash commands with Discord if the version has increased.
+   */
+  async function syncCommands(force = false) {
+    if (!isConnected.value || !invokeRegisterCommands)
+      return
+
+    if (!force && lastRegisteredVersion.value >= COMMANDS_VERSION) {
+      console.log(`[DiscordStore] Slash commands are up to date (v${lastRegisteredVersion.value})`)
+      return
+    }
+
+    try {
+      console.log(`[DiscordStore] Registering slash commands (v${COMMANDS_VERSION})...`)
+      await invokeRegisterCommands({ commands: CORE_COMMANDS })
+      lastRegisteredVersion.value = COMMANDS_VERSION
+    }
+    catch (err) {
+      console.error('[DiscordStore] Failed to register commands:', err)
     }
   }
 
@@ -309,7 +439,20 @@ export const useDiscordStore = defineStore('discord', () => {
 
       const formattedContent = `${msg.displayName} says:\n${msg.content}`
 
+      const attachments = (msg.attachments || []).map((att) => {
+        const match = att.match(/^data:([^;]+);base64,(.*)$/)
+        if (match) {
+          return {
+            type: 'image' as const,
+            mimeType: match[1],
+            data: match[2],
+          }
+        }
+        return null
+      }).filter(Boolean) as any[]
+
       void chatOrchestrator.ingest(formattedContent, {
+        attachments,
         metadata: {
           _discordSource: {
             messageId: msg.messageId,
@@ -376,11 +519,241 @@ export const useDiscordStore = defineStore('discord', () => {
       resetAudioSettleTimer()
     }
 
+    const onInteraction = async (_event: any, payload: DiscordInteractionPayload) => {
+      // Leadership Election: Only the 'Stage' window should handle interactions
+      // to prevent duplicate responses when multiple windows (like Settings) are open.
+      const hash = window.location.hash || '#/'
+      const isStage = hash === '#/' || hash.startsWith('#/stage')
+      if (!isStage) {
+        console.log(`[DiscordStore] Ignoring interaction ${payload.interactionId}: Not the leader window.`)
+        return
+      }
+
+      console.log(`[DiscordStore] Handling interaction: /${payload.commandName} (${payload.interactionId})`)
+
+      // Keep channel context updated for things like image routing (e.g. /imagine)
+      if (payload.channelId) {
+        lastChannelId.value = payload.channelId
+      }
+
+      if (payload.commandName === 'history') {
+        const turns = payload.options.turns || 5
+        const history = chatSession.messages.slice(-turns * 2) // * 2 because history includes user and assistant
+
+        if (history.length === 0) {
+          await invokeReplyInteraction?.({
+            interactionId: payload.interactionId,
+            content: 'There is no conversation history to display.',
+          })
+          return
+        }
+
+        const lines: string[] = []
+        for (const msg of history) {
+          const role = msg.role === 'user' ? 'User' : (airiCard.activeCard?.name || 'Assistant')
+          const content = stripMarkers(String(msg.content || '')).trim()
+          if (content) {
+            lines.push(`**${role}**: ${content}`)
+          }
+        }
+
+        // Chunking per turn logic
+        let currentMessage = ''
+        const messagesToSend: string[] = []
+
+        for (const line of lines) {
+          // Check if adding this line would exceed Discord's 2000 limit
+          if (currentMessage.length + line.length + 2 > 2000) {
+            messagesToSend.push(currentMessage.trim())
+            currentMessage = `${line}\n\n`
+          }
+          else {
+            currentMessage += `${line}\n\n`
+          }
+        }
+        if (currentMessage) {
+          messagesToSend.push(currentMessage.trim())
+        }
+
+        // Send the first chunk as the initial reply
+        try {
+          await invokeReplyInteraction?.({
+            interactionId: payload.interactionId,
+            content: messagesToSend[0],
+          })
+
+          // Send subsequent chunks as follow-ups
+          for (let i = 1; i < messagesToSend.length; i++) {
+            await invokeReplyInteraction?.({
+              interactionId: payload.interactionId,
+              content: messagesToSend[i],
+              followUp: true,
+            })
+          }
+        }
+        catch (err) {
+          console.error('[DiscordStore] Failed to send history chunks:', err)
+        }
+      }
+      else if (payload.commandName === 'character') {
+        const query = (payload.options.id || payload.options.name || '').toString().trim()
+
+        if (!query) {
+          const charList = Array.from(airiCard.cards.values())
+            .map(c => `- **${c.name}**`)
+            .join('\n')
+
+          await invokeReplyInteraction?.({
+            interactionId: payload.interactionId,
+            content: `Active: **${airiCard.activeCard?.name || 'None'}**\n\nAvailable Characters:\n${charList}`,
+          })
+          return
+        }
+
+        // Fuzzy match: Try exact ID, then exact name, then partial name
+        const allCards = Array.from(airiCard.cards.entries())
+        const target = allCards.find(([id]) => id === query)
+          || allCards.find(([, card]) => card.name.toLowerCase() === query.toLowerCase())
+          || allCards.find(([, card]) => card.name.toLowerCase().includes(query.toLowerCase()))
+
+        if (target) {
+          const [id, card] = target
+          await airiCard.activateCard(id)
+          await invokeReplyInteraction?.({
+            interactionId: payload.interactionId,
+            content: `Successfully switched active character to **${card.name}**!`,
+          })
+        }
+        else {
+          await invokeReplyInteraction?.({
+            interactionId: payload.interactionId,
+            content: `Could not find a character matching "**${query}**".`,
+          })
+        }
+      }
+      else if (payload.commandName === 'new') {
+        const initialMessage = payload.options.message?.toString()
+
+        // Reset the session for the current character
+        // In AIRI, we can just trigger a new session creation
+        const sessionId = await chatSession.setActiveSession('') // Clear current
+        await chatSession.ensureSession(sessionId)
+
+        if (initialMessage) {
+          // If they provided a message, send it immediately
+          await chatOrchestrator.send(initialMessage, {
+            metadata: { _discordSource: payload },
+          })
+        }
+
+        await invokeReplyInteraction?.({
+          interactionId: payload.interactionId,
+          content: initialMessage
+            ? `Started a new session with your message!`
+            : `Chat session has been reset. Fresh start!`,
+        })
+      }
+      else if (payload.commandName === 'status') {
+        const activeCardName = airiCard.activeCard?.name || 'None'
+        const turns = chatSession.messages.length
+
+        const llmProvider = consciousnessStore.activeProvider || 'Unknown'
+        const llmModel = consciousnessStore.activeModel || 'Unknown'
+
+        const ttsProvider = speechStore.activeSpeechProvider || 'Unknown'
+        const ttsVoice = speechStore.activeSpeechVoiceId || 'Unknown'
+
+        const artistryExt = airiCard.activeCard?.extensions?.airi?.artistry
+        const artProvider = artistryExt?.provider || artistryStore.activeProvider || 'Unknown'
+        const artModelId = artistryExt?.model || 'Unknown'
+        let artModelName = artModelId
+
+        if (artProvider === 'comfyui') {
+          const wf = artistryStore.comfyuiSavedWorkflows?.find((w: any) => w.id === artModelId)
+          if (wf)
+            artModelName = wf.name
+        }
+
+        const visionEnabled = visionStore.isWitnessEnabled
+        const directorEnabled = artistryExt?.autonomousEnabled || false
+        const liveActive = liveSessionStore.isActive
+
+        const content = `**AIRI System Status**
+-------------------------
+**Active Character:** ${activeCardName}
+**Conversation:** ${turns} turns in current session
+
+**🧠 Brains (LLM):** ${llmProvider} / ${llmModel}
+**🗣️ Voice (TTS):** ${ttsProvider} / ${ttsVoice}
+**🎨 Artistry:** ${artProvider} / ${artProvider === 'comfyui' ? 'Workflow' : 'Model'}: \`${artModelName}\`
+
+**Active Modules:**
+- [${visionEnabled ? 'ON' : 'OFF'}] 👁️ **Vision:** Witness Mode ${visionEnabled ? 'active' : 'disabled'}
+- [${directorEnabled ? 'ON' : 'OFF'}] 🎬 **Director:** Autonomous Artistry ${directorEnabled ? 'active' : 'disabled'}
+- [${liveActive ? 'ON' : 'OFF'}] 🧠 **Live API:** ${liveActive ? 'Active' : 'Offline'}`
+
+        await invokeReplyInteraction?.({
+          interactionId: payload.interactionId,
+          content,
+        })
+      }
+      else if (payload.commandName === 'director') {
+        const mode = payload.options.mode?.toString()
+        const enabled = mode === 'on'
+
+        if (airiCard.activeCardId) {
+          airiCard.setAutonomousArtistry(airiCard.activeCardId, enabled)
+          await invokeReplyInteraction?.({
+            interactionId: payload.interactionId,
+            content: `🎬 Autonomous Artistry has been set to **${mode?.toUpperCase()}**.`,
+          })
+        }
+      }
+      else if (payload.commandName === 'imagine') {
+        const prompt = payload.options.prompt?.toString()
+        if (!prompt)
+          return
+
+        await invokeReplyInteraction?.({
+          interactionId: payload.interactionId,
+          content: `🎨 Directing the Artistry pipeline to visualize: *"${prompt}"*...`,
+        })
+
+        // Fire autonomous task with assistant target to force display
+        await artistryAutonomousStore.runArtistTask(prompt, chatSession.messages as any, 'assistant')
+      }
+      else {
+        // Fallback for other commands not yet implemented
+        await invokeReplyInteraction?.({
+          interactionId: payload.interactionId,
+          content: `The command \`/${payload.commandName}\` is not yet implemented in the AIRI core.`,
+          ephemeral: true,
+        })
+      }
+    }
+
     ipcRenderer.on(STATUS_CHANGED_CHANNEL, onStatusChanged)
     ipcRenderer.on(EVENT_LOG_CHANNEL, onEventLog)
     ipcRenderer.on(INBOUND_MESSAGE_CHANNEL, onInboundMessage)
+    ipcRenderer.on(INTERACTION_CHANNEL, onInteraction)
 
-    const cleanupChatHooks = chatOrchestrator.onChatTurnComplete(onChatTurnComplete)
+    const onBeforeSend = async (_message: string, options: any) => {
+      const source = options?.metadata?._discordSource
+      if (source?.channelId) {
+        // Leadership Election: Only Stage window sends the typing indicator
+        const hash = window.location.hash || '#/'
+        const isStage = hash === '#/' || hash.startsWith('#/stage')
+        if (isStage && invokeSendTyping) {
+          console.log(`[DiscordStore] LLM generating, sending typing indicator to ${source.channelId.slice(-4)}`)
+          await invokeSendTyping({ channelId: source.channelId }).catch(() => {})
+        }
+      }
+    }
+
+    const cleanupChatHooks = [
+      chatOrchestrator.onChatTurnComplete(onChatTurnComplete),
+      chatOrchestrator.onBeforeSend(onBeforeSend),
+    ]
 
     const backgroundStore = useBackgroundStore()
     const cleanupBackgroundHook = backgroundStore.onBackgroundAdded(async (entry) => {
@@ -447,7 +820,7 @@ export const useDiscordStore = defineStore('discord', () => {
         // Fetch the Director's reasoning to include in the caption (if enabled)
         const artistryStore = useAutonomousArtistryStore()
         const cardStore = useAiriCardStore()
-        const monitorEnabled = cardStore.activeCard?.extensions?.airi?.artistry?.autonomousMonitorEnabled ?? true
+        const monitorEnabled = (cardStore.activeCard?.extensions?.airi?.artistry as any)?.autonomousMonitorEnabled ?? true
         const recentNote = [...artistryStore.directorNotes].reverse().find(n => n.title === entry.title || n.prompt === entry.prompt)
 
         let caption = `🎨 **New Visual Manifestation: ${entry.title}**`
@@ -472,7 +845,8 @@ export const useDiscordStore = defineStore('discord', () => {
       ipcRenderer.removeListener(STATUS_CHANGED_CHANNEL, onStatusChanged)
       ipcRenderer.removeListener(EVENT_LOG_CHANNEL, onEventLog)
       ipcRenderer.removeListener(INBOUND_MESSAGE_CHANNEL, onInboundMessage)
-      cleanupChatHooks()
+      ipcRenderer.removeListener(INTERACTION_CHANNEL, onInteraction)
+      cleanupChatHooks.forEach(cleanup => cleanup())
       cleanupBackgroundHook()
     }
   }
@@ -499,6 +873,14 @@ export const useDiscordStore = defineStore('discord', () => {
       if (isStage) {
         void startService()
       }
+    }
+  })
+
+  // Automatically sync commands once we actually connect
+  watch(isConnected, (connected) => {
+    if (connected) {
+      console.log('[DiscordStore] Service connected, triggering command sync...')
+      void syncCommands()
     }
   })
 

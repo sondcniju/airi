@@ -51,6 +51,41 @@ export interface DiscordSimulatePayload {
   content: string
 }
 
+export interface DiscordCommandOption {
+  type: number // 3 for string, 4 for integer, etc.
+  name: string
+  description: string
+  required?: boolean
+  choices?: Array<{ name: string, value: string | number }>
+  autocomplete?: boolean
+}
+
+export interface DiscordCommandDefinition {
+  name: string
+  description: string
+  options?: DiscordCommandOption[]
+}
+
+/** Payload for interaction events from Main to Renderer */
+export interface DiscordInteractionPayload {
+  interactionId: string
+  commandName: string
+  options: Record<string, any>
+  channelId: string
+  userId: string
+  username: string
+}
+
+/** Payload for replying to an interaction from Renderer to Main */
+export interface DiscordInteractionReplyPayload {
+  interactionId: string
+  content: string
+  /** If true, sends as a follow-up if the initial reply was already sent */
+  followUp?: boolean
+  /** If true, only visible to the user who triggered it */
+  ephemeral?: boolean
+}
+
 // ── Invoke Contracts (Renderer → Main) ─────────────────────────────────────────
 
 /** Start the Discord service with the stored bot token. */
@@ -83,6 +118,21 @@ export const discordServiceSendMessage = defineInvokeEventa<void, DiscordOutboun
   'eventa:invoke:electron:discord:send-message',
 )
 
+/** Send a typing indicator to a Discord channel. */
+export const discordServiceSendTyping = defineInvokeEventa<void, { channelId: string }>(
+  'eventa:invoke:electron:discord:send-typing',
+)
+
+/** Register global slash commands with the Discord API. */
+export const discordServiceRegisterCommands = defineInvokeEventa<void, { commands: DiscordCommandDefinition[] }>(
+  'eventa:invoke:electron:discord:register-commands',
+)
+
+/** Reply to a deferred interaction. */
+export const discordServiceReplyInteraction = defineInvokeEventa<void, DiscordInteractionReplyPayload>(
+  'eventa:invoke:electron:discord:reply-interaction',
+)
+
 export interface DiscordOutboundImage {
   channelId: string
   content?: string
@@ -110,4 +160,9 @@ export const discordServiceEventLog = defineEventa<DiscordEventLogEntry>(
 /** A Discord user sent a message that should be routed to the chat pipeline. */
 export const discordServiceInboundMessage = defineEventa<DiscordInboundMessage>(
   'eventa:event:electron:discord:inbound-message',
+)
+
+/** Emitted when a slash command interaction is triggered. */
+export const discordServiceInteraction = defineEventa<DiscordInteractionPayload>(
+  'eventa:event:electron:discord:interaction',
 )

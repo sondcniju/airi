@@ -18,8 +18,9 @@ Commands essential for the baseline Discord integration.
 
 | Command | Arguments | Description |
 | :--- | :--- | :--- |
-| `/character` | `[id: string]` | Switches the active AIRI card/profile directly from Discord. If `id` is omitted, it brings up a form view with a 4-row layout selection. |
-| `/new` | `[msg: string]` | Creates a new session where the character actually follows the initial messages that are part of its context. If `msg` is provided, the user has the first message and the assistant is responding to the user's initial message. |
+| `/character` | `[id: string]` | Switches the active AIRI card/profile directly from Discord. | [x] |
+| `/new` | `[msg: string]` | Creates a new session/reset. | [x] |
+| `/status` | none | Reports active character, model, and module telemetry. | [x] |
 | `/history` | `[turns: numeric]` | Dumps the last 5 messages from the current conversation. The optional `turns` parameter overrides the default of 5. |
 | `/summon` | none | Joins the user's current Voice Channel. |
 | `/leave` | none | Leaves the Voice Channel. |
@@ -31,9 +32,9 @@ Advanced toggles and routing capabilities scheduled for post-MVP.
 | :--- | :--- | :--- |
 | `/voicemode` | `mode: puppet \| voicenote \| none` | Controls TTS audio playback location (Desktop speakers, Discord voice notes, or muted). |
 | `/voicecall` | `mode: classic \| gemini` | Selects the underlying technology for real-time VC sessions (Standard TTS vs Native Gemini Live). |
-| `/director` | `mode: on \| off` | Toggles the Director's Monitor visibility and reasoning notes for the Discord channel. |
-| `/vision` | `mode: on \| off` | Toggles VLM processing for image attachments. |
-| `/manifest` | `prompt: string` | Forces a visual generation using the Artistry pipeline based on the provided prompt. |
+| `/director` | `mode: on \| off` | Toggles Autonomous Artistry (stops generation requests). | [ ] |
+| `/vision` | `mode: on \| off` | Toggles VLM processing for image attachments. | [plumbing done] |
+| `/imagine` | `prompt: string` | Forces a visual generation using the Artistry pipeline. | [x] |
 | `/selfie` | `[emotion: string]` | Captures a stage screenshot as is. Optional `emotion` argument overrides expression (1 of 6 core emotions). |
 
 ---
