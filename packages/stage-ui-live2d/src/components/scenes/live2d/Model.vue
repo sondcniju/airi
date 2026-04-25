@@ -136,9 +136,13 @@ function setScaleAndPosition() {
   }
 
   model.value.scale.set(scale * props.scale, scale * props.scale)
-
   model.value.x = (props.width / 2) + offset.value.xOffset
   model.value.y = (props.height / 2) + offset.value.yOffset
+
+  // CRITICAL FIX: Prevent PIXI filters from clipping out-of-bounds meshes
+  if (pixiApp.value?.renderer?.screen) {
+    model.value.filterArea = pixiApp.value.renderer.screen
+  }
 }
 
 const live2dStore = useLive2d()
@@ -245,9 +249,29 @@ async function loadModel() {
     model.value = live2DModel
     // REVIEW: pixiApp and stage are guaranteed to be valid here due to the check above.
     pixiApp.value.stage.addChild(model.value)
-    initialModelWidth.value = model.value.internalModel.width
-    initialModelHeight.value = model.value.internalModel.height
-    model.value.anchor.set(0.5, 0.5)
+    // Safety fallback: if the logical canvas is missing or tiny (common in certain exports),
+    // use the actual container bounds to prevent a massive scale explosion.
+    // Always force an update and use local bounds to account for meshes extending beyond logical canvas
+    model.value.update(0)
+    const bounds = model.value.getLocalBounds()
+    const logicalWidth = model.value.internalModel.width
+    const logicalHeight = model.value.internalModel.height
+
+    console.info(`[Live2D Load] Logical Canvas: ${logicalWidth}x${logicalHeight} | True Bounds: ${bounds.width.toFixed(0)}x${bounds.height.toFixed(0)}`)
+
+    // Use true bounds if they are significantly larger than the logical canvas
+    if (bounds.width > logicalWidth || bounds.height > logicalHeight) {
+      initialModelWidth.value = bounds.width
+      initialModelHeight.value = bounds.height
+    }
+    else {
+      initialModelWidth.value = logicalWidth
+      initialModelHeight.value = logicalHeight
+    }
+
+    // Do NOT set anchor(0.5, 0.5)! Cubism 4 models natively center at (0,0).
+    // Applying a PIXI anchor shifts the already-centered model up, pushing the head off-canvas.
+    // model.value.anchor.set(0.5, 0.5)
     setScaleAndPosition()
 
     // --- Interaction
