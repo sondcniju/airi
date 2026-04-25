@@ -245,8 +245,8 @@ async function loadModel() {
     model.value = live2DModel
     // REVIEW: pixiApp and stage are guaranteed to be valid here due to the check above.
     pixiApp.value.stage.addChild(model.value)
-    initialModelWidth.value = model.value.width
-    initialModelHeight.value = model.value.height
+    initialModelWidth.value = model.value.internalModel.width
+    initialModelHeight.value = model.value.internalModel.height
     model.value.anchor.set(0.5, 0.5)
     setScaleAndPosition()
 
@@ -331,38 +331,40 @@ async function loadModel() {
     motionManagerUpdate.register(useMotionUpdatePluginIdleFocus(), 'post')
     motionManagerUpdate.register(useMotionUpdatePluginAutoEyeBlink(), 'post')
 
+    // Pre-allocate the standardKeys set outside the ticker loop to prevent massive GC pressure (60fps)
+    const standardKeys = new Set([
+      'angleX',
+      'angleY',
+      'angleZ',
+      'leftEyeOpen',
+      'rightEyeOpen',
+      'leftEyeSmile',
+      'rightEyeSmile',
+      'leftEyebrowLR',
+      'rightEyebrowLR',
+      'leftEyebrowY',
+      'rightEyebrowY',
+      'leftEyebrowAngle',
+      'rightEyebrowAngle',
+      'leftEyebrowForm',
+      'rightEyebrowForm',
+      'mouthOpen',
+      'mouthForm',
+      'cheek',
+      'bodyAngleX',
+      'bodyAngleY',
+      'bodyAngleZ',
+      'breath',
+    ])
+
     // Custom parameters plugin: applies toggle/slider/expression values from the store
     motionManagerUpdate.register((ctx) => {
       const params = ctx.modelParameters.value
       // Only apply keys that start with "Param" and aren't the standard ones managed by other plugins
-      const standardKeys = new Set([
-        'angleX',
-        'angleY',
-        'angleZ',
-        'leftEyeOpen',
-        'rightEyeOpen',
-        'leftEyeSmile',
-        'rightEyeSmile',
-        'leftEyebrowLR',
-        'rightEyebrowLR',
-        'leftEyebrowY',
-        'rightEyebrowY',
-        'leftEyebrowAngle',
-        'rightEyebrowAngle',
-        'leftEyebrowForm',
-        'rightEyebrowForm',
-        'mouthOpen',
-        'mouthForm',
-        'cheek',
-        'bodyAngleX',
-        'bodyAngleY',
-        'bodyAngleZ',
-        'breath',
-      ])
-      for (const [key, value] of Object.entries(params)) {
+      for (const key in params) {
         if (!standardKeys.has(key) && key.startsWith('Param')) {
           try {
-            ctx.model.setParameterValueById(key, value as number)
+            ctx.model.setParameterValueById(key, params[key] as number)
           }
           catch {
             // Silently ignore if parameter doesn't exist on this model
@@ -618,8 +620,15 @@ function updateDropShadowFilter() {
     return
 
   const color = getComputedStyle(dropShadowColorComputer.value).backgroundColor
-  dropShadowFilter.value.color = Number(formatHex(color)!.replace('#', '0x'))
-  model.value.filters = [dropShadowFilter.value]
+  const parsedColor = Number(formatHex(color)!.replace('#', '0x'))
+
+  if (dropShadowFilter.value.color !== parsedColor) {
+    dropShadowFilter.value.color = parsedColor
+  }
+
+  if (!model.value.filters || model.value.filters.length === 0 || model.value.filters[0] !== dropShadowFilter.value) {
+    model.value.filters = [dropShadowFilter.value]
+  }
 }
 
 const handleResize = useDebounceFn(setScaleAndPosition, 100)
@@ -632,9 +641,15 @@ watch(live2dShadowEnabled, updateDropShadowFilter)
 watch(offset, setScaleAndPosition)
 watch(() => props.scale, setScaleAndPosition)
 
+let dropShadowFrameCounter = 0
 // TODO: This is hacky!
 function updateDropShadowFilterLoop() {
-  updateDropShadowFilter()
+  dropShadowFrameCounter++
+  // Throttle the getComputedStyle DOM read to prevent layout thrashing (1fps lag)
+  if (dropShadowFrameCounter % 10 === 0) {
+    updateDropShadowFilter()
+  }
+
   if (!live2dShadowEnabled.value) {
     dropShadowAnimationId.value = 0
     return
