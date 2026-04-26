@@ -531,6 +531,14 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
   playback: playbackManager,
 })
 
+speechPipeline.on('onIntentEnd', () => {
+  void discordStore.flushAudioTurn()
+})
+
+speechPipeline.on('onIntentCancel', () => {
+  discordStore.clearAudioTurn()
+})
+
 // NOTICE: the speech runtime host must follow the Stage lifecycle. If a previous Stage instance
 // keeps the host registration after unmount, chat text can continue rendering while TTS writes
 // into a stale pipeline owned by the dead component.

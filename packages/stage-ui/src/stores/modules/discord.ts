@@ -169,8 +169,6 @@ export const useDiscordStore = defineStore('discord', () => {
   // ── Routing Cache ──────────────────────────────────────────────────────────
   const lastChannelId = ref<string | null>(null)
   const audioTurnBuffer = ref<ArrayBuffer[]>([])
-  const isTurnTextComplete = ref(false)
-  let audioSettleTimer: ReturnType<typeof setTimeout> | null = null
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -270,32 +268,11 @@ export const useDiscordStore = defineStore('discord', () => {
       return
     console.log(`[DiscordStore] Aggregating audio chunk: ${Math.round(buffer.byteLength / 1024)}KB`)
     audioTurnBuffer.value.push(buffer)
-
-    // If the text is already done, every new chunk resets the "Final Settle" timer
-    if (isTurnTextComplete.value) {
-      resetAudioSettleTimer()
-    }
-  }
-
-  function resetAudioSettleTimer() {
-    if (audioSettleTimer)
-      clearTimeout(audioSettleTimer)
-
-    console.log(`[DiscordStore] Audio settle timer reset (3000ms wait)...`)
-    audioSettleTimer = setTimeout(() => {
-      void flushAudioTurn()
-    }, 3000) // Give slow TTS providers plenty of time to send the first chunk
   }
 
   async function flushAudioTurn(content?: string) {
-    if (audioSettleTimer) {
-      clearTimeout(audioSettleTimer)
-      audioSettleTimer = null
-    }
-
     if (audioTurnBuffer.value.length === 0 || !lastChannelId.value) {
-      console.log('[DiscordStore] Flush skipped: Bucket empty. Still waiting for chunks if turn is active.')
-      // We do NOT reset isTurnTextComplete here - we keep waiting until a chunk arrives or a new turn starts
+      console.log('[DiscordStore] Flush skipped: Bucket empty.')
       return
     }
 
@@ -327,18 +304,12 @@ export const useDiscordStore = defineStore('discord', () => {
     }
     finally {
       audioTurnBuffer.value = []
-      isTurnTextComplete.value = false
     }
   }
 
   function clearAudioTurn() {
     console.log('[DiscordStore] Clearing audio turn bucket.')
     audioTurnBuffer.value = []
-    isTurnTextComplete.value = false
-    if (audioSettleTimer) {
-      clearTimeout(audioSettleTimer)
-      audioSettleTimer = null
-    }
   }
 
   async function sendImageToDiscord(channelId: string, base64: string, content?: string, filename?: string) {
@@ -528,10 +499,6 @@ export const useDiscordStore = defineStore('discord', () => {
         clearInterval(typingHeartbeat)
         typingHeartbeat = null
       }
-
-      // Mark text as done and start the "Wait for Audio" settle timer
-      isTurnTextComplete.value = true
-      resetAudioSettleTimer()
     }
 
     const onInteraction = async (_event: any, payload: DiscordInteractionPayload) => {
