@@ -391,14 +391,57 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
       ...systemExtras,
     ].join('\n')
 
-    const response = await llmStore.generate(modelId, provider, [
+    const messages: any[] = [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: prompt },
-    ], {
-      requestOverrides: { response_format: { type: 'json_object' } },
-    })
+    ]
 
-    return JSON.parse(response.text || '{}') as T
+    let lastError: unknown
+
+    // 1. Try original json_object mode
+    try {
+      const response = await llmStore.generate(modelId, provider, messages, {
+        requestOverrides: { response_format: { type: 'json_object' } },
+      })
+      return JSON.parse(response.text || '{}') as T
+    }
+    catch (err: any) {
+      lastError = err
+      console.warn('[memory-lifetime] json_object format failed, falling back to json_schema:', err?.message || err)
+    }
+
+    // 2. Try json_schema mode (Structured Outputs)
+    try {
+      const response = await llmStore.generate(modelId, provider, messages, {
+        requestOverrides: {
+          response_format: {
+            type: 'json_schema',
+            json_schema: { name: 'memory_artifact', schema },
+          },
+        },
+      })
+      return JSON.parse(response.text || '{}') as T
+    }
+    catch (err: any) {
+      lastError = err
+      console.warn('[memory-lifetime] json_schema format failed, falling back to system prompt enforcement:', err?.message || err)
+    }
+
+    // 3. Fallback: No response_format, rely purely on system prompt and try to parse
+    try {
+      const response = await llmStore.generate(modelId, provider, messages, {})
+      let text = response.text || '{}'
+
+      // Clean potential markdown fences
+      if (text.startsWith('```')) {
+        text = text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/, '').trim()
+      }
+      return JSON.parse(text) as T
+    }
+    catch (err) {
+      lastError = err
+      throw lastError
+    }
   }
 
   async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3, backoffBase = 2000): Promise<T> {
