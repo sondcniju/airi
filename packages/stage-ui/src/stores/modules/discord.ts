@@ -388,6 +388,7 @@ export const useDiscordStore = defineStore('discord', () => {
   // ── IPC Event Listeners ────────────────────────────────────────────────────
   const processedMessageIds = new Set<string>()
   let cleanupListeners: (() => void) | null = null
+  let typingHeartbeat: ReturnType<typeof setInterval> | null = null
 
   function setupEventListeners() {
     if (!isElectron)
@@ -498,6 +499,13 @@ export const useDiscordStore = defineStore('discord', () => {
         eventLog.value = [...eventLog.value.slice(-(MAX_EVENT_LOG_ENTRIES - 1)), errorLogEntry]
 
         await sendMessageToDiscord(source.channelId, technicalFeedback)
+
+        if (typingHeartbeat) {
+          console.log('[DiscordStore] Turn complete (ERROR), clearing typing heartbeat.')
+          clearInterval(typingHeartbeat)
+          typingHeartbeat = null
+        }
+
         return
       }
 
@@ -513,6 +521,13 @@ export const useDiscordStore = defineStore('discord', () => {
       eventLog.value = [...eventLog.value.slice(-(MAX_EVENT_LOG_ENTRIES - 1)), logEntry]
 
       await sendMessageToDiscord(source.channelId, ttsText)
+
+      // Clear typing heartbeat as the message is now sent
+      if (typingHeartbeat) {
+        console.log('[DiscordStore] Turn complete, clearing typing heartbeat.')
+        clearInterval(typingHeartbeat)
+        typingHeartbeat = null
+      }
 
       // Mark text as done and start the "Wait for Audio" settle timer
       isTurnTextComplete.value = true
@@ -737,15 +752,46 @@ export const useDiscordStore = defineStore('discord', () => {
     ipcRenderer.on(INTERACTION_CHANNEL, onInteraction)
 
     const onBeforeSend = async (_message: string, options: any) => {
-      const source = options?.metadata?._discordSource
+      // ── VERIFICATION LOGS ──
+      // We log the structure to confirm where _discordSource actually lives
+      console.log('[DiscordStore] onBeforeSend triggered. Context Structure:', {
+        hasMessage: !!options?.message,
+        messageKeys: options?.message ? Object.keys(options.message) : [],
+        hasMetadata: !!options?.metadata,
+        metadataKeys: options?.metadata ? Object.keys(options.metadata) : [],
+      })
+
+      const source = options?.message?._discordSource
       if (source?.channelId) {
+        console.log(`[DiscordStore] Discord Source Detected: channel=${source.channelId}, user=${source.username}`)
+
         // Leadership Election: Only Stage window sends the typing indicator
         const hash = window.location.hash || '#/'
         const isStage = hash === '#/' || hash.startsWith('#/stage')
+
         if (isStage && invokeSendTyping) {
-          console.log(`[DiscordStore] LLM generating, sending typing indicator to ${source.channelId.slice(-4)}`)
+          console.log(`[DiscordStore] Starting typing heartbeat for channel ${source.channelId.slice(-4)}`)
+
+          // Initial trigger
           await invokeSendTyping({ channelId: source.channelId }).catch(() => {})
+
+          // Heartbeat every 7 seconds (Discord typing expires in ~10s)
+          if (typingHeartbeat)
+            clearInterval(typingHeartbeat)
+
+          typingHeartbeat = setInterval(async () => {
+            if (invokeSendTyping && source.channelId) {
+              console.log(`[DiscordStore] Typing heartbeat tick for ${source.channelId.slice(-4)}`)
+              await invokeSendTyping({ channelId: source.channelId }).catch(() => {})
+            }
+          }, 7000)
         }
+        else {
+          console.log(`[DiscordStore] Typing skipped: isStage=${isStage}, hasInvoker=${!!invokeSendTyping}`)
+        }
+      }
+      else {
+        console.log('[DiscordStore] No Discord source found in message metadata.')
       }
     }
 
@@ -841,6 +887,10 @@ export const useDiscordStore = defineStore('discord', () => {
     })
 
     cleanupListeners = () => {
+      if (typingHeartbeat) {
+        clearInterval(typingHeartbeat)
+        typingHeartbeat = null
+      }
       ipcRenderer.removeListener(STATUS_CHANGED_CHANNEL, onStatusChanged)
       ipcRenderer.removeListener(EVENT_LOG_CHANNEL, onEventLog)
       ipcRenderer.removeListener(INBOUND_MESSAGE_CHANNEL, onInboundMessage)
