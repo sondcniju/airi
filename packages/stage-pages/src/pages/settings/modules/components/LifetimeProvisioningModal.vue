@@ -17,21 +17,36 @@ const emit = defineEmits<{
 const store = useMemoryLifetimeStore()
 const { isProvisioning, progress, error, activeSession } = storeToRefs(store)
 
+const sourceDocs = ref<any[]>([])
 const sourceCounts = ref({ raw: 0, stmm: 0, ltmm: 0 })
 const isLoadingCounts = ref(false)
 const requestInterval = ref(0)
-
-const estimatedCalls = computed(() => {
-  const chunkSize = 20
-  const totalDocs = sourceCounts.value.raw + sourceCounts.value.stmm + sourceCounts.value.ltmm
-  const chunkCount = Math.ceil(totalDocs / chunkSize)
-  return chunkCount + 3 // N chunk calls + 1 base synthesis + 2 distill passes
-})
+const contextLimitTokens = ref(64) // Default 64K
 
 const estimatedChunks = computed(() => {
-  const chunkSize = 20
-  const totalDocs = sourceCounts.value.raw + sourceCounts.value.stmm + sourceCounts.value.ltmm
-  return Math.ceil(totalDocs / chunkSize)
+  if (!sourceDocs.value.length)
+    return 0
+  const contextLimitChars = contextLimitTokens.value * 1024 * 4
+  let chunks = 0
+  let currentChars = 0
+  let docsInChunk = 0
+  for (const doc of sourceDocs.value) {
+    const docChars = doc.text.length
+    if (currentChars + docChars > contextLimitChars && docsInChunk > 0) {
+      chunks++
+      currentChars = 0
+      docsInChunk = 0
+    }
+    docsInChunk++
+    currentChars += docChars
+  }
+  if (docsInChunk > 0)
+    chunks++
+  return chunks
+})
+
+const estimatedCalls = computed(() => {
+  return estimatedChunks.value + 3 // N chunk calls + 1 base synthesis + 2 distill passes
 })
 
 const estimatedDuration = computed(() => {
@@ -47,6 +62,7 @@ async function loadCounts() {
   isLoadingCounts.value = true
   try {
     const docs = await store.collectSourceDocs(props.characterId)
+    sourceDocs.value = docs
     sourceCounts.value = {
       raw: docs.filter(d => d.layer === 'raw').length,
       stmm: docs.filter(d => d.layer === 'stmm').length,
@@ -61,15 +77,15 @@ async function loadCounts() {
 }
 
 async function startProvisioning() {
-  await store.provision(props.characterId, false, requestInterval.value)
+  await store.provision(props.characterId, false, requestInterval.value, contextLimitTokens.value)
 }
 
 async function resumeProvisioning() {
-  await store.provision(props.characterId, true, requestInterval.value)
+  await store.provision(props.characterId, true, requestInterval.value, contextLimitTokens.value)
 }
 
 async function restartProvisioning() {
-  await store.restart(props.characterId)
+  await store.restart(props.characterId, contextLimitTokens.value)
 }
 
 function close() {
@@ -189,6 +205,32 @@ const canResume = computed(() => !!activeSession.value)
               <div class="mt-2 flex justify-between text-[10px] text-neutral-400 font-medium">
                 <span>0s (Instant)</span>
                 <span>10m (Safe)</span>
+              </div>
+            </div>
+
+            <!-- Context Width Setting -->
+            <div class="border border-neutral-100 rounded-2xl bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-800/30">
+              <div class="mb-3 flex items-center justify-between">
+                <div class="flex items-center gap-2 text-neutral-600 dark:text-neutral-300">
+                  <div class="i-solar:database-bold-duotone text-lg" />
+                  <span class="text-xs font-bold tracking-tight uppercase">Chunk Context Limit</span>
+                </div>
+                <div class="text-right">
+                  <span class="block text-xs text-primary-500 font-bold">{{ contextLimitTokens }}K Tokens</span>
+                  <span class="mt-0.5 block text-[10px] text-neutral-500 font-medium">~{{ estimatedChunks }} Chunks</span>
+                </div>
+              </div>
+              <input
+                v-model.number="contextLimitTokens"
+                type="range"
+                min="8"
+                max="1024"
+                step="8"
+                class="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-neutral-200 accent-primary-500 dark:bg-neutral-700"
+              >
+              <div class="mt-2 flex justify-between text-[10px] text-neutral-400 font-medium">
+                <span>8K (Fast)</span>
+                <span>1M (Heavy)</span>
               </div>
             </div>
 
