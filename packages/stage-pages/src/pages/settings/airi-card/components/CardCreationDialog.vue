@@ -89,6 +89,8 @@ const selectedArtistryWidgetInstruction = ref<string>('')
 const selectedArtistryAutonomousEnabled = ref<boolean>(false)
 const selectedArtistryAutonomousThreshold = ref<number>(70)
 const selectedArtistryAutonomousTarget = ref<'user' | 'assistant'>('user')
+const selectedArtistryAutonomousMonitorEnabled = ref<boolean>(true)
+const selectedArtistryAutonomousHistoryDepth = ref<number>(3)
 const selectedArtistrySpawnMode = ref<'bg' | 'widget' | 'inline' | 'bg_widget'>('bg_widget')
 const selectedArtistryConfigStr = ref<string>('{\n  \n}')
 const generationEnabled = ref<boolean>(false)
@@ -578,6 +580,8 @@ async function saveCard(card: Card): Promise<boolean> {
     autonomousEnabled: selectedArtistryAutonomousEnabled.value,
     autonomousThreshold: selectedArtistryAutonomousThreshold.value,
     autonomousTarget: selectedArtistryAutonomousTarget.value,
+    autonomousMonitorEnabled: selectedArtistryAutonomousMonitorEnabled.value,
+    autonomousHistoryDepth: selectedArtistryAutonomousHistoryDepth.value,
     options: (() => {
       try {
         return selectedArtistryConfigStr.value.trim() ? JSON.parse(selectedArtistryConfigStr.value) : undefined
@@ -624,6 +628,8 @@ function initializeCard(): Card {
   selectedArtistryWidgetInstruction.value = airiExt?.artistry?.widgetInstruction || DEFAULT_ARTISTRY_WIDGET_INSTRUCTION
   selectedArtistryAutonomousEnabled.value = airiExt?.artistry?.autonomousEnabled ?? false
   selectedArtistryAutonomousThreshold.value = airiExt?.artistry?.autonomousThreshold ?? 70
+  selectedArtistryAutonomousMonitorEnabled.value = airiExt?.artistry?.autonomousMonitorEnabled ?? true
+  selectedArtistryAutonomousHistoryDepth.value = airiExt?.artistry?.autonomousHistoryDepth ?? 3
   selectedArtistryAutonomousTarget.value = airiExt?.artistry?.autonomousTarget ?? 'user'
   selectedArtistrySpawnMode.value = airiExt?.artistry?.spawnMode ?? 'bg_widget'
   generationEnabled.value = airiExt?.generation?.enabled ?? false
@@ -876,6 +882,8 @@ function getDefaultPlaceholder(defaultValue: string | undefined): string {
             v-model:selected-artistry-widget-instruction="selectedArtistryWidgetInstruction"
             v-model:selected-artistry-autonomous-enabled="selectedArtistryAutonomousEnabled"
             v-model:selected-artistry-autonomous-threshold="selectedArtistryAutonomousThreshold"
+            v-model:selected-artistry-autonomous-monitor-enabled="selectedArtistryAutonomousMonitorEnabled"
+            v-model:selected-artistry-autonomous-history-depth="selectedArtistryAutonomousHistoryDepth"
             v-model:selected-artistry-autonomous-target="selectedArtistryAutonomousTarget"
             v-model:selected-artistry-spawn-mode="selectedArtistrySpawnMode"
             v-model:selected-artistry-config-str="selectedArtistryConfigStr"
