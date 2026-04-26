@@ -98,7 +98,79 @@ function handleDelete() {
 // Visual FX state parsing (re-injected from main)
 const showLoader = computed(() => props.showPlaceholder)
 
+function getMoodArchetype(text: string): string | null {
+  if (!text || typeof text !== 'string')
+    return null
+
+  // Pattern to find both ACT tags and Bracket tokens [mood]
+  const matches = Array.from(text.matchAll(/<\|ACT:([\s\S]*?)\|>|\[([\w-]+)\]/gi))
+
+  for (const match of matches) {
+    let name = ''
+    if (match[1]) { // ACT tag fallback
+      const nameMatch = match[1].match(/"name":\s*"([^"]+)"/i)
+      if (nameMatch)
+        name = nameMatch[1].toLowerCase()
+    }
+    else if (match[2]) { // Bracket token [mood] - Priority!
+      name = match[2].toLowerCase()
+    }
+
+    if (!name)
+      continue
+
+    let result = null
+    // Map keywords to our core visual archetypes
+    if (/happy|joy|laugh|grin|chuckle|smile|beam|cheer/.test(name))
+      result = 'happy'
+    else if (/sad|cry|sorrow|pout|sniff|sigh|whimper|mourn/.test(name))
+      result = 'sad'
+    else if (/angry|mad|annoy|frustrate|growl|hiss|glare|stomp/.test(name))
+      result = 'angry'
+    else if (/surprise|shock|wonder|gasp|eep|awe|blink/.test(name))
+      result = 'surprised'
+    else if (/think|ponder|curious|hmm|mmm|doubt|question/.test(name))
+      result = 'thinking'
+    else if (/blush|shy|embarrassed|rose|bashful|stutter|awkward/.test(name))
+      result = 'flustered'
+    else if (/relax|whisper|sleepy|soft|calm|peace|yawn|purr/.test(name))
+      result = 'relaxed'
+
+    if (result)
+      return result
+  }
+
+  return null
+}
+
 const mood = computed(() => {
+  // Priority: inline bracket extraction from text slices
+  if (props.message.slices?.length) {
+    for (const slice of props.message.slices) {
+      if (slice.type === 'text') {
+        const m = getMoodArchetype(slice.text)
+        if (m)
+          return m
+      }
+    }
+  }
+
+  if (typeof props.message.content === 'string') {
+    const m = getMoodArchetype(props.message.content)
+    if (m)
+      return m
+  }
+
+  if (Array.isArray(props.message.content)) {
+    const textPart = props.message.content.find(part => 'type' in part && part.type === 'text') as { text?: string } | undefined
+    if (textPart?.text) {
+      const m = getMoodArchetype(textPart.text)
+      if (m)
+        return m
+    }
+  }
+
+  // Fallback: Message categorization
   if (!(props.message.categorization as any)?.mood)
     return null
   const m = String((props.message.categorization as any).mood).toLowerCase().trim()
@@ -127,6 +199,17 @@ const moodBaseColor = computed(() => {
   }
 })
 
+// Original specific hex effects
+const MOOD_ARCHETYPE_COLORS: Record<string, { border: string, bg: string, glow: string }> = {
+  happy: { border: '#10b98180', bg: '#10b98115', glow: '#10b98130' }, // emerald
+  sad: { border: '#3b82f680', bg: '#3b82f615', glow: '#3b82f630' }, // blue
+  angry: { border: '#f43f5e80', bg: '#f43f5e15', glow: '#f43f5e30' }, // rose
+  surprised: { border: '#a855f790', bg: '#a855f720', glow: '#a855f740' }, // vibrant purple
+  thinking: { border: '#f59e0b80', bg: '#f59e0b10', glow: '#f59e0b20' }, // amber
+  flustered: { border: '#f472b680', bg: '#f472b615', glow: '#f472b630' }, // pink
+  relaxed: { border: '#14b8a680', bg: '#14b8a615', glow: '#14b8a630' }, // teal
+}
+
 // Box constraints combining feature layout with main's dynamic border FX
 const boxClasses = computed(() => {
   const baseClasses = props.variant === 'mobile' ? 'px-2 py-2 text-sm' : 'px-3 py-3'
@@ -136,6 +219,15 @@ const boxClasses = computed(() => {
     return [
       baseClasses,
       isDark ? 'bg-primary-900/50 text-white' : 'bg-primary-100 text-black',
+      'transition-all duration-300',
+    ]
+  }
+
+  // If we have a specific ported archetype color, just supply the transitions
+  if (MOOD_ARCHETYPE_COLORS[mood.value]) {
+    return [
+      baseClasses,
+      'transition-all duration-300 text-neutral-800 dark:text-neutral-200',
     ]
   }
 
@@ -144,12 +236,25 @@ const boxClasses = computed(() => {
     baseClasses,
     `border-${c}-500/50 shadow-[0_0_15px_rgba(var(--un-colors-${c}-500),0.2)]`,
     isDark ? `bg-${c}-900/40 text-${c}-100` : `bg-${c}-100 text-${c}-900`,
+    'transition-all duration-300',
   ]
 })
 
 const boxStyle = computed(() => {
   if (!mood.value)
     return {}
+
+  if (MOOD_ARCHETYPE_COLORS[mood.value]) {
+    const colors = MOOD_ARCHETYPE_COLORS[mood.value]
+    return {
+      borderColor: colors.border,
+      borderWidth: '2px', // Increase for visibility
+      borderStyle: 'solid',
+      backgroundColor: colors.bg, // Tint the background directly!
+      boxShadow: `0 0 15px ${colors.glow}`, // Add outer glow
+    }
+  }
+
   return {
     border: '1px solid',
   }
