@@ -8,7 +8,9 @@ import { useLocalStorage, useMouse } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
 
+import LHackerPanel from './live2d-lhack/LHackerPanel.vue'
 import Live2D from './live2d.vue'
+import HackerPanel from './vrm-vhack/HackerPanel.vue'
 import VRM from './vrm.vue'
 
 import { useAiriCardStore } from '../../../../stores/modules'
@@ -186,4 +188,7 @@ async function handleApplyToActiveCharacter() {
       />
     </div>
   </template>
+
+  <HackerPanel />
+  <LHackerPanel />
 </template>

@@ -14,6 +14,7 @@ import { useArtistryStore, useLHackStore } from '../../../../../stores'
 const lhackStore = useLHackStore()
 
 onMounted(() => {
+  console.info('>>> [LHACK] Panel Mounted')
   if ((window as any).__LHACK_LAST_ZIP_BUFFER__) {
     lhackStore.originalZipBuffer = (window as any).__LHACK_LAST_ZIP_BUFFER__
   }
@@ -75,22 +76,26 @@ function injectPreset(text: string) {
   showPresets.value = false
 }
 
-function getTextureUrl(tex: Texture) {
-  if (!tex || !tex.baseTexture)
+function getTextureUrl(tex: any) {
+  if (!tex)
     return null
-  const resource = tex.baseTexture.resource as any
-  if (resource && resource.src)
-    return resource.src
 
-  // Fallback: Extract from canvas
-  try {
-    const canvas = document.createElement('canvas')
-    canvas.width = tex.width
-    canvas.height = tex.height
-    // This is expensive but accurate for procedural textures
-    // For now we assume they are image-based
+  // Pixi textures often have the source tucked away in baseTexture.resource or baseTexture.source
+  const base = tex.baseTexture || tex
+  if (!base)
+    return null
+
+  const resource = base.resource as any
+  if (resource) {
+    if (resource.src)
+      return resource.src
+    if (resource.source && resource.source.src)
+      return resource.source.src
   }
-  catch (e) {}
+
+  if (base.source && base.source.src)
+    return base.source.src
+
   return null
 }
 
@@ -127,24 +132,25 @@ watch(selectedReplicatePreset, (newPresetId) => {
 
 // Tree View Logic
 const drawables = computed(() => {
+  // SCALED BACK: Returning empty to ensure UI manifest
+  return []
+  /*
   if (!activeModel.value)
     return []
 
   const internal = activeModel.value.internalModel
-  const ids = internal.drawableIds
-  const opacities = (internal.coreModel as any).getDrawableOpacities()
-
   const searchTerm = nodeFilter.value.toLowerCase()
 
-  return ids.map((id: string, index: number) => {
+  return internal.drawables.map((drawable: any, index: number) => {
     return {
-      id,
+      id: internal.drawableIds[index],
       index,
-      opacity: opacities[index],
-      visible: opacities[index] > 0,
-      name: id,
+      opacity: drawable.opacity,
+      visible: drawable.opacity > 0,
+      name: internal.drawableIds[index],
     }
   }).filter((d: any) => d.name.toLowerCase().includes(searchTerm))
+  */
 })
 
 function toggleVisibility(item: any, event?: MouseEvent) {
@@ -181,6 +187,17 @@ const textureList = computed(() => {
     }
   })
 })
+
+function downloadTexture(item: any) {
+  if (!item.url)
+    return
+  const link = document.createElement('a')
+  link.href = item.url
+  link.download = `${item.name}.png`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
 
 function selectTexture(item: any) {
   lastSelectedTextureItem.value = item
@@ -388,13 +405,6 @@ function revert() {
   window.location.reload()
 }
 
-function downloadTexture(url: string, filename: string) {
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${filename}.png`
-  a.click()
-}
-
 // Surgical Eraser Logic (Omitted for briefness, can be ported from VHacker later)
 function openEraser(url: string) {
   aiError.value = 'Eraser coming soon to Live2D!'
@@ -402,7 +412,8 @@ function openEraser(url: string) {
 </script>
 
 <template>
-  <div v-if="lhackStore.isHackerModeActive" class="animate-in fade-in slide-in-from-right-4 fixed bottom-4 right-4 top-24 z-50 w-80 flex flex-col overflow-hidden border border-white/10 rounded-2xl bg-black/95 shadow-2xl backdrop-blur-3xl">
+  <!-- DEBUG: isHackerModeActive: {{ lhackStore.isHackerModeActive }} -->
+  <div v-if="lhackStore.isHackerModeActive" class="fixed bottom-4 right-4 top-24 z-50 w-80 flex flex-col overflow-hidden border-2 border-purple-500 rounded-2xl bg-black/95 shadow-2xl backdrop-blur-3xl">
     <!-- Header -->
     <div class="flex items-center justify-between border-b border-white/10 from-purple-500/20 to-transparent bg-gradient-to-r p-4 text-[14px]">
       <div class="flex items-center gap-2 text-white font-black tracking-tighter uppercase">
@@ -464,6 +475,15 @@ function openEraser(url: string) {
                 </div>
                 <div class="group relative aspect-square overflow-hidden border border-white/5 rounded-lg bg-white/5">
                   <img v-if="sourceTextureUrl" :src="sourceTextureUrl" class="h-full w-full object-cover opacity-60 transition group-hover:opacity-100">
+                  <div class="absolute right-1 top-1 opacity-0 transition group-hover:opacity-100">
+                    <button
+                      class="h-5 w-5 flex items-center justify-center rounded bg-black/60 text-white/70 transition hover:bg-purple-500 hover:text-white"
+                      title="Download Source Atlas"
+                      @click.stop="downloadTexture(lastSelectedTextureItem)"
+                    >
+                      <div class="i-solar:download-minimalistic-bold-duotone h-3 w-3" />
+                    </button>
+                  </div>
                 </div>
               </div>
               <div class="space-y-1">
@@ -484,7 +504,7 @@ function openEraser(url: string) {
             <textarea v-model="aiPrompt" placeholder="Describe the style change for this atlas..." class="h-20 w-full resize-none border border-white/10 rounded-xl bg-white/5 p-3 text-xs text-white font-mono outline-none transition focus:border-purple-500/50" />
             <div class="grid grid-cols-2 gap-2">
               <Button variant="primary" class="bg-purple-600 font-bold uppercase shadow-lg shadow-purple-500/10" :disabled="!aiPrompt || isGenerating" @click="generateAndSwap">
-                Paint New Atlas
+                Inscribe Style (AI)
               </Button>
               <Button variant="secondary" class="border-purple-500/20 bg-purple-500/5 font-bold uppercase hover:bg-purple-500/10" :disabled="isGenerating" @click="triggerManualUpload">
                 Upload PNG
@@ -503,8 +523,17 @@ function openEraser(url: string) {
         <div v-for="item in textureList" :key="item.id" class="group flex flex-col cursor-pointer gap-1 text-[8px] font-bold uppercase" @click="selectTexture(item)">
           <div class="relative aspect-square overflow-hidden border border-white/10 rounded-xl bg-white/5 transition" :class="[lastSelectedTextureItem?.id === item.id ? 'border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.2)]' : 'group-hover:border-white/30']">
             <img v-if="item.url" :src="item.url" class="absolute inset-0 h-full w-full object-cover opacity-60 transition group-hover:opacity-100">
-            <div class="absolute right-1 top-1 rounded bg-black/80 px-1 py-0.5 text-[7px] text-purple-400">
-              {{ item.type }}
+            <div class="absolute right-1 top-1 flex flex-col items-end gap-1">
+              <div class="rounded bg-black/80 px-1 py-0.5 text-[7px] text-purple-400">
+                {{ item.type }}
+              </div>
+              <button
+                class="h-5 w-5 flex items-center justify-center rounded bg-black/60 text-white/70 opacity-0 transition hover:bg-purple-500 hover:text-white group-hover:opacity-100"
+                title="Download Atlas"
+                @click.stop="downloadTexture(item)"
+              >
+                <div class="i-solar:download-minimalistic-bold-duotone h-3 w-3" />
+              </button>
             </div>
           </div>
         </div>
