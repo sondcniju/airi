@@ -1,7 +1,11 @@
+import type { Live2DModel } from 'pixi-live2d-display/cubism4'
+
+import type { PixiLive2DInternalModel } from '../composables/live2d'
+
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { useBroadcastChannel } from '@vueuse/core'
 import { defineStore } from 'pinia'
-import { computed, ref, watch } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 
 type BroadcastChannelEvents
   = | BroadcastChannelEventShouldUpdateView
@@ -41,6 +45,8 @@ export const useLive2d = defineStore('live2d', () => {
   const shouldUpdateViewHooks = ref(new Set<(reason?: string) => void>())
   const activeEmotionTimers = ref<Record<string, any>>({})
   const activeEmotionResets = ref<Record<string, () => void>>({})
+
+  const model = shallowRef<Live2DModel<PixiLive2DInternalModel>>()
 
   const onShouldUpdateView = (hook: (reason?: string) => void) => {
     shouldUpdateViewHooks.value.add(hook)
@@ -111,6 +117,7 @@ export const useLive2d = defineStore('live2d', () => {
     onShouldUpdateView,
     shouldUpdateView,
     resetState,
+    model,
 
     /**
      * Trigger an emotion based on mapping or fallback.

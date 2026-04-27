@@ -5,6 +5,7 @@ import type { SpeechCapabilitiesInfo } from '@proj-airi/stage-ui/stores/provider
 
 import kebabcase from '@stdlib/string-base-kebabcase'
 
+import { useLive2d } from '@proj-airi/stage-ui-live2d'
 import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { animations } from '@proj-airi/stage-ui-three/assets/vrm'
 import { DEFAULT_ARTISTRY_WIDGET_INSTRUCTION } from '@proj-airi/stage-ui/constants/prompts/artistry-instruction'
@@ -62,6 +63,7 @@ const stageModelStore = useSettingsStageModel()
 const modelStore = useModelStore()
 const customVrmAnimationsStore = useCustomVrmAnimationsStore()
 const backgroundStore = useBackgroundStore()
+const live2dStore = useLive2d()
 
 const { sensorPayload } = storeToRefs(proactivityStore)
 const { activeProvider: consciousnessProvider, activeModel: defaultConsciousnessModel } = storeToRefs(consciousnessStore)
@@ -70,9 +72,18 @@ const { stageModelSelected: defaultDisplayModelId } = storeToRefs(stageModelStor
 const { activeProvider: defaultArtistryProvider } = storeToRefs(artistryStore)
 const { availableExpressions } = storeToRefs(modelStore)
 const { animationOptions } = storeToRefs(customVrmAnimationsStore)
+const { availableExpressions: live2dExpressions } = storeToRefs(live2dStore)
 
 // Determine if we're in edit mode
 const isEditMode = computed(() => !!props.cardId)
+
+const isLive2d = computed(() => {
+  const modelId = selectedDisplayModelId.value || defaultDisplayModelId.value
+  const model = displayModelsStore.displayModels.find(m => m.id === modelId)
+  if (!model)
+    return false
+  return model.format === DisplayModelFormat.Live2dZip || model.format === DisplayModelFormat.Live2dDirectory
+})
 
 // Modules configuration
 const selectedConsciousnessProvider = ref<string>('')
@@ -259,6 +270,9 @@ const sceneOptions = computed(() => {
 })
 
 const actingModelExpressionOptions = computed(() => {
+  if (isLive2d.value) {
+    return live2dExpressions.value.map(e => e.name).sort((a, b) => a.localeCompare(b))
+  }
   const modelExps = [...availableExpressions.value]
   const vrmaExps = Object.keys(animations)
   return [...new Set([...modelExps, ...vrmaExps])].sort((a, b) => a.localeCompare(b))
@@ -844,6 +858,7 @@ function getDefaultPlaceholder(defaultValue: string | undefined): string {
             :acting-mannerism-options="actingMannerismOptions"
             :acting-speech-capabilities-loading="actingSpeechCapabilitiesLoading"
             :selected-speech-provider-label="selectedSpeechProvider || speechProvider || 'none'"
+            :is-live2d="isLive2d"
             :is-vrma-expression="isVrmaExpression"
             :insert-model-expression="insertModelExpression"
             :insert-speech-tag="insertSpeechTag"

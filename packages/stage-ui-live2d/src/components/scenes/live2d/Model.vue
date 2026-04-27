@@ -24,6 +24,7 @@ import {
 } from '../../../composables/live2d'
 import { Emotion, EmotionNeutralMotionName } from '../../../constants/emotions'
 import { useLive2d } from '../../../stores/live2d'
+import { setOnZipLoaded } from '../../../utils/live2d-zip-loader'
 
 const props = withDefaults(defineProps<{
   modelSrc?: string
@@ -65,6 +66,11 @@ const emits = defineEmits<{
   (e: 'error', error: Error): void
 }>()
 
+// Global Model Access for LHacker
+setOnZipLoaded((buffer) => {
+  (window as any).__LHACK_LAST_ZIP_BUFFER__ = buffer
+})
+
 const componentState = defineModel<'pending' | 'loading' | 'mounted'>('state', { default: 'pending' })
 
 function parsePropsOffset() {
@@ -97,7 +103,9 @@ const offset = computed(() => parsePropsOffset())
 const pixiApp = toRef(() => props.app)
 const paused = toRef(() => props.paused)
 const focusAt = toRef(() => props.focusAt)
-const model = ref<Live2DModel<PixiLive2DInternalModel>>()
+const live2dStore = useLive2d()
+const { model } = storeToRefs(live2dStore)
+
 const initialModelWidth = ref<number>(0)
 const initialModelHeight = ref<number>(0)
 const mouthOpenSize = computed(() => Math.max(0, Math.min(100, props.mouthOpenSize)))
@@ -145,7 +153,6 @@ function setScaleAndPosition() {
   }
 }
 
-const live2dStore = useLive2d()
 const {
   currentMotion,
   availableMotions,
