@@ -94,15 +94,36 @@ export const useLHackStore = defineStore('lhack', () => {
     const targetTex = model.textures[index]
     const newTex = Texture.from(url)
 
-    // NUCLEAR SWAP: Replace the base texture entirely
-    targetTex.baseTexture = newTex.baseTexture
-    targetTex.update()
+    const applySwap = () => {
+      try {
+        // SURGICAL SWAP: Replace the resource, keep the BaseTexture instance
+        // This is much safer for the Live2D proxy which might be caching the BaseTexture ref
+        if (targetTex.baseTexture.setResource && newTex.baseTexture.resource) {
+          targetTex.baseTexture.setResource(newTex.baseTexture.resource)
+        }
+        else {
+          // Fallback to nuclear if setResource is missing
+          targetTex.baseTexture = newTex.baseTexture
+        }
+        targetTex.baseTexture.update()
+        targetTex.update()
+        console.info(`[LHACK] Surgical texture swap applied to Atlas ${index}`)
+      }
+      catch (e) {
+        console.error('[LHACK] Texture swap failed:', e)
+      }
+    }
+
+    if (newTex.baseTexture.valid) {
+      applySwap()
+    }
+    else {
+      newTex.baseTexture.once('loaded', applySwap)
+    }
 
     // 2. Register for persistence (Export parity)
     const base64 = url.includes(',') ? url.split(',')[1] : url
     registerMutation(index, base64, 'image/png')
-
-    console.info(`[LHACK] Mutation registered and viewport updated for Atlas ${index}`)
   }
 
   function resetState() {

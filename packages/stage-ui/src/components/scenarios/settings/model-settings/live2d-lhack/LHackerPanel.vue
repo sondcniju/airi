@@ -305,10 +305,8 @@ async function generateAndSwap() {
       const newUrl = result.base64.startsWith('data:') ? result.base64 : `data:image/png;base64,${result.base64}`
 
       lastGeneratedUrl.value = newUrl
-      swapTextureByRef(newUrl, lastSelectedTextureItem.value.id)
-
-      // Register mutation for persistence
-      lhackStore.registerMutation(lastSelectedTextureItem.value.id, result.base64, 'image/png')
+      lhackStore.applyTextureMutation(lastSelectedTextureItem.value.id, newUrl)
+      await swapTextureByRef(newUrl, lastSelectedTextureItem.value.id)
 
       lhackStore.generationProgress = 100
       lhackStore.generationActionLabel = 'Success'
@@ -339,18 +337,17 @@ async function handleManualUpload(event: Event) {
 
   const targetIdx = lastSelectedTextureItem.value.id
   const reader = new FileReader()
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     const url = e.target?.result as string
-    const base64 = url.split(',')[1]
 
-    swapTextureByRef(url, targetIdx)
+    lhackStore.applyTextureMutation(targetIdx, url)
+    await swapTextureByRef(url, targetIdx)
     lastGeneratedUrl.value = url
-    lhackStore.registerMutation(targetIdx, base64, 'image/png')
   }
   reader.readAsDataURL(file)
 }
 
-function swapTextureByRef(url: string, index: number) {
+async function swapTextureByRef(url: string, index: number) {
   if (!activeModel.value)
     return
 
@@ -358,11 +355,38 @@ function swapTextureByRef(url: string, index: number) {
   if (!targetTex)
     return
 
+  console.info(`[LHACK] Swapping Texture Atlas ${index}...`)
   const newTex = Texture.from(url)
-  targetTex.baseTexture = newTex.baseTexture
-  targetTex.update()
 
-  console.info(`[LHACK] Swapped Texture Atlas ${index}`)
+  const applyNuclearSwap = () => {
+    // NUCLEAR SWAP: This is the only method confirmed to work visually
+    // We replace the baseTexture object entirely.
+    const oldBaseTex = targetTex.baseTexture
+    targetTex.baseTexture = newTex.baseTexture
+
+    // Force update the main texture
+    targetTex.update()
+
+    // SURGICAL SYNC: Iterate over all drawables to ensure they point to the new base texture
+    // Sometimes the Live2D proxy doesn't propagate the baseTexture swap to all internal meshes
+    if (activeModel.value?.internalModel?.drawables) {
+      activeModel.value.internalModel.drawables.forEach((drawable: any) => {
+        if (drawable.texture && drawable.texture.baseTexture === oldBaseTex) {
+          drawable.texture.baseTexture = newTex.baseTexture
+          drawable.texture.update()
+        }
+      })
+    }
+
+    console.info(`[LHACK] Nuclear swap and drawable sync complete for Atlas ${index}`)
+  }
+
+  if (newTex.baseTexture.valid) {
+    applyNuclearSwap()
+  }
+  else {
+    newTex.baseTexture.once('loaded', applyNuclearSwap)
+  }
 }
 
 async function exportZip() {
@@ -501,11 +525,15 @@ function applyEraserPurge() {
   img.src = eraserImageUrl.value
 }
 
-function finalizeEraserBake() {
+async function finalizeEraserBake() {
   if (!eraserCanvas.value || !lastSelectedTextureItem.value)
     return
   const cleanedUrl = eraserCanvas.value.toDataURL('image/png')
-  lhackStore.applyTextureMutation(lastSelectedTextureItem.value.id, cleanedUrl, activeModel.value)
+  const targetIdx = lastSelectedTextureItem.value.id
+
+  lhackStore.applyTextureMutation(targetIdx, cleanedUrl)
+  await swapTextureByRef(cleanedUrl, targetIdx)
+
   isEraserOpen.value = false
   lastGeneratedUrl.value = cleanedUrl // Update result preview
 }
