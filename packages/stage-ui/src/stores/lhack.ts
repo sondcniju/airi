@@ -1,3 +1,4 @@
+import { Texture } from '@pixi/core'
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 
@@ -84,6 +85,26 @@ export const useLHackStore = defineStore('lhack', () => {
     mutatedTextures.value.set(index, { data, mimeType })
   }
 
+  function applyTextureMutation(index: number, url: string, model: any) {
+    if (!model || !model.textures || !model.textures[index])
+      return
+
+    console.info(`[LHACK] Applying Texture Mutation to Atlas ${index}...`)
+
+    const targetTex = model.textures[index]
+    const newTex = Texture.from(url)
+
+    // NUCLEAR SWAP: Replace the base texture entirely
+    targetTex.baseTexture = newTex.baseTexture
+    targetTex.update()
+
+    // 2. Register for persistence (Export parity)
+    const base64 = url.includes(',') ? url.split(',')[1] : url
+    registerMutation(index, base64, 'image/png')
+
+    console.info(`[LHACK] Mutation registered and viewport updated for Atlas ${index}`)
+  }
+
   function resetState() {
     selectedDrawableId.value = null
     hiddenDrawableIds.value.clear()
@@ -108,6 +129,7 @@ export const useLHackStore = defineStore('lhack', () => {
     originalZipBuffer,
     mutatedTextures,
     registerMutation,
+    applyTextureMutation,
 
     toggleHackerMode,
     closeHackerMode,

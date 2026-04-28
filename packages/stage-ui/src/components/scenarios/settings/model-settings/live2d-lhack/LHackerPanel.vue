@@ -10,18 +10,28 @@ import { storeToRefs } from 'pinia'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
 import { useArtistryStore, useLHackStore } from '../../../../../stores'
+import { useSettings } from '../../../../../stores/settings'
 
 const lhackStore = useLHackStore()
 
 onMounted(() => {
   console.info('>>> [LHACK] Panel Mounted')
-  if ((window as any).__LHACK_LAST_ZIP_BUFFER__) {
-    lhackStore.originalZipBuffer = (window as any).__LHACK_LAST_ZIP_BUFFER__
-  }
 })
+
 const live2dStore = useLive2d()
 const artistryStore = useArtistryStore()
+const settingsStore = useSettings()
 const { model: activeModel } = storeToRefs(live2dStore)
+const { stageModelSelectedFile } = storeToRefs(settingsStore)
+
+// Robustly sync the ZIP buffer from the settings store
+watch(stageModelSelectedFile, async (file) => {
+  if (file && file.name.toLowerCase().endsWith('.zip')) {
+    console.info('[LHACK] Capturing ZIP buffer from settings store...')
+    const buffer = await file.arrayBuffer()
+    lhackStore.originalZipBuffer = buffer
+  }
+}, { immediate: true })
 
 const generateInvoke = useElectronEventaInvoke(artistryGenerateHeadless)
 
@@ -356,13 +366,18 @@ function swapTextureByRef(url: string, index: number) {
 }
 
 async function exportZip() {
+  console.info('>>> [LHACK] Starting Export Sequence...')
   if (!activeModel.value || !lhackStore.originalZipBuffer) {
+    console.error('[LHACK] Export Aborted: Missing model or original zip buffer', { model: !!activeModel.value, buffer: !!lhackStore.originalZipBuffer })
     aiError.value = 'No source bundle found (Load via ZIP?)'
     return
   }
 
   isExporting.value = true
+  aiError.value = null
+
   try {
+    console.info('[LHACK] Loading original ZIP...')
     const zip = await JSZip.loadAsync(lhackStore.originalZipBuffer)
 
     // Find the model3.json to get texture paths
@@ -370,20 +385,22 @@ async function exportZip() {
     if (!model3Path)
       throw new Error('model3.json not found in bundle')
 
+    console.info(`[LHACK] Found model descriptor: ${model3Path}`)
     const model3Json = JSON.parse(await zip.file(model3Path)!.async('string'))
     const texturePaths = model3Json.FileReferences.Textures
 
     // Replace mutated textures
+    console.info(`[LHACK] Processing ${lhackStore.mutatedTextures.size} mutations...`)
     for (const [index, mutation] of lhackStore.mutatedTextures.entries()) {
       const relPath = texturePaths[index]
       if (relPath) {
-        // Resolve absolute path in ZIP if needed
         const fullPath = model3Path.substring(0, model3Path.lastIndexOf('/') + 1) + relPath
-        console.info(`[LHACK] Surgical Overwrite: ${fullPath}`)
+        console.info(`[LHACK] Surgical Overwrite: ${fullPath} (Data Length: ${mutation.data.length})`)
         zip.file(fullPath, mutation.data, { base64: true })
       }
     }
 
+    console.info('[LHACK] Generating final ZIP blob...')
     const content = await zip.generateAsync({ type: 'blob' })
     const url = URL.createObjectURL(content)
     const a = document.createElement('a')
@@ -391,8 +408,10 @@ async function exportZip() {
     a.download = `LHACK_${activeModel.value.name || 'model'}.zip`
     a.click()
     URL.revokeObjectURL(url)
+    console.info('[LHACK] Export Complete. Download triggered.')
   }
   catch (e: any) {
+    console.error('[LHACK] Export Failed:', e)
     aiError.value = e.message || 'Export failed'
   }
   finally {
@@ -405,9 +424,90 @@ function revert() {
   window.location.reload()
 }
 
-// Surgical Eraser Logic (Omitted for briefness, can be ported from VHacker later)
+/**
+ * PICK & PURGE LOGIC (Surgical Eraser)
+ */
 function openEraser(url: string) {
-  aiError.value = 'Eraser coming soon to Live2D!'
+  eraserImageUrl.value = url
+  isEraserOpen.value = true
+  isEraserPicking.value = true
+  eraserPickedColor.value = null
+
+  // Wait for canvas to mount then draw
+  nextTick(() => {
+    if (eraserCanvas.value) {
+      const img = new Image()
+      img.onload = () => {
+        eraserCanvas.value!.width = img.width
+        eraserCanvas.value!.height = img.height
+        const ctx = eraserCanvas.value!.getContext('2d')
+        ctx?.drawImage(img, 0, 0)
+      }
+      img.src = url
+    }
+  })
+}
+
+function handleEraserClick(e: MouseEvent) {
+  if (!eraserCanvas.value || !isEraserPicking.value)
+    return
+  const rect = eraserCanvas.value.getBoundingClientRect()
+  const x = Math.floor((e.clientX - rect.left) * (eraserCanvas.value.width / rect.width))
+  const y = Math.floor((e.clientY - rect.top) * (eraserCanvas.value.height / rect.height))
+
+  const ctx = eraserCanvas.value.getContext('2d')
+  if (!ctx)
+    return
+
+  const pixel = ctx.getImageData(x, y, 1, 1).data
+  eraserPickedColor.value = [pixel[0], pixel[1], pixel[2]]
+
+  // Auto-preview purge
+  applyEraserPurge()
+}
+
+function applyEraserPurge() {
+  if (!eraserCanvas.value || !eraserPickedColor.value)
+    return
+  const img = new Image()
+  img.onload = () => {
+    const canvas = eraserCanvas.value!
+    const ctx = canvas.getContext('2d')
+    if (!ctx)
+      return
+
+    ctx.drawImage(img, 0, 0)
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const data = imageData.data
+    const [tr, tg, tb] = eraserPickedColor.value!
+    const tol = eraserTolerance.value
+
+    let count = 0
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i]; const g = data[i + 1]; const b = data[i + 2]
+      const diff = Math.sqrt(
+        (r - tr) ** 2
+        + (g - tg) ** 2
+        + (b - tb) ** 2,
+      )
+
+      if (diff <= tol) {
+        data[i + 3] = 0
+        count++
+      }
+    }
+    ctx.putImageData(imageData, 0, 0)
+  }
+  img.src = eraserImageUrl.value
+}
+
+function finalizeEraserBake() {
+  if (!eraserCanvas.value || !lastSelectedTextureItem.value)
+    return
+  const cleanedUrl = eraserCanvas.value.toDataURL('image/png')
+  lhackStore.applyTextureMutation(lastSelectedTextureItem.value.id, cleanedUrl, activeModel.value)
+  isEraserOpen.value = false
+  lastGeneratedUrl.value = cleanedUrl // Update result preview
 }
 </script>
 
@@ -492,11 +592,27 @@ function openEraser(url: string) {
                 </div>
                 <div class="group/result relative aspect-square flex items-center justify-center overflow-hidden border border-purple-500/20 rounded-lg border-dashed bg-purple-500/5">
                   <img v-if="lastGeneratedUrl" :src="lastGeneratedUrl" class="h-full w-full object-cover">
+                  <div v-if="lastGeneratedUrl" class="absolute right-1 top-1 z-10 flex flex-col gap-1 opacity-0 transition group-hover/result:opacity-100">
+                    <button
+                      class="border border-white/10 rounded bg-black/60 p-1 text-white transition hover:bg-purple-500"
+                      title="Download Generated Atlas"
+                      @click.stop="downloadTexture({ url: lastGeneratedUrl, name: 'lhack_result' })"
+                    >
+                      <div i-solar:download-square-bold-duotone class="text-xs" />
+                    </button>
+                    <button
+                      class="border border-white/10 rounded bg-black/60 p-1 text-purple-400 transition hover:bg-purple-500 hover:text-white"
+                      title="Pick & Purge (Surgical Eraser)"
+                      @click.stop="openEraser(lastGeneratedUrl)"
+                    >
+                      <div i-solar:broom-bold-duotone class="text-xs" />
+                    </button>
+                  </div>
                   <div v-if="isGenerating" class="flex flex-col items-center gap-2 px-4 text-center">
                     <div i-solar:spinner-bold class="animate-spin text-xl text-purple-500" />
                     <span class="animate-pulse text-[7px] text-purple-500 font-bold uppercase">{{ lhackStore.generationActionLabel || 'Inscribing...' }}</span>
                   </div>
-                  <div v-else i-solar:ghost-bold-duotone class="text-2xl text-white/5" />
+                  <div v-else-if="!lastGeneratedUrl" i-solar:ghost-bold-duotone class="text-2xl text-white/5" />
                 </div>
               </div>
             </div>
@@ -549,6 +665,57 @@ function openEraser(url: string) {
       <Button variant="secondary" size="sm" class="w-full border-white/5 bg-white/5 text-[10px] font-bold tracking-widest" :disabled="!activeModel" @click="revert">
         REVERT ALL CHANGES
       </Button>
+    </div>
+
+    <!-- Surgical Eraser Modal -->
+    <div v-if="isEraserOpen" class="animate-in fade-in fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-10 transition-all">
+      <div class="relative max-h-full max-w-2xl w-full border border-white/10 rounded-3xl bg-neutral-900/50 p-6 shadow-2xl backdrop-blur-3xl space-y-6">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div i-solar:broom-bold-duotone class="text-2xl text-purple-400" />
+            <div>
+              <div class="text-sm text-white font-black tracking-widest uppercase">
+                Surgical Eraser
+              </div>
+              <div class="text-[10px] text-neutral-500 font-bold uppercase">
+                Click a color on the texture to purge it
+              </div>
+            </div>
+          </div>
+          <button class="text-neutral-500 transition hover:text-white" @click="isEraserOpen = false">
+            <div i-solar:close-circle-bold-duotone class="text-2xl" />
+          </button>
+        </div>
+
+        <div class="relative aspect-square overflow-hidden border border-white/10 rounded-2xl bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAAXNSR0IArs4c6QAAACpJREFUGFdjZEACDAwM/wwMDA0MDAz/GDAESDAwMPxjAIkAAwMDAwMDAwMBEgQE+8l9hAAAAABJRU5ErkJggg==')] bg-repeat shadow-inner">
+          <canvas ref="eraserCanvas" class="h-full w-full cursor-crosshair object-contain" @click="handleEraserClick" />
+
+          <div v-if="eraserPickedColor" class="animate-in slide-in-from-bottom-2 absolute bottom-4 left-4 flex items-center gap-3 border border-white/10 rounded-full bg-black/80 p-1.5 pr-4 shadow-xl">
+            <div class="h-6 w-6 border border-white/20 rounded-full shadow-inner" :style="{ backgroundColor: `rgb(${eraserPickedColor[0]}, ${eraserPickedColor[1]}, ${eraserPickedColor[2]})` }" />
+            <div class="flex flex-col">
+              <span class="text-[9px] text-white font-black uppercase">Picked Color</span>
+              <span class="text-[8px] text-neutral-500 font-bold font-mono uppercase">#{{ eraserPickedColor.map(c => c.toString(16).padStart(2, '0')).join('') }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <div class="flex justify-between px-1 text-[10px] text-neutral-400 font-bold tracking-widest uppercase">
+            <span>Selection Tolerance</span>
+            <span class="text-purple-400 font-mono">{{ eraserTolerance }}</span>
+          </div>
+          <input v-model="eraserTolerance" type="range" min="1" max="100" step="1" class="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-white/5 accent-purple-500" @input="applyEraserPurge">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 pt-2">
+          <Button variant="secondary" class="border-white/5 bg-white/5 font-black tracking-widest uppercase" @click="isEraserOpen = false">
+            Abort
+          </Button>
+          <Button variant="primary" class="bg-purple-500 text-black font-black tracking-widest uppercase shadow-lg shadow-purple-500/20 hover:bg-purple-400" @click="finalizeEraserBake">
+            Apply & Bake to Store
+          </Button>
+        </div>
+      </div>
     </div>
   </div>
 </template>

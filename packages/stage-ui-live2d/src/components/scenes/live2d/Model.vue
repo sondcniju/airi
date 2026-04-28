@@ -651,7 +651,11 @@ function updateDropShadowFilter() {
     return
 
   const color = getComputedStyle(dropShadowColorComputer.value).backgroundColor
-  const parsedColor = Number(formatHex(color)!.replace('#', '0x'))
+  const hex = formatHex(color)
+  if (!hex)
+    return
+
+  const parsedColor = Number(hex.replace('#', '0x'))
 
   if (dropShadowFilter.value.color !== parsedColor) {
     dropShadowFilter.value.color = parsedColor
