@@ -99,9 +99,11 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       }
     })
 
-    if (changed)
+    if (changed) {
       sessionMessages.value[sessionId] = next
-
+      // NOTICE: We do NOT persist here to avoid infinite loops,
+      // but we return the modified array.
+    }
     return next
   }
 
@@ -295,14 +297,22 @@ export const useChatSessionStore = defineStore('chat-session', () => {
 
   function setSessionMessages(sessionId: string, next: ChatHistoryItem[]) {
     const prev = sessionMessages.value[sessionId] ?? []
-    sessionMessages.value[sessionId] = next
+    const prevIds = new Set(prev.map(m => m.id).filter(Boolean))
+
+    // 1. Assign IDs to all messages in the new array first
+    const nextWithIds = next.map(msg => ({
+      ...msg,
+      id: msg.id ?? nanoid(),
+    }))
+
+    // 2. Set the store value
+    sessionMessages.value[sessionId] = nextWithIds
+
+    // 3. Persist
     void persistSession(sessionId)
 
-    // NOTICE: Broadcast any NEW messages so other windows can apply them immediately.
-    // This covers the primary STT ingestion path (chat.ts performSend) which uses
-    // setSessionMessages rather than inscribeTurn.
-    const prevIds = new Set(prev.map(m => m.id).filter(Boolean))
-    for (const msg of next) {
+    // 4. Broadcast ONLY truly new messages based on stable IDs
+    for (const msg of nextWithIds) {
       if (msg.id && !prevIds.has(msg.id)) {
         broadcastStreamEvent({ type: 'session-updated', sessionId, message: JSON.parse(JSON.stringify(msg)) })
       }
@@ -507,10 +517,11 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   }
 
   /**
-   * Refreshes the root system message in a session to reflect
-   * current (or provided) character settings without resetting the chat.
+   * Refreshes all persona-related system messages in a session to reflect
+   * current character settings without resetting the chat history.
+   * This ensures that even mid-chat system injections remain consistent with the Acting tab.
    */
-  function refreshActiveSystemMessage(options?: { sessionId?: string, characterId?: string, prompt?: string }) {
+  function refreshActiveSystemMessage(options?: { sessionId?: string, characterId?: string, prompt?: string, force?: boolean }) {
     const sessionId = options?.sessionId ?? activeSessionId.value
     if (!sessionId || !ready.value)
       return
@@ -520,8 +531,6 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       return
 
     // NOTICE: Strict integrity check to prevent cross-session prompt pollution.
-    // If we're updating by reactive systemPrompt change, we must ensure the
-    // session actually belongs to the active card.
     const targetCharacterId = options?.characterId ?? activeCardId.value
     if (meta.characterId !== targetCharacterId) {
       console.warn('[ChatSession] Skipping prompt refresh: session characterId mismatch', {
@@ -536,24 +545,77 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     if (!currentMessages || currentMessages.length === 0)
       return
 
-    // Logic: The first message is always the root system prompt
-    const firstMessage = currentMessages[0]
-    if (firstMessage.role !== 'system')
-      return
-
     const nextSystemMessage = options?.prompt
       ? generateInitialMessageFromPrompt(options.prompt, targetCharacterId)
       : generateInitialMessage()
 
-    if (firstMessage.content === nextSystemMessage.content)
-      return
+    let changed = false
+    const nextContent = extractMessageContent(nextSystemMessage)
 
-    console.info('[ChatSession] Refreshing system message from character settings', {
-      sessionId,
-      characterId: targetCharacterId,
+    const personaIndices: number[] = []
+    const nextMessagesBase = currentMessages.map((msg, index) => {
+      if (msg.role !== 'system')
+        return msg
+
+      const content = extractMessageContent(msg)
+      const isContext = content.startsWith('These are the contextual information retrieved')
+        || content.startsWith('[ENVIRONMENTAL AWARENESS]')
+        || content.includes('[CONTEXT_AWARENESS]')
+
+      if (isContext)
+        return msg
+
+      // This is a Persona block
+      personaIndices.push(index)
+      return msg
     })
-    const nextMessages = [nextSystemMessage, ...currentMessages.slice(1)]
-    setSessionMessages(sessionId, nextMessages)
+
+    // Determine which persona blocks to keep: Index 0 and the Last one.
+    const headIndex = personaIndices[0]
+    const tailIndex = personaIndices.length > 1 ? personaIndices[personaIndices.length - 1] : -1
+
+    const finalMessages: ChatHistoryItem[] = []
+    for (let i = 0; i < nextMessagesBase.length; i++) {
+      const msg = nextMessagesBase[i]
+
+      // If it's a Persona block, check if it's Head or Tail
+      if (personaIndices.includes(i)) {
+        if (i === headIndex || i === tailIndex) {
+          const content = extractMessageContent(msg)
+          if (options?.force || content !== nextContent) {
+            changed = true
+            finalMessages.push({
+              ...nextSystemMessage,
+              id: msg.id ?? nanoid(),
+              createdAt: msg.createdAt,
+            })
+            continue
+          }
+        }
+        else {
+          // Prune intermediate persona blocks
+          changed = true
+          continue
+        }
+      }
+
+      finalMessages.push(msg)
+    }
+
+    if (changed) {
+      console.info('[ChatSession] Successfully refreshed and pruned persona system messages', {
+        sessionId,
+        characterId: targetCharacterId,
+        originalCount: currentMessages.length,
+        newCount: finalMessages.length,
+        personaCount: personaIndices.length,
+      })
+      setSessionMessages(sessionId, finalMessages)
+      broadcastStreamEvent({ type: 'session-refreshed', sessionId })
+    }
+    else {
+      console.debug('[ChatSession] No stale persona messages found to refresh', { sessionId })
+    }
   }
 
   function getAllSessions() {
@@ -705,7 +767,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   watch(systemPrompt, () => {
     if (!ready.value)
       return
-    refreshActiveSystemMessage()
+    refreshActiveSystemMessage({ force: true })
   })
 
   watch(
@@ -729,10 +791,19 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   // event with the message payload. We apply it directly to the local store to avoid
   // race conditions with async DB persistence.
   watch(incomingSessionUpdate, (event) => {
-    if (!event || event.type !== 'session-updated')
+    if (!event)
       return
+    if (event.type === 'session-refreshed') {
+      console.info('[ChatSession] Cross-window session-refreshed, reloading session', { sessionId: event.sessionId })
+      void loadSession(event.sessionId)
+      return
+    }
+    if (event.type !== 'session-updated')
+      return
+
     if (!ready.value)
       return
+
     const { sessionId, message } = event
     console.info('[ChatSession] Cross-window session-updated, applying message directly', { sessionId, role: message.role })
     // Apply directly to store — no DB roundtrip needed

@@ -3,7 +3,7 @@ import JSZip from 'jszip'
 
 import { Texture } from '@pixi/core'
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { ARTISTRY_PRESET_GROUPS, artistryGenerateHeadless, REPLICATE_IMAGEEDIT_PRESETS } from '@proj-airi/stage-shared'
+import { artistryGenerateHeadless, REPLICATE_IMAGEEDIT_PRESETS } from '@proj-airi/stage-shared'
 import { useLive2d } from '@proj-airi/stage-ui-live2d'
 import { Button } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
@@ -63,9 +63,6 @@ const aiComfyParams = ref('{}')
 const isGenerating = ref(false)
 const isExporting = ref(false)
 const aiError = ref<string | null>(null)
-const showPresets = ref(false)
-const selectedCategory = ref<string | null>(null)
-const nodeFilter = ref('')
 const textureUploader = ref<HTMLInputElement | null>(null)
 const eraserCanvas = ref<HTMLCanvasElement | null>(null)
 
@@ -75,23 +72,6 @@ const eraserImageUrl = ref('')
 const eraserPickedColor = ref<[number, number, number] | null>(null)
 const eraserTolerance = ref(15)
 const isEraserPicking = ref(true)
-
-const activePresets = computed(() => {
-  if (!selectedCategory.value)
-    return []
-  return ARTISTRY_PRESET_GROUPS.find(g => g.id === selectedCategory.value)?.presets || []
-})
-
-const availableProviders = [
-  { id: 'nanobanana', name: 'Nano Banana', icon: 'i-solar:gallery-round-bold-duotone' },
-  { id: 'replicate', name: 'Replicate', icon: 'i-solar:cloud-bold-duotone' },
-  { id: 'comfyui', name: 'ComfyUI', icon: 'i-solar:settings-bold-duotone' },
-]
-
-function injectPreset(text: string) {
-  aiPrompt.value = text
-  showPresets.value = false
-}
 
 function getTextureUrl(tex: any) {
   if (!tex)
@@ -147,8 +127,16 @@ watch(selectedReplicatePreset, (newPresetId) => {
   }
 })
 
+interface DrawableNode {
+  id: string
+  index: number
+  opacity: number
+  visible: boolean
+  name: string
+}
+
 // Tree View Logic
-const drawables = computed(() => {
+const drawables = computed<DrawableNode[]>(() => {
   // SCALED BACK: Returning empty to ensure UI manifest
   return []
   /*
@@ -310,9 +298,10 @@ async function generateAndSwap() {
       lhackStore.generationActionLabel = 'Applying Result'
 
       const newUrl = result.base64.startsWith('data:') ? result.base64 : `data:image/png;base64,${result.base64}`
-
       lastGeneratedUrl.value = newUrl
-      lhackStore.applyTextureMutation(lastSelectedTextureItem.value.id, newUrl)
+
+      // Ensure data is resolved before swapping
+      await lhackStore.applyTextureMutation(lastSelectedTextureItem.value.id, newUrl)
       await swapTextureByRef(newUrl, lastSelectedTextureItem.value.id)
 
       lhackStore.generationProgress = 100
@@ -347,7 +336,7 @@ async function handleManualUpload(event: Event) {
   reader.onload = async (e) => {
     const url = e.target?.result as string
 
-    lhackStore.applyTextureMutation(targetIdx, url)
+    await lhackStore.applyTextureMutation(targetIdx, url)
     await swapTextureByRef(url, targetIdx)
     lastGeneratedUrl.value = url
   }
@@ -376,7 +365,9 @@ async function swapTextureByRef(url: string, index: number) {
 
     // SURGICAL SYNC: Iterate over all drawables to ensure they point to the new base texture
     // Sometimes the Live2D proxy doesn't propagate the baseTexture swap to all internal meshes
+    // @ts-expect-error - internalModel type might be incomplete in some SDK versions
     if (activeModel.value?.internalModel?.drawables) {
+      // @ts-expect-error - internalModel type might be incomplete in some SDK versions
       activeModel.value.internalModel.drawables.forEach((drawable: any) => {
         if (drawable.texture && drawable.texture.baseTexture === oldBaseTex) {
           drawable.texture.baseTexture = newTex.baseTexture
@@ -422,12 +413,27 @@ async function exportZip() {
 
     // Replace mutated textures
     console.info(`[LHACK] Processing ${lhackStore.mutatedTextures.size} mutations...`)
+    const zipFiles = Object.keys(zip.files)
+
     for (const [index, mutation] of lhackStore.mutatedTextures.entries()) {
       const relPath = texturePaths[index]
       if (relPath) {
-        const fullPath = model3Path.substring(0, model3Path.lastIndexOf('/') + 1) + relPath
-        console.info(`[LHACK] Surgical Overwrite: ${fullPath} (Data Length: ${mutation.data.length})`)
-        zip.file(fullPath, mutation.data, { base64: true })
+        const basePath = model3Path.substring(0, model3Path.lastIndexOf('/') + 1)
+        const fullPath = basePath + relPath
+        const normalizedPath = fullPath.replace(/\\/g, '/').replace(/^\.\//, '')
+
+        // Case-insensitive search for the file in the zip
+        const zipKey = zipFiles.find(f => f === normalizedPath || f.toLowerCase() === normalizedPath.toLowerCase())
+
+        if (zipKey) {
+          console.info(`[LHACK] Overwriting: ${zipKey} (Data Length: ${mutation.data.length})`)
+          zip.file(zipKey, mutation.data, { base64: true })
+        }
+        else {
+          console.warn(`[LHACK] Texture path not found in ZIP: ${normalizedPath}`)
+          // Fallback: create the file at the normalized path if it doesn't exist
+          zip.file(normalizedPath, mutation.data, { base64: true })
+        }
       }
     }
 
@@ -436,7 +442,7 @@ async function exportZip() {
     const url = URL.createObjectURL(content)
     const a = document.createElement('a')
     a.href = url
-    a.download = `LHACK_${activeModel.value.name || 'model'}.zip`
+    a.download = `LHACK_${(activeModel.value as any).name || 'model'}.zip`
     a.click()
     URL.revokeObjectURL(url)
     console.info('[LHACK] Export Complete. Download triggered.')
@@ -538,7 +544,7 @@ async function finalizeEraserBake() {
   const cleanedUrl = eraserCanvas.value.toDataURL('image/png')
   const targetIdx = lastSelectedTextureItem.value.id
 
-  lhackStore.applyTextureMutation(targetIdx, cleanedUrl)
+  await lhackStore.applyTextureMutation(targetIdx, cleanedUrl)
   await swapTextureByRef(cleanedUrl, targetIdx)
 
   isEraserOpen.value = false

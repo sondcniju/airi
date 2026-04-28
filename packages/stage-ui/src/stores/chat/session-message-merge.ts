@@ -30,30 +30,36 @@ export function mergeLoadedSessionMessages(storedMessages: ChatHistoryItem[], cu
   if (currentMessages.length === 0)
     return storedMessages
 
-  const currentNonSystemMessages = currentMessages.filter((message, index) => index !== 0 || message.role !== 'system')
-  if (currentNonSystemMessages.length === 0)
-    return storedMessages
+  const storedIds = new Set(storedMessages.map(m => m.id).filter(Boolean))
+  const storedFingerprints = new Set(storedMessages.map(getMessageFingerprint))
 
-  const seen = new Set(storedMessages.map(getMessageFingerprint))
-  const extraMessages = currentNonSystemMessages.filter((message) => {
-    const fingerprint = getMessageFingerprint(message)
-    if (seen.has(fingerprint))
+  const uniqueNewMessages = currentMessages.filter((message) => {
+    if (message.id && storedIds.has(message.id))
       return false
-    seen.add(fingerprint)
+    const fingerprint = getMessageFingerprint(message)
+    if (storedFingerprints.has(fingerprint))
+      return false
     return true
   })
 
-  if (extraMessages.length === 0)
+  if (uniqueNewMessages.length === 0)
     return storedMessages
 
-  const systemMessage = storedMessages[0]?.role === 'system'
-    ? storedMessages[0]
-    : currentMessages[0]?.role === 'system'
-      ? currentMessages[0]
-      : undefined
+  // If storedMessages already has a system message, avoid adding redundant ones from uniqueNewMessages
+  // unless they are significantly different (e.g. environmental context).
+  const hasStoredPersona = storedMessages.some(m => m.role === 'system' && !extractMessageContent(m).includes('[ENVIRONMENTAL AWARENESS]'))
 
-  if (storedMessages.length === 0 && systemMessage)
-    return [systemMessage, ...extraMessages]
+  const finalNewMessages = uniqueNewMessages.filter((m) => {
+    if (m.role === 'system') {
+      const content = extractMessageContent(m)
+      const isContext = content.includes('[ENVIRONMENTAL AWARENESS]') || content.includes('contextual information')
+      if (!isContext && hasStoredPersona) {
+        // Avoid duplicate persona blocks during merge
+        return false
+      }
+    }
+    return true
+  })
 
-  return [...storedMessages, ...extraMessages]
+  return [...storedMessages, ...finalNewMessages]
 }

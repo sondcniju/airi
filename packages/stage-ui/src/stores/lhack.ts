@@ -1,4 +1,3 @@
-import { Texture } from '@pixi/core'
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 
@@ -85,45 +84,33 @@ export const useLHackStore = defineStore('lhack', () => {
     mutatedTextures.value.set(index, { data, mimeType })
   }
 
-  function applyTextureMutation(index: number, url: string, model: any) {
-    if (!model || !model.textures || !model.textures[index])
-      return
-
-    console.info(`[LHACK] Applying Texture Mutation to Atlas ${index}...`)
-
-    const targetTex = model.textures[index]
-    const newTex = Texture.from(url)
-
-    const applySwap = () => {
-      try {
-        // SURGICAL SWAP: Replace the resource, keep the BaseTexture instance
-        // This is much safer for the Live2D proxy which might be caching the BaseTexture ref
-        if (targetTex.baseTexture.setResource && newTex.baseTexture.resource) {
-          targetTex.baseTexture.setResource(newTex.baseTexture.resource)
-        }
-        else {
-          // Fallback to nuclear if setResource is missing
-          targetTex.baseTexture = newTex.baseTexture
-        }
-        targetTex.baseTexture.update()
-        targetTex.update()
-        console.info(`[LHACK] Surgical texture swap applied to Atlas ${index}`)
-      }
-      catch (e) {
-        console.error('[LHACK] Texture swap failed:', e)
-      }
-    }
-
-    if (newTex.baseTexture.valid) {
-      applySwap()
+  async function applyTextureMutation(index: number, url: string) {
+    let base64 = ''
+    if (url.startsWith('data:')) {
+      base64 = url.split(',')[1]
     }
     else {
-      newTex.baseTexture.once('loaded', applySwap)
+      // Resolve blob URLs or remote URLs to base64
+      try {
+        console.info(`[LHACK] Resolving texture URL to base64 for Atlas ${index}...`)
+        const response = await fetch(url)
+        const blob = await response.blob()
+        base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve((reader.result as string).split(',')[1])
+          reader.onerror = reject
+          reader.readAsDataURL(blob)
+        })
+      }
+      catch (e) {
+        console.error('[LHACK] Failed to resolve texture URL to base64:', e)
+        return
+      }
     }
 
-    // 2. Register for persistence (Export parity)
-    const base64 = url.includes(',') ? url.split(',')[1] : url
+    // 1. Register for persistence (Export parity)
     registerMutation(index, base64, 'image/png')
+    console.info(`[LHACK] Mutation registered for Atlas ${index} (Data Length: ${base64.length})`)
   }
 
   function resetState() {
