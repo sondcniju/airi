@@ -22,14 +22,21 @@ const live2dStore = useLive2d()
 const artistryStore = useArtistryStore()
 const settingsStore = useSettings()
 const { model: activeModel } = storeToRefs(live2dStore)
-const { stageModelSelectedFile } = storeToRefs(settingsStore)
+const { stageModelSelectedUrl } = storeToRefs(settingsStore)
 
-// Robustly sync the ZIP buffer from the settings store
-watch(stageModelSelectedFile, async (file) => {
-  if (file && file.name.toLowerCase().endsWith('.zip')) {
-    console.info('[LHACK] Capturing ZIP buffer from settings store...')
-    const buffer = await file.arrayBuffer()
-    lhackStore.originalZipBuffer = buffer
+// Universal ZIP buffer synchronization (Supports local files and remote presets)
+watch(stageModelSelectedUrl, async (url) => {
+  if (url && (url.toLowerCase().includes('.zip') || url.startsWith('blob:'))) {
+    try {
+      console.info('[LHACK] Syncing original ZIP buffer from URL...')
+      const response = await fetch(url)
+      const buffer = await response.arrayBuffer()
+      lhackStore.originalZipBuffer = buffer
+      console.info('[LHACK] ZIP buffer synchronized successfully.')
+    }
+    catch (err) {
+      console.error('[LHACK] Failed to sync ZIP buffer:', err)
+    }
   }
 }, { immediate: true })
 
