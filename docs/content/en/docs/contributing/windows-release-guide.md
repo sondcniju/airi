@@ -4,35 +4,36 @@ This document captures the lessons learned and the specific technical steps requ
 
 ## 1. Release Workflow
 
-### Step 1: Version Stamping
-Update the `version` in `apps/stage-tamagotchi/package.json`. Follow the format: `[major].[minor].[patch]-stable.[YYYYMMDD]`.
-
-### Step 2: Local Tagging
-Create a git tag matching the version (with a `v` prefix) and push it to your fork or upstream:
-```bash
-git tag v0.9.0-stable.20260321
-git push origin v0.9.0-stable.20260321
-```
-
-### Step 3: Generate Release Notes
-Do not use generic or placeholder notes. Analyze the changes and generate a **user-facing** summary.
-
-1. **Compare Hashes**: Look at all commits between the previous stable tag and `HEAD`:
+### Step 1: Generate & Review Release Notes
+Do not proceed blindly. This is the implicit first step of the entire process.
+1. **Compare Hashes**: Analyze all commits between the previous stable tag and `HEAD`:
    ```bash
    git log [previous-tag]..HEAD --oneline
    ```
-2. **Draft Summary**: Focus on outward-facing user features (e.g., new buttons, UI improvements, stability wins) rather than internal technical refactors.
-3. **Save to File**: Save the notes into a temporary `.md` file (e.g., `release-notes.md`) to be used during the publish step.
+2. **Draft Summary**: Focus on user-facing features (new UI, stability wins, feature additions) rather than internal refactors.
+3. **Present Inline**: Present the gathered details and drafted notes **inline** to the USER for review and edits. Do not hide this in a "blind" artifact without showing it to the user first.
+4. **Finalize**: Once approved, save the notes to a local, uncommitted file (e.g., `release-notes.md`).
+
+### Step 2: Version Stamping
+Update the `version` in `apps/stage-tamagotchi/package.json`. Follow the format: `[major].[minor].[patch]-stable.[YYYYMMDD]`.
+
+### Step 3: Local Tagging
+Create a git tag matching the version (with a `v` prefix) and push it to your fork or upstream:
+```bash
+git tag v0.9.1-stable.20260429
+git push origin v0.9.1-stable.20260429
+```
 
 ### Step 4: Build Windows Executable
 Execute the build command from the `stage-tamagotchi` workspace:
 ```bash
 pnpm -F @proj-airi/stage-tamagotchi run build:win
 ```
-This runs `electron-builder --win` after performing necessary typechecks and production builds for main/renderer/preload.
+This runs `electron-builder --win` after performing necessary typechecks and production builds.
 
 ### Step 5: Publish to GitHub Releases
-Use the `gh` CLI to create the release and upload the asset, using the `--notes-file` argument for your drafted notes.
+Use the `gh` CLI to create the release and upload the asset.
+
 
 **Daily / Development Release (Target your fork):**
 ```bash
