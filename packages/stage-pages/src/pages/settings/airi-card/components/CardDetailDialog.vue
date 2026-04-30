@@ -27,6 +27,7 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import DeleteCardDialog from './DeleteCardDialog.vue'
+import ProductionStudioTab from './tabs/ProductionStudioTab.vue'
 
 interface Props {
   modelValue: boolean
@@ -236,6 +237,13 @@ const tabs = computed<Tab[]>(() => {
     id: 'gallery',
     label: 'Gallery',
     icon: 'i-solar:gallery-linear',
+  })
+
+  // Studio tab - always show
+  availableTabs.push({
+    id: 'studio',
+    label: 'Studio',
+    icon: 'i-solar:magic-stick-3-linear',
   })
 
   return availableTabs
@@ -665,6 +673,11 @@ function getModuleDisplayValue(value: string | undefined, defaultValue: string |
                   </div>
                 </div>
               </div>
+            </div>
+
+            <!-- Studio -->
+            <div v-if="activeTab === 'studio' && selectedCard">
+              <ProductionStudioTab :card-id="cardId" :card="selectedCard" />
             </div>
           </div>
         </div>
