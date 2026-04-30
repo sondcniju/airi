@@ -133,7 +133,7 @@ function handleSave() {
         <div class="border-b border-neutral-100 p-6 pb-4 dark:border-neutral-800 sm:p-8">
           <div class="flex items-center gap-3">
             <div class="rounded-xl bg-primary-500/10 p-2 text-primary-500 shadow-primary-500/10 shadow-sm">
-              <div i-solar:magic-stick-3-bold-duotone class="text-2xl" />
+              <div class="i-solar:magic-stick-3-bold-duotone text-2xl" />
             </div>
             <div>
               <DialogTitle class="text-xl text-neutral-800 font-bold dark:text-neutral-100">
@@ -193,18 +193,30 @@ function handleSave() {
           <!-- Artistry Tab -->
           <div v-if="activeTab === 'artistry'" class="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
             <div class="flex flex-col gap-2">
-              <label class="text-sm text-neutral-700 font-bold dark:text-neutral-300">Image Provider Override</label>
+              <label class="text-sm text-neutral-700 font-bold dark:text-neutral-300">Generation Provider</label>
               <Select v-model="selectedProvider" :options="providerOptions" />
               <p class="text-[10px] text-neutral-500 italic">
-                Inherit uses the global settings configured in the character card.
+                The visual engine used for this concept.
               </p>
             </div>
 
             <div v-if="selectedProvider !== 'inherit' && selectedProvider !== 'none'" class="border-t border-neutral-100 pt-4 space-y-6 dark:border-neutral-800">
+              <div v-if="selectedProvider === 'comfyui'" class="flex flex-col gap-2">
+                <label class="text-sm text-neutral-700 font-bold dark:text-neutral-300">Select Workflow</label>
+                <Select
+                  v-model="selectedModel"
+                  :options="artistryStore.comfyuiSavedWorkflows.map(w => ({ value: w.id, label: w.name || w.id }))"
+                />
+                <p class="text-[10px] text-neutral-500 italic">
+                  Choose from your registered ComfyUI templates.
+                </p>
+              </div>
+
               <FieldInput
+                v-else
                 v-model="selectedModel"
-                :label="selectedProvider === 'comfyui' ? 'Workflow ID' : 'Model ID'"
-                :placeholder="selectedProvider === 'comfyui' ? 'e.g. standard-anime-v3' : 'e.g. black-forest-labs/flux-schnell'"
+                label="Model ID"
+                placeholder="e.g. black-forest-labs/flux-schnell"
               />
 
               <FieldInput
@@ -223,16 +235,16 @@ function handleSave() {
               <label class="text-sm text-neutral-700 font-bold dark:text-neutral-300">Physical Model Override</label>
               <Select v-model="selectedModelId" :options="displayModelOptions" />
               <p class="text-[10px] text-neutral-500 italic">
-                Forces a base model swap when this concept is active.
+                Forces a base model swap (Live2D/VRM) when this concept is active.
               </p>
             </div>
 
-            <div v-if="selectedModelId !== 'inherit'" class="border-t border-neutral-100 pt-4 space-y-6 dark:border-neutral-800">
+            <div class="border-t border-neutral-100 pt-4 dark:border-neutral-800">
               <FieldInput
                 v-model="selectedMood"
-                label="Target Mood / Expression"
-                placeholder="e.g. joyful, serious, embarrassed"
-                description="Sets the baseline expression set for this concept."
+                label="Baseline Mood / Expression"
+                placeholder="e.g. happy, thinking, neutral"
+                description="Forces a specific emotional state when active."
               />
             </div>
           </div>

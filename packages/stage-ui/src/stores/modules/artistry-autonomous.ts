@@ -297,12 +297,30 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
           return
         }
 
+        // 3.7 Artistry Bridge: Resolve overrides from the Active Concept Stack
+        // We look at the active concepts and apply overrides from the "top" of the stack (last active)
+        let resolvedProvider = artistry.provider || artistryStore.activeProvider
+        let resolvedModel = artistry.model || artistryStore.activeModel
+        let resolvedOptions = artistry.options || artistryStore.providerOptions
+
+        const activeConceptIds = airiExt?.active_concepts || []
+        const topConceptId = activeConceptIds[activeConceptIds.length - 1]
+        if (topConceptId) {
+          const topConcept = visualAssets[topConceptId]
+          if (topConcept?.artistry?.provider && topConcept.artistry.provider !== 'none') {
+            artistLog(`Artistry Bridge: Applying override from top concept "${topConceptId}"`, topConcept.artistry)
+            resolvedProvider = topConcept.artistry.provider
+            resolvedModel = topConcept.artistry.model || resolvedModel
+            resolvedOptions = topConcept.artistry.options || resolvedOptions
+          }
+        }
+
         const artistryGlobals = artistryStore.artistryGlobals
         const generationPayload = {
           prompt: artistry.promptPrefix ? `${artistry.promptPrefix} ${finalPrompt}` : finalPrompt,
-          model: artistry.model || artistryStore.activeModel,
-          provider: artistry.provider || artistryStore.activeProvider,
-          options: artistry.options || artistryStore.providerOptions,
+          model: resolvedModel,
+          provider: resolvedProvider,
+          options: resolvedOptions,
           globals: artistryGlobals,
         }
 
@@ -407,19 +425,43 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
 
             case 'bg_widget':
             default:
-              // Both: Update background AND spawn widget
-              cardStore.updateCard(cardId, {
-                extensions: {
-                  ...activeCard.extensions,
-                  airi: {
-                    ...activeCard.extensions.airi,
-                    modules: {
-                      ...activeCard.extensions.airi.modules,
-                      activeBackgroundId: entryId,
+              // Both: Update background, stack, AND spawn widget
+              {
+                if (!activeCard || !activeCard.extensions?.airi) {
+                  artistLog('Director Bridge: Aborting card update - active card or airi extension is missing.')
+                  break
+                }
+
+                // 1. Resolve the new concept stack
+                const nextConcepts = [...(activeCard.extensions.airi.active_concepts || [])]
+                if (analysis.selected_concepts) {
+                  analysis.selected_concepts.forEach((c: string) => {
+                    const idx = nextConcepts.indexOf(c)
+                    if (idx > -1)
+                      nextConcepts.splice(idx, 1)
+                    artistLog(`Director Bridge: Moving concept to top of stack: "${c}"`)
+                    nextConcepts.push(c)
+                  })
+                }
+
+                // 2. Perform a SURGICAL update to avoid shredding the modules (TTS/Brain)
+                // We update only the specific paths needed
+                cardStore.updateCard(cardId, {
+                  extensions: {
+                    ...activeCard.extensions,
+                    airi: {
+                      ...activeCard.extensions.airi,
+                      active_concepts: nextConcepts,
+                      modules: {
+                        ...activeCard.extensions.airi.modules,
+                        activeBackgroundId: entryId,
+                      },
                     },
                   },
-                },
-              } as any)
+                } as any)
+
+                artistLog('Director Bridge: Card updated successfully with new concept stack:', nextConcepts)
+              }
 
               try {
                 await invokers.addWidget({

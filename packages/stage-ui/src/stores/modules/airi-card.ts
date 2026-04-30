@@ -166,9 +166,15 @@ export interface AiriExtension {
   visual_assets?: Record<string, {
     description: string
     prompt?: string
-    model?: string
-    expression?: string
-    workflow?: string
+    artistry?: {
+      provider?: string
+      model?: string
+      options?: Record<string, any>
+    }
+    manifestation?: {
+      modelId?: string
+      mood?: string
+    }
   }>
   eternal_record?: {
     relational_milestones?: string[]
@@ -180,6 +186,7 @@ export interface AiriExtension {
     chatCount: number
     totalTurns: number
   }
+  active_concepts?: string[]
 }
 
 export interface AiriCard extends Card {
@@ -213,6 +220,15 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   const vrmStore = useModelStore()
   const backgroundStore = useBackgroundStore()
   const isModelSyncPrevented = ref(false)
+
+  // Production Watcher: Monitor concept stack for manifestation triggers
+  watch(() => activeCard.value?.extensions?.airi?.active_concepts, (next, prev) => {
+    if (JSON.stringify(next) !== JSON.stringify(prev)) {
+      const topConceptId = next?.[next.length - 1]
+      console.log(`[AiriCard] Concept Stack changed. Top concept: "${topConceptId}". Syncing manifestation overrides...`, { stack: next })
+      void syncCardState(activeCard.value, true)
+    }
+  }, { deep: true })
 
   const {
     activeProvider: activeConsciousnessProvider,
@@ -530,7 +546,23 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         },
         vrm: existingExtension.modules?.vrm,
         live2d: existingExtension.modules?.live2d,
-        displayModelId: resolvedDisplayModelId,
+        displayModelId: (() => {
+          // Manifestation Bridge: Check Active Concept Stack for model overrides
+          const activeConcepts = existingExtension.active_concepts || []
+          const visualAssets = existingExtension.visual_assets || {}
+          const topConceptId = activeConcepts[activeConcepts.length - 1]
+
+          if (topConceptId) {
+            const topConcept = visualAssets[topConceptId]
+            if (topConcept?.manifestation?.modelId && topConcept.manifestation.modelId !== 'inherit') {
+              console.log(`[AiriCard:Manifestation] Resolved override from "${topConceptId}":`, topConcept.manifestation.modelId)
+              return topConcept.manifestation.modelId
+            }
+          }
+
+          // Fallback to base model
+          return resolvedDisplayModelId
+        })(),
         activeBackgroundId: resolvedActiveBackgroundId,
       },
       artistry: {
@@ -601,6 +633,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       },
       visual_assets: existingExtension.visual_assets,
       eternal_record: existingExtension.eternal_record,
+      active_concepts: existingExtension.active_concepts ?? [],
       groundingEnabled: existingExtension.groundingEnabled ?? false,
     }
   }

@@ -21,7 +21,7 @@ const autonomousArtistryStore = useAutonomousArtistryStore()
 
 const showBuilder = ref(false)
 const editingConceptId = ref<string>()
-const editingConceptData = ref<{ description: string, prompt: string }>()
+const editingConceptData = ref<any>()
 
 function handleAddConcept() {
   editingConceptId.value = undefined
@@ -35,14 +35,25 @@ function handleEditConcept(id: string, data: any) {
   showBuilder.value = true
 }
 
-function handleSaveConcept(payload: { id: string, data: any }) {
-  const newVisualAssets = { ...visualAssets.value, [payload.id]: payload.data }
+function handleDeleteConcept(id: string) {
+  const nextAssets = { ...visualAssets.value }
+  delete nextAssets[id]
+  saveAssets(nextAssets)
+}
 
-  // Update card store with new visual assets
+function handleSaveConcept(payload: { id: string, data: any }) {
+  const { id, data } = payload
+  const assets = { ...visualAssets.value }
+  assets[id] = data
+
+  saveAssets(assets)
+}
+
+function saveAssets(assets: any) {
   const extension = JSON.parse(JSON.stringify(props.card.extensions || {}))
   if (!extension.airi)
     extension.airi = {}
-  extension.airi.visual_assets = newVisualAssets
+  extension.airi.visual_assets = assets
 
   cardStore.updateCard(props.cardId, {
     ...props.card,
@@ -51,14 +62,29 @@ function handleSaveConcept(payload: { id: string, data: any }) {
 }
 
 const visualAssets = computed(() => props.card.extensions?.airi?.visual_assets || {})
+const activeConcepts = computed(() => props.card.extensions?.airi?.active_concepts || [])
 const journalEntries = computed(() => backgroundStore.getCharacterJournalEntries(props.cardId))
 const directorNotes = computed(() => autonomousArtistryStore.directorNotes.slice(-5).reverse())
 
-// Mock active concepts for now
-const activeConcepts = computed(() => {
-  // In a real implementation, this would come from a store tracking the current "stack"
-  return Object.keys(visualAssets.value).slice(0, 2)
-})
+function toggleConcept(conceptId: string) {
+  let next = [...activeConcepts.value]
+  if (next.includes(conceptId)) {
+    next = next.filter(id => id !== conceptId)
+  }
+  else {
+    next.push(conceptId)
+  }
+
+  const extension = JSON.parse(JSON.stringify(props.card.extensions || {}))
+  if (!extension.airi)
+    extension.airi = {}
+  extension.airi.active_concepts = next
+
+  cardStore.updateCard(props.cardId, {
+    ...props.card,
+    extensions: extension,
+  })
+}
 </script>
 
 <template>
@@ -69,7 +95,7 @@ const activeConcepts = computed(() => {
       <section class="flex flex-col gap-3">
         <div class="flex items-center justify-between">
           <h3 class="flex items-center gap-2 text-xs text-neutral-400 font-bold tracking-widest uppercase">
-            <div i-solar:layers-minimalistic-bold-duotone class="text-primary-500" />
+            <div class="i-solar:layers-minimalistic-bold-duotone text-primary-500" />
             Active Concept Stack
           </h3>
           <span class="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] text-neutral-500 dark:bg-neutral-800">
@@ -81,12 +107,13 @@ const activeConcepts = computed(() => {
           <div
             v-for="conceptId in activeConcepts"
             :key="conceptId"
-            class="group animate-in fade-in zoom-in relative flex items-center gap-2 rounded-lg bg-primary-500 px-3 py-1.5 text-white shadow-lg shadow-primary-500/20 duration-300"
+            class="group animate-in fade-in zoom-in relative flex cursor-pointer items-center gap-2 rounded-lg bg-primary-500 px-3 py-1.5 text-white shadow-lg shadow-primary-500/20 duration-300"
+            @click="toggleConcept(conceptId)"
           >
-            <div i-solar:stars-minimalistic-bold class="text-xs" />
+            <div class="i-solar:stars-minimalistic-bold text-xs" />
             <span class="text-xs font-bold">{{ conceptId }}</span>
             <button class="ml-1 rounded opacity-0 transition-opacity hover:bg-white/20 group-hover:opacity-100">
-              <div i-solar:close-circle-linear class="text-xs" />
+              <div class="i-solar:close-circle-linear text-xs" />
             </button>
           </div>
 
@@ -100,7 +127,7 @@ const activeConcepts = computed(() => {
       <section class="flex flex-col gap-3">
         <div class="flex items-center justify-between">
           <h3 class="flex items-center gap-2 text-xs text-neutral-400 font-bold tracking-widest uppercase">
-            <div i-solar:box-minimalistic-bold-duotone class="text-primary-500" />
+            <div class="i-solar:box-minimalistic-bold-duotone text-primary-500" />
             Concept Registry
           </h3>
           <button
@@ -116,11 +143,26 @@ const activeConcepts = computed(() => {
             v-for="(asset, id) in visualAssets"
             :key="id"
             class="group cursor-pointer border border-neutral-200 rounded-xl bg-white p-3 transition-all dark:border-neutral-700 hover:border-primary-400 dark:bg-neutral-800/50 dark:hover:border-primary-500/50"
-            @click="handleEditConcept(id as string, asset)"
+            :class="activeConcepts.includes(id as string) ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-neutral-900' : ''"
+            @click="toggleConcept(id as string)"
           >
             <div class="mb-1 flex items-center justify-between">
               <span class="text-xs text-neutral-700 font-bold transition-colors dark:text-neutral-200 group-hover:text-primary-500">{{ id }}</span>
-              <div v-if="activeConcepts.includes(id as string)" i-solar:check-circle-bold class="text-xs text-primary-500" />
+              <div class="flex items-center gap-2">
+                <div v-if="activeConcepts.includes(id as string)" class="i-solar:check-circle-bold text-xs text-primary-500" />
+                <button
+                  class="rounded bg-neutral-100 p-1 text-neutral-400 opacity-0 transition-all dark:bg-neutral-800 hover:bg-primary-500 hover:text-white group-hover:opacity-100"
+                  @click.stop="handleEditConcept(id as string, asset)"
+                >
+                  <div class="i-solar:pen-new-square-linear text-[10px]" />
+                </button>
+                <button
+                  class="rounded bg-neutral-100 p-1 text-neutral-400 opacity-0 transition-all dark:bg-neutral-800 hover:bg-red-500 hover:text-white group-hover:opacity-100"
+                  @click.stop="handleDeleteConcept(id as string)"
+                >
+                  <div class="i-solar:trash-bin-trash-linear text-[10px]" />
+                </button>
+              </div>
             </div>
             <p class="line-clamp-2 text-[10px] text-neutral-500 leading-relaxed">
               {{ asset.description }}
@@ -137,7 +179,7 @@ const activeConcepts = computed(() => {
       <!-- Director's Monitor -->
       <section class="mt-2 flex flex-col gap-3">
         <h3 class="flex items-center gap-2 text-xs text-neutral-400 font-bold tracking-widest uppercase">
-          <div i-solar:monitor-camera-bold-duotone class="text-primary-500" />
+          <div class="i-solar:monitor-camera-bold-duotone text-primary-500" />
           Director's Monitor
         </h3>
 
@@ -175,7 +217,7 @@ const activeConcepts = computed(() => {
           </div>
 
           <div v-if="directorNotes.length === 0" class="border border-neutral-200 rounded-xl border-dashed py-8 text-center dark:border-neutral-800">
-            <div i-solar:videocamera-record-linear class="mx-auto mb-2 text-2xl text-neutral-300" />
+            <div class="i-solar:videocamera-record-linear mx-auto mb-2 text-2xl text-neutral-300" />
             <p class="text-xs text-neutral-400">
               Waiting for first production session...
             </p>
@@ -187,7 +229,7 @@ const activeConcepts = computed(() => {
     <!-- Right Pane: Production Output (Gallery Preview) -->
     <div class="w-full flex flex-col gap-4 border-l border-neutral-100 pl-0 lg:w-80 dark:border-neutral-700/50 lg:pl-4">
       <h3 class="flex items-center gap-2 text-xs text-neutral-400 font-bold tracking-widest uppercase">
-        <div i-solar:gallery-wide-bold-duotone class="text-primary-500" />
+        <div class="i-solar:gallery-wide-bold-duotone text-primary-500" />
         Production Journal
       </h3>
 
@@ -211,7 +253,7 @@ const activeConcepts = computed(() => {
         </div>
 
         <div v-if="journalEntries.length === 0" class="aspect-square flex flex-col items-center justify-center border border-neutral-200 rounded-xl border-dashed bg-neutral-50/50 dark:border-neutral-800 dark:bg-black/10">
-          <div i-solar:album-linear class="mb-2 text-3xl text-neutral-200" />
+          <div class="i-solar:album-linear mb-2 text-3xl text-neutral-200" />
           <p class="px-4 text-center text-[10px] text-neutral-400 leading-tight">
             No generated content for this production yet.
           </p>

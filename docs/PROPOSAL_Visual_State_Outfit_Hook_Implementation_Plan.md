@@ -1,70 +1,54 @@
-# Implementation Plan: AIRI Studio & Concept Stacking
+# Implementation Plan: Production Studio & Concept Stacker
 
-Implement a modular "Studio" system that allows the Director LLM (and the User) to orchestrate complex visual states using a "Concept Stacker" architecture. This moves away from the crowded technical settings and towards a narrative-driven production workflow.
+This plan tracks the development and "Stress Testing" of the AIRI Studio. The system is now in the **Post-Deployment Validation** phase.
 
-## User Review Required
+## Current Status: [BETA-STABLE]
 
-> [!IMPORTANT]
-> **UI Paradigm Shift**: We are moving the "Production" controls (Outfits, Workflows) out of the deep "Edit Card" settings and into the "View Card" (Detail) mode. This makes the Gallery and the Studio side-by-side neighbors.
+### 1. Concept Registry & Data Model [DONE]
+- [x] Finalize `visual_assets` schema in `AiriCard` extensions.
+- [x] Implement persistent `active_concepts` stack in the character store.
+- [x] Implement persistence fix for the Registry Save Handler (Fix: Payload destructuring).
 
-> [!WARNING]
-> **Registry Dependency**: Characters will now require a `visual_assets` registry in their JSON to fully utilize the "Outfits" feature. I will provide a migration path for existing characters.
+### 2. Studio UI [DONE]
+- [x] **Production Tab**: Integrated the Studio into the `CardDetailDialog.vue`.
+- [x] **Active Concept Stack**: Interactive chips for real-time concept toggling.
+- [x] **Concept Builder Modal**: Multi-tab editor (Identity, Artistry, Manifestation).
+- [x] **Smart Dropdowns**: Replaced manual text IDs with searchable Select components for Workflows and Display Models.
 
-## Proposed Changes
+### 3. The Autonomous Bridges [DONE]
+- [x] **Artistry Bridge**: Generator now resolves prompt snippets and workflow paths from the active stack.
+- [x] **Manifestation Bridge**: Production Monitor triggers `changeModel()` when the stack resolves a new Model ID.
+- [x] **Director Integration**: Injected Concept Registry into the Director context for autonomous selection.
 
-### 1. Visual Asset Registry (Data Model)
-Finalize the schema in the `AiriCard` type and existing persona files (e.g., `kanjira-kjl.json`).
-- `visual_assets`: A dictionary mapping concept keys (e.g., `burgundy_traveler`) to:
-    - `promptSnippet`: Text to append/prepend.
-    - `workflowId`: Specific ComfyUI template.
-    - `modelFileId`: (Optional) The unique ID of the Live2D or VRM model file to swap to (Unified per-file swapping).
+---
 
-### 2. Studio UI [NEW COMPONENTS]
+## Next Milestones: The "Lain Protocol"
 
-#### [NEW] `VisualStudio.vue` (packages/stage-pages/src/pages/settings/airi-card/components/VisualStudio.vue)
-A dual-pane interface to be integrated into `CardDetailDialog.vue`.
-- **The Stage (Left Pane)**:
-    - **Active Concepts**: Horizontal list of chips representing the current "Stack."
-    - **Model Swapper**: A "coalesced" dropdown to manually swap the base Live2D/VRM file.
-    - **Concept Registry (The Closet)**: A grid of available concepts with an **"Add Concept"** button.
-    - **Director's Monitor**: A concise feed of the Director's latest reasoning.
-- **The Gallery (Right Pane)**:
-    - The existing image history grid.
+### 1. High-Volume Asset Stress Test
+Lain Iwakura serves as the "Chaos Test" for the system.
+- **Challenge**: Manage 20+ dress/expression combinations.
+- **Goal**: Ensure the Registry grid and Stack badges remain performant with high asset counts.
+- **Goal**: Test "Outfit Conflict" resolution—if 5 concepts are active, ensure the generative prompt remains coherent.
 
-#### [NEW] `ConceptBuilderModal.vue` (packages/stage-pages/src/pages/settings/airi-card/components/ConceptBuilderModal.vue)
-A modal for creating/editing visual concepts with the following fields:
-- **Concept Name**: Identifier for the Director (e.g., "Silver Performance").
-- **Provider/Workflow Hook**:
-    - Toggle: `[ComfyUI Workflow]` vs `[Generic Model Override]`.
-    - Dropdown to select the specific Workflow or Model ID.
-- **Prompt Snippet**: Textarea for keywords to inject into the manifestation.
-- **Model File**: Dropdown to select the Live2D or VRM file associated with this concept.
-- **Mood/Expression Layer**:
-    - A set of buttons representing expressions (Expressions load dynamically based on the selected **Model File**).
-    - Allows setting a "Default Mood" for when this concept is active.
+### 2. Reduced Friction (The 11-Click Fix)
+- **Goal**: Add a "Quick Import" button directly inside the `ConceptBuilderModal`.
+- **Goal**: Auto-detect the `prompt` node in newly uploaded ComfyUI JSONs to minimize manual mapping.
 
-### 3. Card Detail Integration
-#### [MODIFY] `CardDetailDialog.vue` (packages/stage-pages/src/pages/settings/airi-card/components/CardDetailDialog.vue)
-- Add a **"Studio"** tab.
-- Implement the split-view layout to host the new `VisualStudio.vue` component.
-- Ensure real-time updates when the Director triggers a new visual state.
+---
 
-### 4. Director Logic Refactor
-#### [MODIFY] `artistry-autonomous.ts` (packages/stage-ui/src/stores/modules/artistry-autonomous.ts)
-- Update the system prompt to instruct the Director on using `activeConcepts`.
-- **Logic**: If the narrative context matches a concept in the registry, the Director adds the concept key to the `visual_manifestation` response.
-- **Resolution**: The engine resolves the concept's `modelFileId`, `promptSnippet`, `workflowId`, and `mood` before execution.
+## Known Files & Structure
 
-## Verification Plan
+### Components
+- **Main View**: `ProductionStudioTab.vue` (packages/stage-pages/src/pages/settings/airi-card/components/tabs/ProductionStudioTab.vue)
+- **Editor**: `ConceptBuilderModal.vue` (packages/stage-pages/src/pages/settings/airi-card/components/ConceptBuilderModal.vue)
 
-### Automated Tests
-- **Registry Resolution**: Verify that selecting a concept correctly merges the prompt snippet and workflow ID.
-- **Model Swapping**: Verify that triggering a concept with a `modelFileId` initiates a full model file swap.
-- **Stacking Logic**: Ensure multiple concepts can be "stacked" (e.g., `[Outfit: Burgundy]` + `[Style: Cinematic]`).
+### Bridges
+- **Artistry**: `artistry-autonomous.ts` (packages/stage-ui/src/stores/modules/artistry-autonomous.ts)
+- **Manifestation**: `airi-card.ts` (packages/stage-ui/src/stores/modules/airi-card.ts) - Contains the "Production Monitor" watcher.
 
-### Manual Verification
-- Open the **Character Detail** view.
-- Navigate to the new **Studio** tab.
-- Manually toggle an outfit and verify the "Active Concepts" chips and Model selection update.
-- Trigger an autonomous manifestation and verify the Director's reasoning appears in the monitor.
-- Confirm the generated image reflects the selected "Concept Stack."
+---
+
+## Verification Checklist (For Xfer Machine)
+- [ ] Verify that `personal_airi` workflows are imported and visible in the Studio dropdowns.
+- [ ] Verify that tapping a Concept card instantly triggers a "Production Journal" entry.
+- [ ] Verify that the Director selects concepts based on the "Lain Protocol" narrative keywords.
