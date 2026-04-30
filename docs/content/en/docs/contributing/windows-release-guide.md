@@ -89,3 +89,16 @@ To avoid build failures due to transient network issues (e.g., downloading VRM m
 
 - **Alias Conflicts**: If an alias doesn't work, it might be due to relative path resolution within `node_modules`. Use **regex aliases** in Vite configuration to catch all variations.
 - **Typecheck Failures**: If adding an alias breaks typechecks, ensure the shim file exports types compatible with the original module, or use `// @ts-ignore` sparingly in the shim itself.
+- **File Locks**: If `electron-builder` fails with an `IOException` (e.g., "process cannot access the file app.asar"), it is likely that an instance of AIRI or a file watcher is locking the artifact. Refer to the process safety guidelines below.
+
+---
+
+## 5. Build Safety & Process Management
+
+> [!CAUTION]
+> **Strict Process Guidelines**:
+> - **Never autonomously run `taskkill`** or similar commands without explicitly pausing and obtaining permission from the USER.
+> - `taskkill` is **not** a standard part of the release process and should only be considered a last resort when manual coordination with the user fails.
+> - If a file is locked (e.g., `app.asar`), ask the user to stop the relevant process; they will gladly stop and restart it to facilitate the build.
+> - **"Nuking" all `node.exe` or `electron.exe` processes is never acceptable** for any reason, as it can cause data loss or terminate essential background services.
+
