@@ -110,6 +110,11 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       }
 
       // 1. Compose the "Director" prompt based on target
+      const visualAssets = (activeCard.extensions?.airi as any)?.visual_assets || {}
+      const availableConceptsText = Object.entries(visualAssets)
+        .map(([id, asset]: [string, any]) => `- "${id}": ${asset.description}`)
+        .join('\n') || '- No specific concepts available for this character.'
+
       const systemPrompt = target === 'assistant'
         ? `You are the Cinematic Director for AIRI. 
 Your job is to ALWAYS generate a visual manifestation (a generative image) summarizing the current scene, and then grade how interesting the resulting scene is from 1 to 100.
@@ -124,12 +129,16 @@ A high grade (warranted) should be given for:
 
 Character Personality: ${activeCard.personality}
 
+AVAILABLE CONCEPTS:
+\${availableConceptsText}
+
 Output EXACTLY this JSON format and nothing else:
 {
   "reasoning": "Quick explanation of why this scene is visually interesting or boring",
   "intensity": 1-100,
   "prompt": "Highly detailed, illustrative prompt for the image generator capturing the character's reaction and scene. Use Mori's style (masterpiece, high quality, manga style, intricate details)",
-  "title": "Short descriptive title for the scene"
+  "title": "Short descriptive title for the scene",
+  "selected_concepts": ["Array of zero or more concept IDs chosen from the Available Concepts list"]
 }`
         : `You are the Cinematic Director for AIRI. 
 Your job is to ALWAYS generate a visual manifestation (a generative image) summarizing the current scene, and then grade how interesting the resulting scene is from 1 to 100.
@@ -143,12 +152,16 @@ A high grade (warranted) should be given for:
 
 Character Personality: ${activeCard.personality}
 
+AVAILABLE CONCEPTS:
+\${availableConceptsText}
+
 Output EXACTLY this JSON format and nothing else:
 {
   "reasoning": "Quick explanation of why this scene is visually interesting or boring",
   "intensity": 1-100,
   "prompt": "Highly detailed, illustrative prompt for the image generator. Use Mori's style (masterpiece, high quality, manga style, intricate details)",
-  "title": "Short descriptive title for the scene"
+  "title": "Short descriptive title for the scene",
+  "selected_concepts": ["Array of zero or more concept IDs chosen from the Available Concepts list"]
 }`
 
       // 2. Rollup history and text into a single prompt to help the LLM "see" the full context
@@ -221,16 +234,35 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
       }
 
       const analysis = JSON.parse(jsonContent)
+      const selectedConcepts: string[] = Array.isArray(analysis.selected_concepts) ? analysis.selected_concepts : []
       artistLog('Parsed Analysis Result:', {
         intensity: analysis.intensity,
         reasoning: analysis.reasoning,
         title: analysis.title,
         prompt: analysis.prompt,
+        selected_concepts: selectedConcepts,
+      })
+
+      // 3.5 Level Up: Prompt Snippet Injection
+      // If the Director picked concepts, append their associated prompt snippets to the final prompt
+      let finalPrompt = analysis.prompt
+      selectedConcepts.forEach((conceptId) => {
+        const asset = visualAssets[conceptId]
+        if (asset?.prompt) {
+          artistLog(`Injecting prompt snippet for concept "${conceptId}":`, asset.prompt)
+          finalPrompt += asset.prompt
+        }
       })
 
       const thresholdMet = (analysis.intensity ?? 0) >= threshold
+
+      let notificationDescription = `${thresholdMet ? '✅' : '❌'} Grade: ${analysis.intensity}/${threshold}\nReason: ${analysis.reasoning?.substring(0, 130)}${analysis.reasoning?.length > 130 ? '...' : ''}`
+      if (selectedConcepts.length > 0) {
+        notificationDescription += `\n🎯 Concepts: ${selectedConcepts.join(', ')}`
+      }
+
       toast('Director\'s Decision', {
-        description: `${thresholdMet ? '✅' : '❌'} Grade: ${analysis.intensity}/${threshold}\nReason: ${analysis.reasoning?.substring(0, 130)}${analysis.reasoning?.length > 130 ? '...' : ''}`,
+        description: notificationDescription,
         duration: 7000,
       })
 
@@ -245,7 +277,7 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
         content: analysis.reasoning,
         intensity: analysis.intensity,
         title: analysis.title,
-        prompt: analysis.prompt,
+        prompt: finalPrompt,
         target,
         state: noteState,
         createdAt: Date.now(),
@@ -263,7 +295,7 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
 
         const artistryGlobals = artistryStore.artistryGlobals
         const generationPayload = {
-          prompt: artistry.promptPrefix ? `${artistry.promptPrefix} ${analysis.prompt}` : analysis.prompt,
+          prompt: artistry.promptPrefix ? `${artistry.promptPrefix} ${finalPrompt}` : finalPrompt,
           model: artistry.model || artistryStore.activeModel,
           provider: artistry.provider || artistryStore.activeProvider,
           options: artistry.options || artistryStore.providerOptions,

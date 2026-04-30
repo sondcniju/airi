@@ -163,6 +163,13 @@ export interface AiriExtension {
   heartbeats?: HeartbeatConfig
   dreamState?: DreamStateConfig
   groundingEnabled?: boolean
+  visual_assets?: Record<string, {
+    description: string
+    prompt?: string
+    model?: string
+    expression?: string
+    workflow?: string
+  }>
   proactivity_metrics?: {
     ttsCount: number
     sttCount: number

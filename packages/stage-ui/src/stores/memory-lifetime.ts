@@ -454,7 +454,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
       const response = await llmStore.generate(modelId, provider, messages, {
         requestOverrides: { response_format: { type: 'json_object' } },
       })
-      const text = response.text || (response as any).reasoning || '{}'
+      const text = response.text || (response as any).reasoning || (response as any).reasoning_content || '{}'
       console.log(`[memory-lifetime] [json_object] Response text length: ${text.length}`)
       const parsed = JSON.parse(text)
       return validateJsonSchema(parsed, schema) as T
@@ -474,7 +474,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
           },
         },
       })
-      const text = response.text || (response as any).reasoning || '{}'
+      const text = response.text || (response as any).reasoning || (response as any).reasoning_content || '{}'
       console.log(`[memory-lifetime] [json_schema] Response text length: ${text.length}`)
       const parsed = JSON.parse(text)
       return validateJsonSchema(parsed, schema) as T
@@ -487,7 +487,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
     // 3. Fallback: No response_format, rely purely on system prompt and try to parse
     try {
       const response = await llmStore.generate(modelId, provider, messages, {})
-      let text = response.text || (response as any).reasoning || '{}'
+      let text = response.text || (response as any).reasoning || (response as any).reasoning_content || '{}'
 
       // Clean potential markdown fences
       if (text.startsWith('```')) {

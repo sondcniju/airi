@@ -64,7 +64,7 @@ Output raw JSON only. Do not include markdown backticks or any preamble/postambl
     ...llmOptions,
   })
 
-  const rawText = response.text || ''
+  const rawText = response.text || (response as any).reasoning || (response as any).reasoning_content || ''
   const cleanText = stripMarkdown(rawText)
 
   let parsed: any
