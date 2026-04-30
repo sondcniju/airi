@@ -15,7 +15,7 @@ import { useAnalytics } from '../composables'
 import { createLlmJsonInterceptor } from '../composables/llm-json-interceptor'
 import { useLlmmarkerParser } from '../composables/llm-marker-parser'
 import { categorizeResponse, createStreamingCategorizer } from '../composables/response-categoriser'
-import { createDatetimeContext, createExpressionsContext, createScenesContext, createStickersContext } from './chat/context-providers'
+import { createDatetimeContext, createEternalRecordContext, createExpressionsContext, createScenesContext, createStickersContext } from './chat/context-providers'
 import { useChatContextStore } from './chat/context-store'
 import { createChatHooks } from './chat/hooks'
 import { useChatSessionStore } from './chat/session-store'
@@ -152,6 +152,11 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     chatContext.ingestContextMessage(createStickersContext())
     chatContext.ingestContextMessage(createScenesContext())
     chatContext.ingestContextMessage(createExpressionsContext())
+
+    const eternalRecordContext = createEternalRecordContext(activeCard.value?.extensions?.airi?.eternal_record)
+    if (eternalRecordContext) {
+      chatContext.ingestContextMessage(eternalRecordContext)
+    }
 
     const sendingCreatedAt = Date.now()
     const streamingMessageContext: ChatStreamEventContext = {

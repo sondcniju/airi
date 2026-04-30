@@ -110,7 +110,10 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       }
 
       // 1. Compose the "Director" prompt based on target
-      const visualAssets = (activeCard.extensions?.airi as any)?.visual_assets || {}
+      const airiExt = activeCard.extensions?.airi as any
+      artistLog('DEBUG: Full airi extension:', JSON.stringify(airiExt, null, 2))
+      const visualAssets = airiExt?.visual_assets || {}
+      artistLog('DEBUG: visual_assets resolved to:', JSON.stringify(visualAssets))
       const availableConceptsText = Object.entries(visualAssets)
         .map(([id, asset]: [string, any]) => `- "${id}": ${asset.description}`)
         .join('\n') || '- No specific concepts available for this character.'
@@ -130,7 +133,7 @@ A high grade (warranted) should be given for:
 Character Personality: ${activeCard.personality}
 
 AVAILABLE CONCEPTS:
-\${availableConceptsText}
+${availableConceptsText}
 
 Output EXACTLY this JSON format and nothing else:
 {
@@ -153,7 +156,7 @@ A high grade (warranted) should be given for:
 Character Personality: ${activeCard.personality}
 
 AVAILABLE CONCEPTS:
-\${availableConceptsText}
+${availableConceptsText}
 
 Output EXACTLY this JSON format and nothing else:
 {
@@ -280,6 +283,7 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
         prompt: finalPrompt,
         target,
         state: noteState,
+        selected_concepts: selectedConcepts,
         createdAt: Date.now(),
       })
 

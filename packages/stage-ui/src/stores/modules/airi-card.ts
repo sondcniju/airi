@@ -170,6 +170,10 @@ export interface AiriExtension {
     expression?: string
     workflow?: string
   }>
+  eternal_record?: {
+    relational_milestones?: string[]
+    lore_bits?: string[]
+  }
   proactivity_metrics?: {
     ttsCount: number
     sttCount: number
@@ -595,6 +599,8 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         chatCount: existingExtension.proactivity_metrics?.chatCount ?? 0,
         totalTurns: existingExtension.proactivity_metrics?.totalTurns ?? 0,
       },
+      visual_assets: existingExtension.visual_assets,
+      eternal_record: existingExtension.eternal_record,
       groundingEnabled: existingExtension.groundingEnabled ?? false,
     }
   }

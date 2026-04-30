@@ -28,13 +28,32 @@ const props = defineProps<{
       </p>
     </div>
 
-    <div v-if="note.state === 'pending'" class="z-10 mt-2 flex items-center gap-2 border-t border-purple-500/20 pt-2">
-      <span class="i-svg-spinners-pulse-multiple text-purple-400" />
-      <span class="animate-pulse text-xs text-purple-300">Manifesting Scene...</span>
-    </div>
-    <div v-else-if="note.intensity >= 70 && note.state === 'done'" class="z-10 mt-2 flex items-center gap-2 border-t border-purple-500/20 pt-2">
-      <span class="i-carbon-checkmark-outline text-green-400" />
-      <span class="text-xs text-green-300">Scene Manifested</span>
+    <div v-if="note.state === 'pending' || note.selected_concepts?.length || (note.intensity >= 70 && note.state === 'done')" class="z-10 mt-2 flex items-center justify-between border-t border-purple-500/20 pt-2">
+      <div class="flex items-center gap-2">
+        <template v-if="note.state === 'pending'">
+          <span class="i-svg-spinners-pulse-multiple text-purple-400" />
+          <span class="animate-pulse text-xs text-purple-300">Manifesting Scene...</span>
+        </template>
+        <template v-else-if="note.intensity >= 70">
+          <span class="i-carbon-checkmark-outline text-green-400" />
+          <span class="text-xs text-green-300">Scene Manifested</span>
+        </template>
+        <template v-else>
+          <span class="i-carbon-information text-purple-400/50" />
+          <span class="text-xs text-purple-300/50">Analysis Complete</span>
+        </template>
+      </div>
+
+      <!-- Concepts Chips -->
+      <div v-if="note.selected_concepts?.length" class="flex flex-wrap justify-end gap-1">
+        <span
+          v-for="concept in note.selected_concepts"
+          :key="concept"
+          class="border border-purple-500/30 rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] text-purple-300 tracking-tighter uppercase shadow-[0_0_5px_rgba(168,85,247,0.1)]"
+        >
+          {{ concept }}
+        </span>
+      </div>
     </div>
   </div>
 </template>

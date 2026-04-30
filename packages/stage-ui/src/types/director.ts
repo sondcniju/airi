@@ -8,6 +8,7 @@ export interface DirectorNote {
   prompt?: string
   target?: 'user' | 'assistant'
   state: 'pending' | 'done'
+  selected_concepts?: string[]
   createdAt: number
 }
 
