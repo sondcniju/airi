@@ -330,8 +330,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     } as any)
 
     // Verify persistence
-    const updated = cards.value.get(id)
-    console.log('[AiriCard] toggleGrounding result:', updated?.extensions?.airi?.groundingEnabled)
   }
 
   const setAutonomousArtistry = (id: string, enabled: boolean) => {
@@ -515,6 +513,10 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         artistry: defaultArtistry,
         generation: defaultGeneration,
         groundingEnabled: false,
+        visual_assets: {},
+        active_concepts: [],
+        eternal_record: { relational_milestones: [], lore_bits: [] },
+        imageJournal: { selfie: false },
       }
     }
 
@@ -530,32 +532,35 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       ?? defaultModules.activeBackgroundId
 
     return {
+      ...existingExtension,
       modules: {
+        ...existingExtension?.modules,
         consciousness: {
-          provider: existingExtension.modules?.consciousness?.provider || defaultModules.consciousness.provider,
-          model: existingExtension.modules?.consciousness?.model || defaultModules.consciousness.model,
+          provider: existingExtension?.modules?.consciousness?.provider || defaultModules.consciousness.provider,
+          model: existingExtension?.modules?.consciousness?.model || defaultModules.consciousness.model,
+          ...existingExtension?.modules?.consciousness,
         },
         speech: {
-          provider: existingExtension.modules?.speech?.provider || defaultModules.speech.provider,
-          model: existingExtension.modules?.speech?.model || defaultModules.speech.model,
-          voice_id: existingExtension.modules?.speech?.voice_id || defaultModules.speech.voice_id,
-          pitch: existingExtension.modules?.speech?.pitch,
-          rate: existingExtension.modules?.speech?.rate,
-          ssml: existingExtension.modules?.speech?.ssml,
-          language: existingExtension.modules?.speech?.language,
+          provider: existingExtension?.modules?.speech?.provider || defaultModules.speech.provider,
+          model: existingExtension?.modules?.speech?.model || defaultModules.speech.model,
+          voice_id: existingExtension?.modules?.speech?.voice_id || defaultModules.speech.voice_id,
+          pitch: existingExtension?.modules?.speech?.pitch,
+          rate: existingExtension?.modules?.speech?.rate,
+          ssml: existingExtension?.modules?.speech?.ssml,
+          language: existingExtension?.modules?.speech?.language,
+          ...existingExtension?.modules?.speech,
         },
-        vrm: existingExtension.modules?.vrm,
-        live2d: existingExtension.modules?.live2d,
+        vrm: existingExtension?.modules?.vrm,
+        live2d: existingExtension?.modules?.live2d,
         displayModelId: (() => {
           // Manifestation Bridge: Check Active Concept Stack for model overrides
-          const activeConcepts = existingExtension.active_concepts || []
-          const visualAssets = existingExtension.visual_assets || {}
+          const activeConcepts = (existingExtension as any)?.active_concepts || []
+          const visualAssets = (existingExtension as any)?.visual_assets || {}
           const topConceptId = activeConcepts[activeConcepts.length - 1]
 
           if (topConceptId) {
             const topConcept = visualAssets[topConceptId]
             if (topConcept?.manifestation?.modelId && topConcept.manifestation.modelId !== 'inherit') {
-              console.log(`[AiriCard:Manifestation] Resolved override from "${topConceptId}":`, topConcept.manifestation.modelId)
               return topConcept.manifestation.modelId
             }
           }
@@ -566,75 +571,84 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         activeBackgroundId: resolvedActiveBackgroundId,
       },
       artistry: {
-        ...existingExtension.artistry,
-        widgetInstruction: existingExtension.artistry?.widgetInstruction ?? defaultArtistry.widgetInstruction,
-        spawnMode: existingExtension.artistry?.spawnMode ?? 'bg_widget',
-        autonomousEnabled: existingExtension.artistry?.autonomousEnabled ?? false,
-        autonomousThreshold: existingExtension.artistry?.autonomousThreshold ?? 70,
-        autonomousTarget: existingExtension.artistry?.autonomousTarget ?? 'user',
-        autonomousMonitorEnabled: existingExtension.artistry?.autonomousMonitorEnabled ?? true,
-        autonomousHistoryDepth: existingExtension.artistry?.autonomousHistoryDepth ?? 3,
+        ...existingExtension?.artistry,
+        widgetInstruction: existingExtension?.artistry?.widgetInstruction ?? defaultArtistry.widgetInstruction,
+        spawnMode: existingExtension?.artistry?.spawnMode ?? 'bg_widget',
+        autonomousEnabled: existingExtension?.artistry?.autonomousEnabled ?? false,
+        autonomousThreshold: existingExtension?.artistry?.autonomousThreshold ?? 70,
+        autonomousTarget: existingExtension?.artistry?.autonomousTarget ?? 'user',
+        autonomousMonitorEnabled: existingExtension?.artistry?.autonomousMonitorEnabled ?? true,
+        autonomousHistoryDepth: existingExtension?.artistry?.autonomousHistoryDepth ?? 3,
       },
       generation: {
-        enabled: existingExtension.generation?.enabled ?? defaultGeneration.enabled,
-        provider: existingExtension.generation?.provider ?? defaultGeneration.provider,
-        model: existingExtension.generation?.model ?? defaultGeneration.model,
+        ...existingExtension?.generation,
+        enabled: existingExtension?.generation?.enabled ?? defaultGeneration.enabled,
+        provider: existingExtension?.generation?.provider ?? defaultGeneration.provider,
+        model: existingExtension?.generation?.model ?? defaultGeneration.model,
         known: {
-          maxTokens: existingExtension.generation?.known?.maxTokens,
-          temperature: existingExtension.generation?.known?.temperature,
-          topP: existingExtension.generation?.known?.topP,
-          contextWidth: existingExtension.generation?.known?.contextWidth ?? defaultGeneration.known?.contextWidth,
+          ...existingExtension?.generation?.known,
+          maxTokens: existingExtension?.generation?.known?.maxTokens,
+          temperature: existingExtension?.generation?.known?.temperature,
+          topP: existingExtension?.generation?.known?.topP,
+          contextWidth: existingExtension?.generation?.known?.contextWidth ?? defaultGeneration.known?.contextWidth,
         },
-        advanced: existingExtension.generation?.advanced,
-        importedPresetMeta: existingExtension.generation?.importedPresetMeta,
+        advanced: existingExtension?.generation?.advanced,
+        importedPresetMeta: existingExtension?.generation?.importedPresetMeta,
       },
       acting: {
-        modelExpressionPrompt: existingExtension.acting?.modelExpressionPrompt ?? defaultActing.modelExpressionPrompt,
-        speechExpressionPrompt: existingExtension.acting?.speechExpressionPrompt ?? defaultActing.speechExpressionPrompt,
-        speechMannerismPrompt: existingExtension.acting?.speechMannerismPrompt ?? defaultActing.speechMannerismPrompt,
-        idleAnimations: existingExtension.acting?.idleAnimations ?? defaultActing.idleAnimations,
+        ...existingExtension?.acting,
+        modelExpressionPrompt: existingExtension?.acting?.modelExpressionPrompt ?? defaultActing.modelExpressionPrompt,
+        speechExpressionPrompt: existingExtension?.acting?.speechExpressionPrompt ?? defaultActing.speechExpressionPrompt,
+        speechMannerismPrompt: existingExtension?.acting?.speechMannerismPrompt ?? defaultActing.speechMannerismPrompt,
+        idleAnimations: existingExtension?.acting?.idleAnimations ?? defaultActing.idleAnimations,
       },
-      outfits: existingExtension.outfits ?? [],
-      agents: existingExtension.agents ?? {},
+      outfits: existingExtension?.outfits ?? [],
+      agents: existingExtension?.agents ?? {},
       heartbeats: {
-        enabled: existingExtension.heartbeats?.enabled ?? defaultHeartbeats.enabled,
-        intervalMinutes: existingExtension.heartbeats?.intervalMinutes ?? defaultHeartbeats.intervalMinutes,
-        prompt: existingExtension.heartbeats?.prompt ?? defaultHeartbeats.prompt,
-        injectIntoPrompt: existingExtension.heartbeats?.injectIntoPrompt ?? defaultHeartbeats.injectIntoPrompt,
-        useAsLocalGate: existingExtension.heartbeats?.useAsLocalGate ?? defaultHeartbeats.useAsLocalGate,
+        ...existingExtension?.heartbeats,
+        enabled: existingExtension?.heartbeats?.enabled ?? defaultHeartbeats.enabled,
+        intervalMinutes: existingExtension?.heartbeats?.intervalMinutes ?? defaultHeartbeats.intervalMinutes,
+        prompt: existingExtension?.heartbeats?.prompt ?? defaultHeartbeats.prompt,
+        injectIntoPrompt: existingExtension?.heartbeats?.injectIntoPrompt ?? defaultHeartbeats.injectIntoPrompt,
+        useAsLocalGate: existingExtension?.heartbeats?.useAsLocalGate ?? defaultHeartbeats.useAsLocalGate,
         contextOptions: {
-          windowHistory: existingExtension.heartbeats?.contextOptions?.windowHistory ?? defaultHeartbeats.contextOptions!.windowHistory,
-          systemLoad: existingExtension.heartbeats?.contextOptions?.systemLoad ?? defaultHeartbeats.contextOptions!.systemLoad,
-          usageMetrics: existingExtension.heartbeats?.contextOptions?.usageMetrics ?? defaultHeartbeats.contextOptions!.usageMetrics,
+          ...existingExtension?.heartbeats?.contextOptions,
+          windowHistory: existingExtension?.heartbeats?.contextOptions?.windowHistory ?? defaultHeartbeats.contextOptions!.windowHistory,
+          systemLoad: existingExtension?.heartbeats?.contextOptions?.systemLoad ?? defaultHeartbeats.contextOptions!.systemLoad,
+          usageMetrics: existingExtension?.heartbeats?.contextOptions?.usageMetrics ?? defaultHeartbeats.contextOptions!.usageMetrics,
         },
         schedule: {
-          start: existingExtension.heartbeats?.schedule?.start ?? defaultHeartbeats.schedule.start,
-          end: existingExtension.heartbeats?.schedule?.end ?? defaultHeartbeats.schedule.end,
+          ...existingExtension?.heartbeats?.schedule,
+          start: existingExtension?.heartbeats?.schedule?.start ?? defaultHeartbeats.schedule.start,
+          end: existingExtension?.heartbeats?.schedule?.end ?? defaultHeartbeats.schedule.end,
         },
-        respectSchedule: existingExtension.heartbeats?.respectSchedule ?? defaultHeartbeats.respectSchedule,
+        respectSchedule: existingExtension?.heartbeats?.respectSchedule ?? defaultHeartbeats.respectSchedule,
       },
       dreamState: {
-        enabled: existingExtension.dreamState?.enabled ?? defaultDreamState.enabled,
-        strictAfkGating: existingExtension.dreamState?.strictAfkGating ?? defaultDreamState.strictAfkGating,
-        journalingThreshold: existingExtension.dreamState?.journalingThreshold ?? defaultDreamState.journalingThreshold,
-        maxSessionsPerDay: existingExtension.dreamState?.maxSessionsPerDay ?? defaultDreamState.maxSessionsPerDay,
-        sessionTimeoutMinutes: existingExtension.dreamState?.sessionTimeoutMinutes ?? defaultDreamState.sessionTimeoutMinutes,
-        afkThresholdMinutes: existingExtension.dreamState?.afkThresholdMinutes ?? defaultDreamState.afkThresholdMinutes,
-        minConversationTurns: existingExtension.dreamState?.minConversationTurns ?? defaultDreamState.minConversationTurns,
-        lastProcessedAt: existingExtension.dreamState?.lastProcessedAt ?? defaultDreamState.lastProcessedAt,
-        dailyRunDate: existingExtension.dreamState?.dailyRunDate ?? defaultDreamState.dailyRunDate,
-        dailyRunCount: existingExtension.dreamState?.dailyRunCount ?? defaultDreamState.dailyRunCount,
+        ...existingExtension?.dreamState,
+        enabled: existingExtension?.dreamState?.enabled ?? defaultDreamState.enabled,
+        strictAfkGating: existingExtension?.dreamState?.strictAfkGating ?? defaultDreamState.strictAfkGating,
+        journalingThreshold: existingExtension?.dreamState?.journalingThreshold ?? defaultDreamState.journalingThreshold,
+        maxSessionsPerDay: existingExtension?.dreamState?.maxSessionsPerDay ?? defaultDreamState.maxSessionsPerDay,
+        sessionTimeoutMinutes: existingExtension?.dreamState?.sessionTimeoutMinutes ?? defaultDreamState.sessionTimeoutMinutes,
+        afkThresholdMinutes: existingExtension?.dreamState?.afkThresholdMinutes ?? defaultDreamState.afkThresholdMinutes,
+        minConversationTurns: existingExtension?.dreamState?.minConversationTurns ?? defaultDreamState.minConversationTurns,
+        lastProcessedAt: existingExtension?.dreamState?.lastProcessedAt ?? defaultDreamState.lastProcessedAt,
+        dailyRunDate: existingExtension?.dreamState?.dailyRunDate ?? defaultDreamState.dailyRunDate,
+        dailyRunCount: existingExtension?.dreamState?.dailyRunCount ?? defaultDreamState.dailyRunCount,
       },
       proactivity_metrics: {
-        ttsCount: existingExtension.proactivity_metrics?.ttsCount ?? 0,
-        sttCount: existingExtension.proactivity_metrics?.sttCount ?? 0,
-        chatCount: existingExtension.proactivity_metrics?.chatCount ?? 0,
-        totalTurns: existingExtension.proactivity_metrics?.totalTurns ?? 0,
+        ...existingExtension?.proactivity_metrics,
+        ttsCount: existingExtension?.proactivity_metrics?.ttsCount ?? 0,
+        sttCount: existingExtension?.proactivity_metrics?.sttCount ?? 0,
+        chatCount: existingExtension?.proactivity_metrics?.chatCount ?? 0,
+        totalTurns: existingExtension?.proactivity_metrics?.totalTurns ?? 0,
       },
-      visual_assets: existingExtension.visual_assets,
-      eternal_record: existingExtension.eternal_record,
-      active_concepts: existingExtension.active_concepts ?? [],
-      groundingEnabled: existingExtension.groundingEnabled ?? false,
+      visual_assets: (existingExtension as any)?.visual_assets || {},
+      eternal_record: (existingExtension as any)?.eternal_record || { relational_milestones: [], lore_bits: [] },
+      active_concepts: (existingExtension as any)?.active_concepts ?? [],
+      groundingEnabled: existingExtension?.groundingEnabled ?? false,
+      imageJournal: (existingExtension as any)?.imageJournal || { selfie: false },
     }
   }
 
@@ -642,8 +656,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     const validation = safeParse(AiriCardSchema, card)
     if (!validation.success) {
       console.warn('[AiriCard] Validation issues found during normalization:', validation.issues)
-      // We still proceed with normalization for robustness, but we've logged the problems.
-      // In a stricter implementation, we could throw here.
     }
 
     const normalizeVersion = (version?: string | null) => {

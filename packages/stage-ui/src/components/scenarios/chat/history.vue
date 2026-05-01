@@ -12,6 +12,7 @@ import ChatUserItem from './user-item.vue'
 
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useAutonomousArtistryStore } from '../../../stores/modules/artistry-autonomous'
+import { useSettingsChat } from '../../../stores/settings'
 import { chatScrollContainerKey } from './constants'
 
 const props = withDefaults(defineProps<{
@@ -88,8 +89,12 @@ watch(() => props.sending, (val) => {
   }
 }, { flush: 'post' })
 
+const chatSettings = useSettingsChat()
+const artistryStore = useAutonomousArtistryStore()
+const cardStore = useAiriCardStore()
+
 const labels = computed(() => ({
-  assistant: props.assistantLabel ?? t('stage.chat.message.character-name.airi'),
+  assistant: props.assistantLabel ?? cardStore.activeCard?.nickname ?? cardStore.activeCard?.name ?? t('stage.chat.message.character-name.airi'),
   user: props.userLabel ?? t('stage.chat.message.character-name.you'),
   error: props.errorLabel ?? t('stage.chat.message.character-name.core-system'),
 }))
@@ -105,10 +110,8 @@ function shouldShowPlaceholder(message: ChatHistoryItem) {
   return message.context?.createdAt === ts || message.createdAt === ts
 }
 const renderMessages = computed<(ChatHistoryItem | DirectorNote)[]>(() => {
-  const artistryStore = useAutonomousArtistryStore()
-  const cardStore = useAiriCardStore()
   const monitorEnabled = (cardStore.activeCard?.extensions?.airi?.artistry as any)?.autonomousMonitorEnabled ?? true
-  const directorNotes = monitorEnabled ? (artistryStore.directorNotes || []) : []
+  const directorNotes = (monitorEnabled && chatSettings.showDirectorNotes) ? (artistryStore.directorNotes || []) : []
 
   let baseMessages: (ChatHistoryItem | DirectorNote)[] = props.messages
 
@@ -122,7 +125,17 @@ const renderMessages = computed<(ChatHistoryItem | DirectorNote)[]>(() => {
 
   // Merge and sort
   const merged = [...baseMessages, ...directorNotes]
-  return merged.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+  return merged.sort((a, b) => {
+    const timeA = a.createdAt || 0
+    const timeB = b.createdAt || 0
+    if (timeA !== timeB)
+      return timeA - timeB
+
+    // Stability fallback
+    const idA = (a as any).id || (a as any).role || ''
+    const idB = (b as any).id || (b as any).role || ''
+    return idA.localeCompare(idB)
+  })
 })
 </script>
 
@@ -136,7 +149,7 @@ const renderMessages = computed<(ChatHistoryItem | DirectorNote)[]>(() => {
     :class="[variant === 'mobile' ? 'gap-1' : 'gap-2']"
     @scroll="handleScroll"
   >
-    <template v-for="(message, index) in renderMessages" :key="'id' in message && message.id ? message.id : index">
+    <template v-for="(message, index) in renderMessages" :key="'id' in message && message.id ? message.id : ('createdAt' in message && message.createdAt ? `ts-${message.createdAt}` : `idx-${index}`)">
       <div v-if="'type' in message && message.type === 'director-note'">
         <DirectorNoteBubble :note="message" />
       </div>

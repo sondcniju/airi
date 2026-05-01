@@ -5,7 +5,7 @@ import { useLogg } from '@guiiai/logg'
 const log = useLogg('comfyui-provider').useGlobalConfig()
 
 const POLL_INTERVAL_MS = 5000
-const POLL_TIMEOUT_MS = 1000 * 60 * 5 // 5 minutes
+const POLL_TIMEOUT_MS = 1000 * 60 * 10 // 10 minutes
 
 export class ComfyUIProvider implements ArtistryProvider {
   readonly id = 'comfyui'
@@ -148,7 +148,7 @@ export class ComfyUIProvider implements ArtistryProvider {
         attempt++
 
         if (Date.now() - startTime > POLL_TIMEOUT_MS) {
-          throw new Error('Generation timed out after 5 minutes')
+          throw new Error('Generation timed out after 10 minutes')
         }
 
         if (attempt % 3 === 0) {

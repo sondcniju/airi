@@ -497,10 +497,24 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
     }
   }
 
+  function findNoteForImage(title?: string, prompt?: string) {
+    if (!title && !prompt)
+      return null
+    return directorNotes.value.slice().reverse().find((n) => {
+      // Direct match on title or prompt
+      if (title && n.title === title)
+        return true
+      if (prompt && n.prompt === prompt)
+        return true
+      return false
+    })
+  }
+
   return {
     isProcessing,
     directorNotes,
     runArtistTask,
     loadDirectorNotes,
+    findNoteForImage,
   }
 })
