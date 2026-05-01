@@ -131,9 +131,16 @@ const renderMessages = computed<(ChatHistoryItem | DirectorNote)[]>(() => {
     if (timeA !== timeB)
       return timeA - timeB
 
-    // Stability fallback
-    const idA = (a as any).id || (a as any).role || ''
-    const idB = (b as any).id || (b as any).role || ''
+    // Stability fallback: prioritize user over assistant if timestamps are identical
+    if (a.role !== b.role) {
+      if (a.role === 'user')
+        return -1
+      if (b.role === 'user')
+        return 1
+    }
+
+    const idA = (a as any).id || ''
+    const idB = (b as any).id || ''
     return idA.localeCompare(idB)
   })
 })
