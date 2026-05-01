@@ -140,6 +140,7 @@ const AiriExtensionSchema = looseObject({
   visual_assets: optional(record(string(), looseObject({
     description: string(),
     prompt: optional(string()),
+    isBase: optional(boolean()),
     artistry: optional(looseObject({
       provider: optional(string()),
       model: optional(string()),

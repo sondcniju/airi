@@ -166,6 +166,7 @@ export interface AiriExtension {
   visual_assets?: Record<string, {
     description: string
     prompt?: string
+    isBase?: boolean
     artistry?: {
       provider?: string
       model?: string

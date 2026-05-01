@@ -67,12 +67,23 @@ const journalEntries = computed(() => backgroundStore.getCharacterJournalEntries
 const directorNotes = computed(() => autonomousArtistryStore.directorNotes.slice(-5).reverse())
 
 function toggleConcept(conceptId: string) {
+  const concept = visualAssets.value[conceptId]
   let next = [...activeConcepts.value]
+
   if (next.includes(conceptId)) {
+    // Deactivating: just remove it
     next = next.filter(id => id !== conceptId)
   }
   else {
-    next.push(conceptId)
+    // Activating: apply Base vs Layer logic
+    if (concept?.isBase) {
+      // Base (Exclusionary): Clear the entire stack, add only this concept
+      next = [conceptId]
+    }
+    else {
+      // Layer (Additive): Push on top of whatever is already there
+      next.push(conceptId)
+    }
   }
 
   const extension = JSON.parse(JSON.stringify(props.card.extensions || {}))
@@ -147,7 +158,23 @@ function toggleConcept(conceptId: string) {
             @click="toggleConcept(id as string)"
           >
             <div class="mb-1 flex items-center justify-between">
-              <span class="text-xs text-neutral-700 font-bold transition-colors dark:text-neutral-200 group-hover:text-primary-500">{{ id }}</span>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-neutral-700 font-bold transition-colors dark:text-neutral-200 group-hover:text-primary-500">{{ id }}</span>
+                <span
+                  v-if="asset.isBase"
+                  :class="[
+                    'rounded-full px-1.5 py-0.5 text-[9px] font-bold',
+                    'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
+                  ]"
+                >BASE</span>
+                <span
+                  v-else
+                  :class="[
+                    'rounded-full px-1.5 py-0.5 text-[9px] font-bold',
+                    'bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-400',
+                  ]"
+                >LAYER</span>
+              </div>
               <div class="flex items-center gap-2">
                 <div v-if="activeConcepts.includes(id as string)" class="i-solar:check-circle-bold text-xs text-primary-500" />
                 <button

@@ -60,6 +60,94 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
   }, { immediate: true })
 
   /**
+   * Resolve the next concept stack based on the Director's new selections.
+   * Implements the "Keep Base, Refresh Modifiers" rule:
+   * - If the Director selects a new Base concept, the stack is wiped and rebuilt.
+   * - If the Director selects only Layer concepts, the current Base is preserved
+   *   and all other modifiers are replaced by the Director's new choices.
+   */
+  function resolveConceptStack(
+    currentStack: string[],
+    directorPicks: string[],
+    visualAssets: Record<string, any>,
+  ): string[] {
+    if (directorPicks.length === 0)
+      return currentStack
+
+    // Separate Director's picks into bases and layers
+    const newBases = directorPicks.filter(id => visualAssets[id]?.isBase)
+    const newLayers = directorPicks.filter(id => !visualAssets[id]?.isBase)
+
+    if (newBases.length > 0) {
+      // Director picked a new Base: wipe stack, apply the last Base + layers
+      const primaryBase = newBases[newBases.length - 1]
+      artistLog('Stack Resolve: New Base detected, clearing stack.', { primaryBase, layers: newLayers })
+      return [primaryBase, ...newLayers]
+    }
+
+    // Director picked only Layers: preserve existing Base, clear old modifiers
+    const currentBase = currentStack.find(id => visualAssets[id]?.isBase)
+    const nextStack = currentBase ? [currentBase] : []
+    nextStack.push(...newLayers)
+    artistLog('Stack Resolve: Refreshing modifiers, keeping base.', { currentBase, layers: newLayers })
+    return nextStack
+  }
+
+  /**
+   * Fold the active concept stack into resolved artistry and manifestation values.
+   * Iterates from bottom to top; each layer can override the one below it.
+   * - Prompts are concatenated.
+   * - Artistry (provider/model/options) and Manifestation (modelId/mood) use "last defined wins".
+   */
+  function foldConceptStack(
+    stack: string[],
+    visualAssets: Record<string, any>,
+    defaults: { provider: string, model: string, options: any },
+  ) {
+    let resolvedProvider = defaults.provider
+    let resolvedModel = defaults.model
+    let resolvedOptions = defaults.options
+    let resolvedModelId: string | undefined
+    let resolvedMood: string | undefined
+    let accumulatedPrompt = ''
+
+    for (const conceptId of stack) {
+      const asset = visualAssets[conceptId]
+      if (!asset)
+        continue
+
+      // Prompt: concatenate all snippets
+      if (asset.prompt) {
+        accumulatedPrompt += asset.prompt
+      }
+
+      // Artistry: last override wins
+      if (asset.artistry?.provider && asset.artistry.provider !== 'none' && asset.artistry.provider !== 'inherit') {
+        resolvedProvider = asset.artistry.provider
+        resolvedModel = asset.artistry.model || resolvedModel
+        resolvedOptions = asset.artistry.options || resolvedOptions
+      }
+
+      // Manifestation: last override wins
+      if (asset.manifestation?.modelId && asset.manifestation.modelId !== 'inherit') {
+        resolvedModelId = asset.manifestation.modelId
+      }
+      if (asset.manifestation?.mood) {
+        resolvedMood = asset.manifestation.mood
+      }
+    }
+
+    return {
+      provider: resolvedProvider,
+      model: resolvedModel,
+      options: resolvedOptions,
+      modelId: resolvedModelId,
+      mood: resolvedMood,
+      promptSnippets: accumulatedPrompt,
+    }
+  }
+
+  /**
    * Safe IPC Invoker for headless generation
    */
   const widgetsAdd = defineInvokeEventa<string | undefined, any>('eventa:invoke:electron:windows:widgets:add')
@@ -246,15 +334,31 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
         selected_concepts: selectedConcepts,
       })
 
-      // 3.5 Level Up: Prompt Snippet Injection
-      // If the Director picked concepts, append their associated prompt snippets to the final prompt
-      let finalPrompt = analysis.prompt
-      selectedConcepts.forEach((conceptId) => {
-        const asset = visualAssets[conceptId]
-        if (asset?.prompt) {
-          artistLog(`Injecting prompt snippet for concept "${conceptId}":`, asset.prompt)
-          finalPrompt += asset.prompt
-        }
+      // 3.5 Stack Folding: Resolve the next concept stack and fold into final values
+      // First, resolve what the stack SHOULD look like after the Director's decision
+      const currentConceptIds = airiExt?.active_concepts || []
+      const nextConceptStack = resolveConceptStack(currentConceptIds, selectedConcepts, visualAssets)
+      artistLog('Stack Folding: Resolved next stack:', nextConceptStack)
+
+      // Fold the resolved stack to get final prompt, artistry, and manifestation values
+      const folded = foldConceptStack(
+        nextConceptStack,
+        visualAssets,
+        {
+          provider: artistry.provider || artistryStore.activeProvider,
+          model: artistry.model || artistryStore.activeModel,
+          options: artistry.options || artistryStore.providerOptions,
+        },
+      )
+
+      // Build the final prompt from the Director's base prompt + folded concept snippets
+      let finalPrompt = analysis.prompt + folded.promptSnippets
+      artistLog('Stack Folding: Final resolved values:', {
+        provider: folded.provider,
+        model: folded.model,
+        modelId: folded.modelId,
+        mood: folded.mood,
+        promptSnippets: folded.promptSnippets,
       })
 
       const thresholdMet = (analysis.intensity ?? 0) >= threshold
@@ -297,23 +401,10 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
           return
         }
 
-        // 3.7 Artistry Bridge: Resolve overrides from the Active Concept Stack
-        // We look at the active concepts and apply overrides from the "top" of the stack (last active)
-        let resolvedProvider = artistry.provider || artistryStore.activeProvider
-        let resolvedModel = artistry.model || artistryStore.activeModel
-        let resolvedOptions = artistry.options || artistryStore.providerOptions
-
-        const activeConceptIds = airiExt?.active_concepts || []
-        const topConceptId = activeConceptIds[activeConceptIds.length - 1]
-        if (topConceptId) {
-          const topConcept = visualAssets[topConceptId]
-          if (topConcept?.artistry?.provider && topConcept.artistry.provider !== 'none') {
-            artistLog(`Artistry Bridge: Applying override from top concept "${topConceptId}"`, topConcept.artistry)
-            resolvedProvider = topConcept.artistry.provider
-            resolvedModel = topConcept.artistry.model || resolvedModel
-            resolvedOptions = topConcept.artistry.options || resolvedOptions
-          }
-        }
+        // 3.7 Artistry Bridge: Use folded stack values for generation resolution
+        let resolvedProvider = folded.provider
+        let resolvedModel = folded.model
+        let resolvedOptions = folded.options
 
         const artistryGlobals = artistryStore.artistryGlobals
         const generationPayload = {
@@ -373,21 +464,27 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
           artistLog(`Routing image with mode: ${spawnMode}`)
 
           switch (spawnMode) {
-            case 'bg':
-              // Update character's active background
+            case 'bg': {
+              // Update character's active background + concept stack + manifestation
+              const bgModuleUpdates: Record<string, any> = {
+                ...activeCard.extensions.airi.modules,
+                activeBackgroundId: entryId,
+              }
+              if (folded.modelId) {
+                bgModuleUpdates.displayModelId = folded.modelId
+              }
               cardStore.updateCard(cardId, {
                 extensions: {
                   ...activeCard.extensions,
                   airi: {
                     ...activeCard.extensions.airi,
-                    modules: {
-                      ...activeCard.extensions.airi.modules,
-                      activeBackgroundId: entryId,
-                    },
+                    active_concepts: nextConceptStack,
+                    modules: bgModuleUpdates,
                   },
                 },
               } as any)
               break
+            }
 
             case 'inline': {
               const imageUrl = result.imageUrl || result.base64
@@ -432,35 +529,34 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
                   break
                 }
 
-                // 1. Resolve the new concept stack
-                const nextConcepts = [...(activeCard.extensions.airi.active_concepts || [])]
-                if (analysis.selected_concepts) {
-                  analysis.selected_concepts.forEach((c: string) => {
-                    const idx = nextConcepts.indexOf(c)
-                    if (idx > -1)
-                      nextConcepts.splice(idx, 1)
-                    artistLog(`Director Bridge: Moving concept to top of stack: "${c}"`)
-                    nextConcepts.push(c)
-                  })
+                // 1. Use the pre-computed nextConceptStack from the Stack Folding phase
+                artistLog('Director Bridge: Applying resolved concept stack:', nextConceptStack)
+
+                // 2. Build the surgical update payload
+                const moduleUpdates: Record<string, any> = {
+                  ...activeCard.extensions.airi.modules,
+                  activeBackgroundId: entryId,
                 }
 
-                // 2. Perform a SURGICAL update to avoid shredding the modules (TTS/Brain)
-                // We update only the specific paths needed
+                // 3. Manifestation Bridge: If the stack fold resolved a new modelId, apply it
+                if (folded.modelId) {
+                  artistLog(`Manifestation Bridge: Updating displayModelId to "${folded.modelId}"`)
+                  moduleUpdates.displayModelId = folded.modelId
+                }
+
+                // 4. Perform a SURGICAL update to avoid shredding the modules (TTS/Brain)
                 cardStore.updateCard(cardId, {
                   extensions: {
                     ...activeCard.extensions,
                     airi: {
                       ...activeCard.extensions.airi,
-                      active_concepts: nextConcepts,
-                      modules: {
-                        ...activeCard.extensions.airi.modules,
-                        activeBackgroundId: entryId,
-                      },
+                      active_concepts: nextConceptStack,
+                      modules: moduleUpdates,
                     },
                   },
                 } as any)
 
-                artistLog('Director Bridge: Card updated successfully with new concept stack:', nextConcepts)
+                artistLog('Director Bridge: Card updated successfully with new concept stack:', nextConceptStack)
               }
 
               try {

@@ -14,6 +14,7 @@ import { computed, ref, watch } from 'vue'
 interface ConceptData {
   description: string
   prompt: string
+  isBase?: boolean
   artistry?: {
     provider?: string
     model?: string
@@ -45,6 +46,9 @@ const id = ref('')
 const description = ref('')
 const prompt = ref('')
 
+// Concept Type
+const isBase = ref(false)
+
 // Artistry Overrides
 const selectedProvider = ref<string>('inherit')
 const selectedModel = ref<string>('')
@@ -61,6 +65,8 @@ watch(() => [props.modelValue, props.conceptId, props.initialData], () => {
     id.value = props.conceptId || ''
     description.value = props.initialData?.description || ''
     prompt.value = props.initialData?.prompt || ''
+
+    isBase.value = props.initialData?.isBase ?? false
 
     selectedProvider.value = props.initialData?.artistry?.provider || 'inherit'
     selectedModel.value = props.initialData?.artistry?.model || ''
@@ -105,6 +111,7 @@ function handleSave() {
     data: {
       description: description.value.trim(),
       prompt: prompt.value.trim(),
+      isBase: isBase.value,
       artistry: selectedProvider.value !== 'inherit'
         ? {
             provider: selectedProvider.value,
@@ -188,6 +195,30 @@ function handleSave() {
               :single-line="false"
               :rows="3"
             />
+
+            <!-- Base vs Layer toggle -->
+            <div class="flex items-center justify-between border border-neutral-200 rounded-xl bg-neutral-50/50 p-4 dark:border-neutral-700 dark:bg-black/20">
+              <div>
+                <span class="text-sm text-neutral-700 font-bold dark:text-neutral-300">Base Concept (Exclusionary)</span>
+                <p class="mt-0.5 text-[10px] text-neutral-500 leading-relaxed">
+                  When active, clears the stack first. Use for outfits, character swaps, or any state that can't overlap.
+                </p>
+              </div>
+              <button
+                :class="[
+                  'relative h-6 w-11 rounded-full transition-colors duration-200',
+                  isBase ? 'bg-primary-500' : 'bg-neutral-300 dark:bg-neutral-600',
+                ]"
+                @click="isBase = !isBase"
+              >
+                <span
+                  :class="[
+                    'absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200',
+                    isBase ? 'translate-x-5' : 'translate-x-0',
+                  ]"
+                />
+              </button>
+            </div>
           </div>
 
           <!-- Artistry Tab -->
