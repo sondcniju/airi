@@ -15,10 +15,12 @@ This plan tracks the development and "Stress Testing" of the AIRI Studio. The sy
 - [x] **Concept Builder Modal**: Multi-tab editor (Identity, Artistry, Manifestation).
 - [x] **Smart Dropdowns**: Replaced manual text IDs with searchable Select components for Workflows and Display Models.
 
-### 3. The Autonomous Bridges [DONE]
+### 3. The Autonomous Bridges [IN PROGRESS]
 - [x] **Artistry Bridge**: Generator now resolves prompt snippets and workflow paths from the active stack.
-- [x] **Manifestation Bridge**: Production Monitor triggers `changeModel()` when the stack resolves a new Model ID.
+- [ ] **Manifestation Bridge**: Production Monitor triggers `changeModel()` when the stack resolves a new Model ID. (Fix: Hooking into autonomous turn end).
 - [x] **Director Integration**: Injected Concept Registry into the Director context for autonomous selection.
+- [ ] **Concept Resolution**: Implement "Base vs Layer" logic and Stack Folding resolution.
+- [ ] **UI Sync**: Add `isBase` toggle to the Concept Builder Modal.
 
 ---
 

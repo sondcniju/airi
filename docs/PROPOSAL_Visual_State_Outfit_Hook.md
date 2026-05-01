@@ -15,17 +15,23 @@ Instead of a single hardcoded description, each character has a "Registry" of **
 
 ## Mechanics: "The Stacking Engine"
 
-### 1. Active Concept Stack
-Concepts are not mutually exclusive; they are **stacked**.
-- The user or Director can push concepts onto the stack (e.g., `[Outfit: Burgundy]` + `[Mood: Serious]`).
-- **Top-Most Wins**: For technical overrides (Workflows and Models), the last concept added to the stack takes precedence.
-- **Prompt Accumulation**: Prompt snippets from all active concepts are concatenated, allowing for layered visual hooks.
+### 1. Concept Types: "Base" vs. "Layer"
+Concepts are categorized into two fundamental types to ensure visual consistency:
+- **Base (Exclusionary)**: Represents a total state change (e.g., a New Outfit, a Cameo Character). When a Base concept is activated by the Director or User, it **clears the existing stack** to ensure no outfit overlapping occurs.
+- **Layer (Additive)**: Represents a modifier or "filter" (e.g., Cinematic Style, Rain Atmosphere, Angry Mood). These concepts are stacked on top of the current Base.
 
-### 2. Director Selection
-The system injects the available concepts into the Director LLM's context. The Director then outputs the selected concept IDs in its structured reasoning.
-- **Narrative Logic**: If Vamp-chan mentions she is "getting ready for a cleaning duty," the Director automatically selects the `original_dress` concept.
+### 2. The Resolution Rule (Stack Folding)
+The final scene is resolved by "folding" the active stack from bottom to top:
+1.  **Identity (Prompt)**: All prompt snippets in the stack are **concatenated**.
+2.  **Artistry (Pipeline)**: Each layer can override the generation settings (Workflow/Provider) of the layer below it. The **last concept in the stack** that defines an override wins.
+3.  **Manifestation (Physical)**: The character's physical model (Live2D/VRM) and baseline expression are resolved by the **last concept in the stack** that defines a `modelId` or `mood`.
 
-### 3. Production Monitor (Bridge)
+### 3. Director Sync Logic (Post-Turn Cleanup)
+To prevent "Modifier Bloat" (where styles from 20 turns ago stay active forever), the Director follows the **"Keep Base, Refresh Modifiers"** rule:
+- If the Director picks a **New Base**: The entire stack is wiped and replaced.
+- If the Director picks **Modifiers Only**: The current Base is preserved, but all other active concepts are cleared and replaced by the Director's new selections. This ensures the character stays in their current outfit while allowing styles/atmospheres to be transient.
+
+### 4. Production Monitor (Bridge)
 A dedicated watcher in the `AiriCardStore` monitors the stack. When a manifestation override (Model ID) reaches the top of the stack, the stage immediately initiates a `changeModel()` sequence to swap the VRM/Live2D assets.
 
 ---

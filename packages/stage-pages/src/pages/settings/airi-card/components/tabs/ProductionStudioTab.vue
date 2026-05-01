@@ -95,6 +95,9 @@ function toggleConcept(conceptId: string) {
     ...props.card,
     extensions: extension,
   })
+
+  // Sync manifestation immediately (e.g. model swap)
+  void autonomousArtistryStore.applyCurrentStackManifestations()
 }
 </script>
 

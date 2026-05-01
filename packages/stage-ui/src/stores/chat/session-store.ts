@@ -43,6 +43,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   let syncQueue = Promise.resolve()
   const loadedSessions = new Set<string>()
   const loadingSessions = new Map<string, Promise<void>>()
+  let ensuringSessionPromise: Promise<void> | null = null
 
   // I know this nu uh, better than loading all language on rehypeShiki
   const codeBlockSystemPrompt = '- For any programming code block, always specify the programming language that supported on @shikijs/rehype on the rendered markdown, eg. ```python ... ```\n'
@@ -402,49 +403,91 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   }
 
   async function ensureActiveSessionForCharacter() {
-    const currentUserId = getCurrentUserId()
-    const characterId = getCurrentCharacterId()
+    if (ensuringSessionPromise)
+      return ensuringSessionPromise
 
-    console.info('[ChatSession] ensureActiveSessionForCharacter:start', {
-      currentUserId,
-      characterId,
-      activeSessionId: activeSessionId.value,
-    })
+    ensuringSessionPromise = (async () => {
+      const currentUserId = getCurrentUserId()
+      const characterId = getCurrentCharacterId()
 
-    if (!index.value || index.value.userId !== currentUserId)
-      await loadIndexForUser(currentUserId)
+      console.info('[ChatSession] ensureActiveSessionForCharacter:start', {
+        currentUserId,
+        characterId,
+        activeSessionId: activeSessionId.value,
+      })
 
-    await lifetimeMemory.loadForCharacter(characterId)
+      if (!index.value || index.value.userId !== currentUserId)
+        await loadIndexForUser(currentUserId)
 
-    const characterIndex = getCharacterIndex(characterId)
-    if (!characterIndex) {
-      console.info('[ChatSession] no character index, creating session', { characterId })
-      await createSession(characterId)
-      return
+      await lifetimeMemory.loadForCharacter(characterId)
+
+      const characterIndex = getCharacterIndex(characterId)
+      if (!characterIndex) {
+        console.info('[ChatSession] no character index, creating session', { characterId })
+        await createSession(characterId)
+        return
+      }
+
+      if (!characterIndex.activeSessionId) {
+        console.info('[ChatSession] character has no active session, creating session', { characterId })
+        await createSession(characterId)
+        return
+      }
+
+      let activeId = characterIndex.activeSessionId
+      await loadSession(activeId)
+
+      // RECOVERY BRIDGE: If active session is empty but others exist, switch to the most populated one.
+      const currentMessages = sessionMessages.value[activeId] ?? []
+      if (currentMessages.length <= 1) {
+        const otherSessionIds = Object.keys(characterIndex.sessions).filter(id => id !== activeId)
+        if (otherSessionIds.length > 0) {
+          console.info('[ChatSession] RECOVERY BRIDGE: Active session is empty, checking candidates...', { characterId, count: otherSessionIds.length })
+          let bestId = activeId
+          let maxCount = currentMessages.length
+
+          for (const otherId of otherSessionIds) {
+            await loadSession(otherId)
+            const count = sessionMessages.value[otherId]?.length ?? 0
+            if (count > maxCount) {
+              maxCount = count
+              bestId = otherId
+            }
+          }
+
+          if (bestId !== activeId) {
+            console.info('[ChatSession] RECOVERY BRIDGE: Switching to populated session', { from: activeId, to: bestId, messageCount: maxCount })
+            activeId = bestId
+            characterIndex.activeSessionId = bestId
+            await persistIndex()
+          }
+        }
+      }
+
+      activeSessionId.value = activeId
+      ensureSession(activeId)
+
+      // NOTICE: Ensure prompt is up to date immediately after card-switch context is resolved.
+      refreshActiveSystemMessage({
+        sessionId: activeId,
+        characterId,
+        prompt: systemPrompt.value,
+      })
+
+      console.info('[ChatSession] ensureActiveSessionForCharacter:resolved', {
+        characterId,
+        activeSessionId: activeSessionId.value,
+        messageCount: sessionMessages.value[activeSessionId.value]?.length ?? 0,
+        allLoadedSessions: Array.from(loadedSessions),
+      })
+    })()
+
+    try {
+      await ensuringSessionPromise
     }
-
-    if (!characterIndex.activeSessionId) {
-      console.info('[ChatSession] character has no active session, creating session', { characterId })
-      await createSession(characterId)
-      return
+    finally {
+      ensuringSessionPromise = null
     }
-
-    activeSessionId.value = characterIndex.activeSessionId
-    await loadSession(characterIndex.activeSessionId)
-    ensureSession(characterIndex.activeSessionId)
-
-    // NOTICE: Ensure prompt is up to date immediately after card-switch context is resolved.
-    refreshActiveSystemMessage({
-      sessionId: characterIndex.activeSessionId,
-      characterId,
-      prompt: systemPrompt.value,
-    })
-
-    console.info('[ChatSession] ensureActiveSessionForCharacter:resolved', {
-      characterId,
-      activeSessionId: activeSessionId.value,
-      messageCount: sessionMessages.value[activeSessionId.value]?.length ?? 0,
-    })
   }
 
   async function initialize() {
@@ -454,9 +497,35 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       return initializePromise
     initializing.value = true
     initializePromise = (async () => {
+      console.info('[ChatSession] initialize:start')
       await shortTermMemory.load()
+
+      // 1. Resolve the active character session
       await ensureActiveSessionForCharacter()
       ready.value = true
+
+      // 2. RECOVERY BRIDGE: Check if there are orphaned messages in the phantom session ('')
+      // and merge them into the now-resolved active session.
+      const phantomMessages = sessionMessages.value[''] || []
+      const activeId = activeSessionId.value
+      if (phantomMessages.length > 0 && activeId && activeId !== '') {
+        const filteredPhantom = phantomMessages.filter(m => m.role !== 'system')
+        if (filteredPhantom.length > 0) {
+          console.info('[ChatSession] RECOVERY: Merging orphaned messages into active session', {
+            count: filteredPhantom.length,
+            targetSession: activeId,
+          })
+          const current = sessionMessages.value[activeId] ?? []
+          sessionMessages.value[activeId] = [...current, ...filteredPhantom]
+          sessionMessages.value[''] = [] // Clear the phantom
+          await persistSession(activeId)
+        }
+      }
+
+      console.info('[ChatSession] initialize:complete', {
+        activeSessionId: activeId,
+        ready: ready.value,
+      })
     })()
 
     try {
@@ -813,6 +882,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       return
     sessionMessages.value[sessionId] = [...current, message]
   })
+  // void initialize()
 
   return {
     ready,

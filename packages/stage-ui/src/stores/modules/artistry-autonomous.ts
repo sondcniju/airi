@@ -71,12 +71,13 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
     directorPicks: string[],
     visualAssets: Record<string, any>,
   ): string[] {
-    if (directorPicks.length === 0)
+    const validPicks = directorPicks.filter(id => !!visualAssets[id])
+    if (validPicks.length === 0)
       return currentStack
 
     // Separate Director's picks into bases and layers
-    const newBases = directorPicks.filter(id => visualAssets[id]?.isBase)
-    const newLayers = directorPicks.filter(id => !visualAssets[id]?.isBase)
+    const newBases = validPicks.filter(id => visualAssets[id]?.isBase)
+    const newLayers = validPicks.filter(id => !visualAssets[id]?.isBase)
 
     if (newBases.length > 0) {
       // Director picked a new Base: wipe stack, apply the last Base + layers
@@ -202,58 +203,48 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       artistLog('DEBUG: Full airi extension:', JSON.stringify(airiExt, null, 2))
       const visualAssets = airiExt?.visual_assets || {}
       artistLog('DEBUG: visual_assets resolved to:', JSON.stringify(visualAssets))
-      const availableConceptsText = Object.entries(visualAssets)
-        .map(([id, asset]: [string, any]) => `- "${id}": ${asset.description}`)
-        .join('\n') || '- No specific concepts available for this character.'
+      const hasConcepts = Object.keys(visualAssets).length > 0
+      const availableConceptsText = hasConcepts
+        ? Object.entries(visualAssets)
+            .map(([id, asset]: [string, any]) => `- "${id}": ${asset.description}`)
+            .join('\n')
+        : ''
 
-      const systemPrompt = target === 'assistant'
-        ? `You are the Cinematic Director for AIRI. 
-Your job is to ALWAYS generate a visual manifestation (a generative image) summarizing the current scene, and then grade how interesting the resulting scene is from 1 to 100.
-You should draw inspiration from the entire context history provided. If the latest response is mundane, use your artistic freedom to craft an image that captures the broader narrative arc or the environment established in the recent turns.
+      const conceptsInstruction = hasConcepts
+        ? `\nAVAILABLE CONCEPTS:\n${availableConceptsText}\n`
+        : ''
 
+      const conceptsSchema = hasConcepts
+        ? ',\n  "selected_concepts": ["Array of zero or more concept IDs chosen from the Available Concepts list"]'
+        : ''
+
+      const commonInstructions = `
 A high grade (warranted) should be given for:
-- Descriptions of beautiful scenery or environment changes in the response
+- Descriptions of beautiful scenery or environment changes
 - Expressive emotional reactions or body language from the character
 - Direct mentions of food, items, or gifts in the narrative
 - Narrative actions that would look stunning as a manga/anime scene
 - Changes in the character's clothing or appearance
 
 Character Personality: ${activeCard.personality}
-
-AVAILABLE CONCEPTS:
-${availableConceptsText}
-
+${conceptsInstruction}
 Output EXACTLY this JSON format and nothing else:
 {
   "reasoning": "Quick explanation of why this scene is visually interesting or boring",
   "intensity": 1-100,
   "prompt": "Highly detailed, illustrative prompt for the image generator capturing the character's reaction and scene. Use Mori's style (masterpiece, high quality, manga style, intricate details)",
-  "title": "Short descriptive title for the scene",
-  "selected_concepts": ["Array of zero or more concept IDs chosen from the Available Concepts list"]
+  "title": "Short descriptive title for the scene"${conceptsSchema}
 }`
+
+      const systemPrompt = target === 'assistant'
+        ? `You are the Cinematic Director for AIRI. 
+Your job is to ALWAYS generate a visual manifestation (a generative image) summarizing the current scene, and then grade how interesting the resulting scene is from 1 to 100.
+You should draw inspiration from the entire context history provided. If the latest response is mundane, use your artistic freedom to craft an image that captures the broader narrative arc or the environment established in the recent turns.
+${commonInstructions}`
         : `You are the Cinematic Director for AIRI. 
 Your job is to ALWAYS generate a visual manifestation (a generative image) summarizing the current scene, and then grade how interesting the resulting scene is from 1 to 100.
 You should draw inspiration from the entire context history provided. If the latest input is mundane, use your artistic freedom to craft an image that captures the broader narrative arc or the environment established in the recent turns.
-
-A high grade (warranted) should be given for:
-- Descriptions of beautiful scenery or environment changes
-- Direct mentions of food, items, or gifts
-- Narrative actions that would look stunning as a manga/anime scene
-- Changes in the character's clothing or appearance
-
-Character Personality: ${activeCard.personality}
-
-AVAILABLE CONCEPTS:
-${availableConceptsText}
-
-Output EXACTLY this JSON format and nothing else:
-{
-  "reasoning": "Quick explanation of why this scene is visually interesting or boring",
-  "intensity": 1-100,
-  "prompt": "Highly detailed, illustrative prompt for the image generator. Use Mori's style (masterpiece, high quality, manga style, intricate details)",
-  "title": "Short descriptive title for the scene",
-  "selected_concepts": ["Array of zero or more concept IDs chosen from the Available Concepts list"]
-}`
+${commonInstructions}`
 
       // 2. Rollup history and text into a single prompt to help the LLM "see" the full context
       const historyDepth = (artistry as any).autonomousHistoryDepth ?? 3
@@ -593,6 +584,52 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
     }
   }
 
+  /**
+   * Manually trigger a synchronization of the current concept stack to physical manifestations.
+   * Useful for immediate model swaps when a user toggles an outfit in the UI.
+   */
+  async function applyCurrentStackManifestations() {
+    const { activeCard } = cardStore
+    if (!activeCard || !activeCard.extensions?.airi)
+      return
+
+    const airiExt = activeCard.extensions.airi as any
+    const visualAssets = airiExt.visual_assets || {}
+    const currentStack = airiExt.active_concepts || []
+    const artistry = airiExt.artistry || {}
+
+    artistLog('Manual Sync: Folding current stack manifestations...', currentStack)
+
+    const folded = foldConceptStack(
+      currentStack,
+      visualAssets,
+      {
+        provider: artistry.provider || artistryStore.activeProvider,
+        model: artistry.model || artistryStore.activeModel,
+        options: artistry.options || artistryStore.providerOptions,
+      },
+    )
+
+    const moduleUpdates: Record<string, any> = {
+      ...activeCard.extensions.airi.modules,
+    }
+
+    if (folded.modelId) {
+      artistLog(`Manual Sync: Applying displayModelId "${folded.modelId}"`)
+      moduleUpdates.displayModelId = folded.modelId
+    }
+
+    cardStore.updateCard(cardStore.activeCardId, {
+      extensions: {
+        ...activeCard.extensions,
+        airi: {
+          ...activeCard.extensions.airi,
+          modules: moduleUpdates,
+        },
+      },
+    } as any)
+  }
+
   function findNoteForImage(title?: string, prompt?: string) {
     if (!title && !prompt)
       return null
@@ -611,6 +648,7 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
     directorNotes,
     runArtistTask,
     loadDirectorNotes,
+    applyCurrentStackManifestations,
     findNoteForImage,
   }
 })
