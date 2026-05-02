@@ -115,6 +115,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
     let resolvedSpeechProvider = defaults.speechProvider
     let resolvedSpeechModel = defaults.speechModel
     let resolvedSpeechVoiceId = defaults.speechVoiceId
+    let resolvedExpressions: Record<string, number> = {}
     let accumulatedPrompt = ''
 
     for (const conceptId of stack) {
@@ -148,6 +149,13 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
         resolvedSpeechModel = asset.speech.model || resolvedSpeechModel
         resolvedSpeechVoiceId = asset.speech.voice_id || resolvedSpeechVoiceId
       }
+
+      if (asset.manifestation?.active_expressions) {
+        resolvedExpressions = {
+          ...resolvedExpressions,
+          ...asset.manifestation.active_expressions,
+        }
+      }
     }
 
     return {
@@ -159,6 +167,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       speechProvider: resolvedSpeechProvider,
       speechModel: resolvedSpeechModel,
       speechVoiceId: resolvedSpeechVoiceId,
+      activeExpressions: resolvedExpressions,
       promptSnippets: accumulatedPrompt,
     }
   }
@@ -478,6 +487,7 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
               const bgModuleUpdates: Record<string, any> = {
                 ...activeCard.extensions.airi.modules,
                 activeBackgroundId: entryId,
+                active_expressions: folded.activeExpressions,
               }
               if (folded.modelId) {
                 bgModuleUpdates.displayModelId = folded.modelId

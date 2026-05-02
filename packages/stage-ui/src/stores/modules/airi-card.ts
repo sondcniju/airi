@@ -175,6 +175,7 @@ export interface AiriExtension {
     manifestation?: {
       modelId?: string
       mood?: string
+      active_expressions?: Record<string, number>
     }
   }>
   eternal_record?: {
@@ -404,18 +405,21 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         await stageModelStore.updateStageModel()
       }
 
+      // 3.5 Sync Manifestation Expressions (Unified for VRM/Live2D)
+      const nextExpressions = extension.modules?.active_expressions
+      if (nextExpressions) {
+        // Apply to both stores; the respective renderer will pick it up
+        if (Object.keys(nextExpressions).length > 0) {
+          live2dStore.activeExpressions = { ...nextExpressions }
+          vrmStore.activeExpressions = { ...nextExpressions }
+        }
+      }
+
       // Surgical sync of Live2D parameters if they belong to the active model
       const selectedModel = await displayModelsStore.getDisplayModel(stageModelStore.stageModelSelected)
-      if (selectedModel?.format === DisplayModelFormat.Live2dZip && extension.modules?.live2d) {
-        if (extension.modules.live2d.activeExpressions)
-          live2dStore.activeExpressions = { ...extension.modules.live2d.activeExpressions }
-        if (extension.modules.live2d.modelParameters)
-          live2dStore.modelParameters = { ...extension.modules.live2d.modelParameters }
-
+      if (selectedModel?.format === DisplayModelFormat.Live2dZip && (force || modelChanged)) {
         // Only trigger full view update if the model profile itself changed or forced
-        if (force || modelChanged) {
-          live2dStore.shouldUpdateView()
-        }
+        live2dStore.shouldUpdateView()
       }
       else if (selectedModel?.format === DisplayModelFormat.VRM && (force || modelChanged)) {
         vrmStore.shouldUpdateView()

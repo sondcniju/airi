@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useModelStore } from '@proj-airi/stage-ui-three'
 import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
@@ -26,6 +27,7 @@ interface ConceptData {
   manifestation?: {
     modelId?: string
     mood?: string
+    active_expressions?: Record<string, number>
   }
   speech?: {
     provider?: string
@@ -50,6 +52,7 @@ const artistryStore = useArtistryStore()
 const displayModelsStore = useDisplayModelsStore()
 const providersStore = useProvidersStore()
 const speechStore = useSpeechStore()
+const modelStore = useModelStore()
 
 const { activeSpeechProvider, activeSpeechModel, activeSpeechVoiceId } = storeToRefs(speechStore)
 
@@ -69,6 +72,7 @@ const selectedOptionsStr = ref<string>('{\n  \n}')
 // Manifestation Overrides
 const selectedModelId = ref<string>('inherit')
 const selectedMood = ref<string>('')
+const selectedExpressions = ref<Record<string, number>>({})
 
 // Speech Overrides
 const selectedSpeechProvider = ref<string>('inherit')
@@ -93,10 +97,13 @@ watch(() => [props.modelValue, props.conceptId, props.initialData], () => {
 
     selectedModelId.value = props.initialData?.manifestation?.modelId || 'inherit'
     selectedMood.value = props.initialData?.manifestation?.mood || ''
-
     selectedSpeechProvider.value = props.initialData?.speech?.provider || 'inherit'
     selectedSpeechModel.value = props.initialData?.speech?.model || ''
     selectedSpeechVoiceId.value = props.initialData?.speech?.voice_id || ''
+
+    selectedExpressions.value = props.initialData?.manifestation?.active_expressions
+      ? { ...props.initialData.manifestation.active_expressions }
+      : {}
   }
 }, { immediate: true })
 
@@ -156,6 +163,19 @@ watch(selectedSpeechProvider, async (newProvider) => {
   }
 })
 
+function toggleExpression(name: string) {
+  if (selectedExpressions.value[name] === 1) {
+    delete selectedExpressions.value[name]
+  }
+  else {
+    selectedExpressions.value[name] = 1
+  }
+}
+
+function clearAllExpressions() {
+  selectedExpressions.value = {}
+}
+
 function handleSave() {
   if (!id.value.trim())
     return
@@ -181,12 +201,13 @@ function handleSave() {
             options,
           }
         : undefined,
-      manifestation: selectedModelId.value !== 'inherit'
-        ? {
-            modelId: selectedModelId.value,
-            mood: selectedMood.value.trim(),
-          }
-        : undefined,
+      manifestation: {
+        modelId: selectedModelId.value !== 'inherit' ? selectedModelId.value : undefined,
+        mood: selectedMood.value.trim() || undefined,
+        active_expressions: Object.keys(selectedExpressions.value).length > 0
+          ? { ...selectedExpressions.value }
+          : undefined,
+      },
       speech: selectedSpeechProvider.value !== 'inherit'
         ? {
             provider: selectedSpeechProvider.value,
@@ -340,12 +361,46 @@ function handleSave() {
             </div>
 
             <div class="border-t border-neutral-100 pt-4 dark:border-neutral-800">
-              <FieldInput
-                v-model="selectedMood"
-                label="Baseline Mood / Expression"
-                placeholder="e.g. happy, thinking, neutral"
-                description="Forces a specific emotional state when active."
-              />
+              <div class="mb-3 flex items-center justify-between">
+                <div class="flex flex-col">
+                  <label class="text-sm text-neutral-700 font-bold dark:text-neutral-300">Expression Gallery (Wardrobe)</label>
+                  <p class="text-[10px] text-neutral-500 leading-relaxed italic">
+                    Toggle internal model blendshapes or clothing triggers to lock them.
+                  </p>
+                </div>
+                <button
+                  v-if="Object.keys(selectedExpressions).length > 0"
+                  class="text-[10px] text-red-500 font-bold tracking-wider uppercase transition-colors hover:text-red-600"
+                  @click="clearAllExpressions"
+                >
+                  Clear All
+                </button>
+              </div>
+
+              <div v-if="modelStore.availableExpressions.length" class="max-h-64 flex flex-wrap gap-2 overflow-y-auto pb-2 pr-2">
+                <button
+                  v-for="name in modelStore.availableExpressions"
+                  :key="name"
+                  class="border rounded-full px-3 py-1 text-[10px] font-medium transition-all"
+                  :class="[
+                    selectedExpressions[name] === 1
+                      ? 'bg-primary-500 text-white border-primary-500 shadow-md shadow-primary-500/20'
+                      : 'border-neutral-200 text-neutral-500 hover:border-primary-300 dark:border-neutral-700 dark:text-neutral-400',
+                  ]"
+                  @click="toggleExpression(name)"
+                >
+                  {{ name }}
+                </button>
+              </div>
+              <div v-else class="border border-neutral-200 rounded-xl border-dashed bg-neutral-50/50 p-8 text-center dark:border-neutral-700 dark:bg-black/20">
+                <div class="i-solar:ghost-broken mx-auto mb-2 text-3xl text-neutral-300" />
+                <p class="text-xs text-neutral-400">
+                  No expressions found.
+                </p>
+                <p class="mt-1 text-[10px] text-neutral-500">
+                  Load the character on stage to populate this gallery.
+                </p>
+              </div>
             </div>
           </div>
 
