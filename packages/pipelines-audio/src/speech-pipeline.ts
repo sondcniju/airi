@@ -104,10 +104,19 @@ export function createSpeechPipeline<TAudio>(options: SpeechPipelineOptions<TAud
         context.emit(speechPipelineEventMap.onSegment, value)
 
         if (value.text === '' && value.special) {
+          // NOTICE: Call tts() for special segments so it can handle side effects
+          // (e.g., ACTOR voice swaps) before the next text segment is generated.
+          // The tts() function returns null for specials, so no audio is produced.
+          try {
+            await options.tts(
+              { streamId: value.streamId, intentId: value.intentId, segmentId: value.segmentId, text: '', special: value.special, priority: intent.priority, createdAt: Date.now() },
+              intent.controller.signal,
+            )
+          }
+          catch {}
+
           // Schedule a no-audio playback item so the special token
           // fires in sequence with audio playback (via the onEnd handler).
-          // Previously this emitted onSpecial immediately, causing emotions
-          // to fire before the preceding audio finished playing.
           options.playback.schedule({
             id: createId('playback'),
             streamId: value.streamId,

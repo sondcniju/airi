@@ -17,6 +17,7 @@ import { useProvidersStore } from '../providers'
 import { useAiriCardStore } from './airi-card'
 import { useArtistryStore } from './artistry'
 import { useConsciousnessStore } from './consciousness'
+import { useSpeechStore } from './speech'
 
 const artistLog = import.meta.env.DEV ? console.log.bind(console, '[AutonomousArtist]') : () => {}
 
@@ -28,6 +29,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
   const consciousnessStore = useConsciousnessStore()
   const providersStore = useProvidersStore()
   const chatSessionStore = useChatSessionStore()
+  const speechStore = useSpeechStore()
 
   const isProcessing = ref(false)
   const directorNotes = ref<DirectorNote[]>([])
@@ -110,6 +112,9 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
     let resolvedOptions = defaults.options
     let resolvedModelId: string | undefined
     let resolvedMood: string | undefined
+    let resolvedSpeechProvider = defaults.speechProvider
+    let resolvedSpeechModel = defaults.speechModel
+    let resolvedSpeechVoiceId = defaults.speechVoiceId
     let accumulatedPrompt = ''
 
     for (const conceptId of stack) {
@@ -136,6 +141,13 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       if (asset.manifestation?.mood) {
         resolvedMood = asset.manifestation.mood
       }
+
+      // Speech: last override wins
+      if (asset.speech?.provider && asset.speech.provider !== 'none' && asset.speech.provider !== 'inherit') {
+        resolvedSpeechProvider = asset.speech.provider
+        resolvedSpeechModel = asset.speech.model || resolvedSpeechModel
+        resolvedSpeechVoiceId = asset.speech.voice_id || resolvedSpeechVoiceId
+      }
     }
 
     return {
@@ -144,6 +156,9 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       options: resolvedOptions,
       modelId: resolvedModelId,
       mood: resolvedMood,
+      speechProvider: resolvedSpeechProvider,
+      speechModel: resolvedSpeechModel,
+      speechVoiceId: resolvedSpeechVoiceId,
       promptSnippets: accumulatedPrompt,
     }
   }
@@ -339,6 +354,9 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
           provider: artistry.provider || artistryStore.activeProvider,
           model: artistry.model || artistryStore.activeModel,
           options: artistry.options || artistryStore.providerOptions,
+          speechProvider: airiExt?.modules?.speech?.provider || speechStore.activeSpeechProvider,
+          speechModel: airiExt?.modules?.speech?.model || speechStore.activeSpeechModel,
+          speechVoiceId: airiExt?.modules?.speech?.voice_id || speechStore.activeSpeechVoiceId,
         },
       )
 
@@ -630,6 +648,76 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
     } as any)
   }
 
+  async function activateConcept(conceptId: string) {
+    const { activeCard, activeCardId } = cardStore
+    if (!activeCard || !activeCard.extensions?.airi) {
+      artistLog('ActivateConcept: Aborting - active card or airi extension is missing.')
+      return
+    }
+
+    const airiExt = activeCard.extensions.airi as any
+    const visualAssets = airiExt.visual_assets || {}
+    const currentStack = airiExt.active_concepts || []
+    const artistry = airiExt.artistry || {}
+
+    artistLog('ActivateConcept: Activating concept:', conceptId)
+
+    // 1. Resolve the next concept stack (merging Base/Layer logic)
+    const nextConceptStack = resolveConceptStack(currentStack, [conceptId], visualAssets)
+
+    // 2. Fold the resolved stack to get final manifestation values (modelId, etc.)
+    const folded = foldConceptStack(
+      nextConceptStack,
+      visualAssets,
+      {
+        provider: artistry.provider || artistryStore.activeProvider,
+        model: artistry.model || artistryStore.activeModel,
+        options: artistry.options || artistryStore.providerOptions,
+        speechProvider: airiExt?.modules?.speech?.provider || speechStore.activeSpeechProvider,
+        speechModel: airiExt?.modules?.speech?.model || speechStore.activeSpeechModel,
+        speechVoiceId: airiExt?.modules?.speech?.voice_id || speechStore.activeSpeechVoiceId,
+      },
+    )
+
+    // 3. Build the surgical update payload for the modules
+    const moduleUpdates: Record<string, any> = {
+      ...activeCard.extensions.airi.modules,
+    }
+
+    if (folded.modelId) {
+      artistLog(`ActivateConcept: Applying manifestation modelId "${folded.modelId}"`)
+      moduleUpdates.displayModelId = folded.modelId
+    }
+
+    if (folded.speechProvider && folded.speechProvider !== 'inherit') {
+      artistLog(`ActivateConcept: Applying speech override to runtime:`, { provider: folded.speechProvider, voice: folded.speechVoiceId })
+      speechStore.activeSpeechProvider = folded.speechProvider
+      speechStore.activeSpeechModel = folded.speechModel
+      speechStore.activeSpeechVoiceId = folded.speechVoiceId
+
+      moduleUpdates.speech = {
+        ...moduleUpdates.speech,
+        provider: folded.speechProvider,
+        model: folded.speechModel,
+        voice_id: folded.speechVoiceId,
+      }
+    }
+
+    // 4. Perform the update
+    cardStore.updateCard(activeCardId, {
+      extensions: {
+        ...activeCard.extensions,
+        airi: {
+          ...activeCard.extensions.airi,
+          active_concepts: nextConceptStack,
+          modules: moduleUpdates,
+        },
+      },
+    } as any)
+
+    artistLog('ActivateConcept: Success.', { conceptId, nextConceptStack })
+  }
+
   function findNoteForImage(title?: string, prompt?: string) {
     if (!title && !prompt)
       return null
@@ -648,6 +736,7 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
     directorNotes,
     runArtistTask,
     loadDirectorNotes,
+    activateConcept,
     applyCurrentStackManifestations,
     findNoteForImage,
   }

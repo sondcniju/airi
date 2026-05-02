@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
+import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
+import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { Button, FieldInput, Select } from '@proj-airi/ui'
+import { storeToRefs } from 'pinia'
 import {
   DialogContent,
   DialogOverlay,
@@ -24,6 +27,11 @@ interface ConceptData {
     modelId?: string
     mood?: string
   }
+  speech?: {
+    provider?: string
+    model?: string
+    voice_id?: string
+  }
 }
 
 interface Props {
@@ -40,6 +48,10 @@ const emit = defineEmits<{
 
 const artistryStore = useArtistryStore()
 const displayModelsStore = useDisplayModelsStore()
+const providersStore = useProvidersStore()
+const speechStore = useSpeechStore()
+
+const { activeSpeechProvider, activeSpeechModel, activeSpeechVoiceId } = storeToRefs(speechStore)
 
 const activeTab = ref('identity')
 const id = ref('')
@@ -57,6 +69,11 @@ const selectedOptionsStr = ref<string>('{\n  \n}')
 // Manifestation Overrides
 const selectedModelId = ref<string>('inherit')
 const selectedMood = ref<string>('')
+
+// Speech Overrides
+const selectedSpeechProvider = ref<string>('inherit')
+const selectedSpeechModel = ref<string>('')
+const selectedSpeechVoiceId = ref<string>('')
 
 // Initialize when modal opens or props change
 watch(() => [props.modelValue, props.conceptId, props.initialData], () => {
@@ -76,6 +93,10 @@ watch(() => [props.modelValue, props.conceptId, props.initialData], () => {
 
     selectedModelId.value = props.initialData?.manifestation?.modelId || 'inherit'
     selectedMood.value = props.initialData?.manifestation?.mood || ''
+
+    selectedSpeechProvider.value = props.initialData?.speech?.provider || 'inherit'
+    selectedSpeechModel.value = props.initialData?.speech?.model || ''
+    selectedSpeechVoiceId.value = props.initialData?.speech?.voice_id || ''
   }
 }, { immediate: true })
 
@@ -93,6 +114,47 @@ const displayModelOptions = computed(() => [
     label: m.name,
   })),
 ])
+
+const speechProviderOptions = computed(() => [
+  { value: 'inherit', label: 'Inherit Global' },
+  { value: 'none', label: 'Disable Speech' },
+  ...providersStore.configuredSpeechProvidersMetadata.map(p => ({
+    value: p.id,
+    label: p.localizedName || p.name,
+  })),
+])
+
+const speechModelOptions = computed(() => {
+  const provider = selectedSpeechProvider.value === 'inherit' ? activeSpeechProvider.value : selectedSpeechProvider.value
+  if (!provider || provider === 'none')
+    return []
+  return providersStore.getModelsForProvider(provider).map(m => ({
+    value: m.id,
+    label: m.name || m.id,
+  }))
+})
+
+const speechVoiceOptions = computed(() => {
+  const provider = selectedSpeechProvider.value === 'inherit' ? activeSpeechProvider.value : selectedSpeechProvider.value
+  if (!provider || provider === 'none')
+    return []
+  return speechStore.getVoicesForProvider(provider).map(v => ({
+    value: v.id,
+    label: v.name || v.id,
+  }))
+})
+
+// Watchers for speech provider changes
+watch(selectedSpeechProvider, async (newProvider) => {
+  const provider = newProvider === 'inherit' ? activeSpeechProvider.value : newProvider
+  if (provider && provider !== 'none') {
+    await speechStore.loadVoicesForProvider(provider)
+    const metadata = providersStore.getProviderMetadata(provider)
+    if (metadata?.capabilities.listModels) {
+      await providersStore.fetchModelsForProvider(provider)
+    }
+  }
+})
 
 function handleSave() {
   if (!id.value.trim())
@@ -125,6 +187,13 @@ function handleSave() {
             mood: selectedMood.value.trim(),
           }
         : undefined,
+      speech: selectedSpeechProvider.value !== 'inherit'
+        ? {
+            provider: selectedSpeechProvider.value,
+            model: selectedSpeechModel.value.trim(),
+            voice_id: selectedSpeechVoiceId.value.trim(),
+          }
+        : undefined,
     },
   })
   emit('update:modelValue', false)
@@ -155,7 +224,7 @@ function handleSave() {
           <!-- Tab Navigation -->
           <div class="mt-6 flex gap-1">
             <button
-              v-for="t in ['identity', 'artistry', 'manifestation']"
+              v-for="t in ['identity', 'artistry', 'manifestation', 'speech']"
               :key="t"
               class="rounded-lg px-4 py-2 text-xs font-bold transition-all"
               :class="activeTab === t ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20' : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800'"
@@ -277,6 +346,35 @@ function handleSave() {
                 placeholder="e.g. happy, thinking, neutral"
                 description="Forces a specific emotional state when active."
               />
+            </div>
+          </div>
+
+          <!-- Speech Tab -->
+          <div v-if="activeTab === 'speech'" class="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
+            <div class="flex flex-col gap-2">
+              <label class="text-sm text-neutral-700 font-bold dark:text-neutral-300">Speech Provider Override</label>
+              <Select v-model="selectedSpeechProvider" :options="speechProviderOptions" />
+              <p class="text-[10px] text-neutral-500 italic">
+                Forces a specific TTS provider for this concept.
+              </p>
+            </div>
+
+            <div v-if="selectedSpeechProvider !== 'none' && (selectedSpeechProvider !== 'inherit' || activeSpeechProvider)" class="border-t border-neutral-100 pt-4 space-y-6 dark:border-neutral-800">
+              <div class="flex flex-col gap-2">
+                <label class="text-sm text-neutral-700 font-bold dark:text-neutral-300">Vocal Model</label>
+                <Select v-model="selectedSpeechModel" :options="speechModelOptions" />
+                <p class="text-[10px] text-neutral-500 italic">
+                  Choose the TTS engine version.
+                </p>
+              </div>
+
+              <div class="flex flex-col gap-2">
+                <label class="text-sm text-neutral-700 font-bold dark:text-neutral-300">Persona Voice</label>
+                <Select v-model="selectedSpeechVoiceId" :options="speechVoiceOptions" />
+                <p class="text-[10px] text-neutral-500 italic">
+                  The unique voice assigned to this concept/actress.
+                </p>
+              </div>
             </div>
           </div>
         </div>

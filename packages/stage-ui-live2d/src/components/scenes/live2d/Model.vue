@@ -122,7 +122,7 @@ const dropShadowFilter = shallowRef(new DropShadowFilter({
 }))
 
 function getCoreModel() {
-  return model.value!.internalModel.coreModel as any
+  return model.value?.internalModel?.coreModel as any
 }
 
 function setScaleAndPosition() {
@@ -703,7 +703,12 @@ watch([themeColorsHueDynamic, live2dShadowEnabled], ([dynamic, shadowEnabled]) =
   }
 }, { immediate: true })
 
-watch(mouthOpenSize, value => getCoreModel().setParameterValueById('ParamMouthOpenY', value))
+watch(mouthOpenSize, (value) => {
+  const coreModel = getCoreModel()
+  if (coreModel) {
+    coreModel.setParameterValueById('ParamMouthOpenY', value)
+  }
+})
 watch(currentMotion, value => setMotion(value.group, value.index))
 watch(paused, value => value ? pixiApp.value?.stop() : pixiApp.value?.start())
 

@@ -25,7 +25,7 @@ import { generateSpeech } from '@xsai/generate-speech'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
-import { useSpecialTokenQueue } from '../../composables/queues'
+import { parseActor, useSpecialTokenQueue } from '../../composables/queues'
 import { categorizeResponse } from '../../composables/response-categoriser'
 import { llmInferenceEndToken } from '../../constants'
 import { EMOTION_EmotionMotionName_value, EMOTION_VRMExpressionName_value, EmotionThinkMotionName } from '../../constants/emotions'
@@ -34,6 +34,7 @@ import { useBackgroundStore } from '../../stores/background'
 import { useChatOrchestratorStore } from '../../stores/chat'
 import { useModsServerChannelStore } from '../../stores/mods/api/channel-server'
 import { useAiriCardStore } from '../../stores/modules'
+import { useAutonomousArtistryStore } from '../../stores/modules/artistry-autonomous'
 import { useConsciousnessStore } from '../../stores/modules/consciousness'
 import { useDiscordStore } from '../../stores/modules/discord'
 import { useSpeechStore } from '../../stores/modules/speech'
@@ -139,6 +140,7 @@ const backgroundStore = useBackgroundStore()
 
 const { activeBackgroundUrl } = storeToRefs(backgroundStore)
 const discordStore = useDiscordStore()
+const artistryAutonomousStore = useAutonomousArtistryStore()
 const resizeStateEventName = useElectronWindowResizeStateEvent()
 const isWindowResizing = ref(false)
 const reducedRenderScale = computed(() => {
@@ -285,6 +287,11 @@ specialTokenQueue.onHandlerEvent('delay', (delay) => {
   // eslint-disable-next-line no-console
   console.log('[Stage] Delay token detected:', delay)
 })
+specialTokenQueue.onHandlerEvent('actor', (actorId) => {
+  // eslint-disable-next-line no-console
+  console.log('[Stage] Actor swap token detected:', actorId)
+  void artistryAutonomousStore.activateConcept(actorId)
+})
 
 // Play special token: delay or emotion
 function playSpecialToken(special: string) {
@@ -296,7 +303,7 @@ function playSpecialToken(special: string) {
 const modsServer = useModsServerChannelStore()
 
 function processMarkers(content: string) {
-  const markers = content.match(/<\|(?:ACT|DELAY)[^\r\n]*?(?:\|>|>)/gi)
+  const markers = content.match(/<\|(?:ACT|DELAY|ACTOR)[^\r\n]*?(?:\|>|>)/gi)
   if (markers) {
     // eslint-disable-next-line no-console
     console.debug('[Stage] Markers detected:', markers)
@@ -354,6 +361,35 @@ if (typeof window !== 'undefined') {
     // eslint-disable-next-line no-console
     console.log('[DEBUG] Stopping all animations')
     vrmViewerRef.value?.stopAnimations()
+  }
+
+  (window as any).testMarker = (content: string) => {
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG] Manually testing marker:', content)
+    playSpecialToken(content)
+  }
+
+  ;(window as any).simulateAssistant = (content: string) => {
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG] Simulating assistant response:', content)
+
+    const intent = ensureSpeechIntent()
+
+    // Split content into markers and text segments
+    const parts = content.split(/(<\|(?:ACT|DELAY|ACTOR)[^\r\n]*?(?:\|>|>))/gi)
+    for (const part of parts) {
+      if (!part)
+        continue
+      if (part.startsWith('<|')) {
+        intent.writeSpecial(part)
+      }
+      else {
+        intent.writeLiteral(part)
+      }
+    }
+    intent.writeFlush()
+    intent.end()
+    currentChatIntent = null
   }
 }
 
@@ -440,6 +476,15 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
   tts: async (request, signal) => {
     if (signal.aborted)
       return null
+
+    if (request.special) {
+      const actorId = parseActor(request.special)
+      if (actorId) {
+        console.log('[Stage:TTS] Actor swap detected in TTS generator, updating state...', actorId)
+        await artistryAutonomousStore.activateConcept(actorId)
+        return null
+      }
+    }
 
     if (activeSpeechProvider.value === 'speech-noop')
       return null
@@ -621,15 +666,15 @@ function setupAnalyser() {
 let currentChatIntent: ReturnType<typeof speechRuntimeStore.openIntent> | null = null
 const currentChatIntentReceivedLiteral = ref(false)
 
-function ensureSpeechIntent() {
+function ensureSpeechIntent(behavior: 'interrupt' | 'queue' = 'interrupt') {
   if (currentChatIntent)
     return currentChatIntent
 
-  console.log('[Stage] Opening speech intent', { ownerId: activeCardId.value })
+  console.log('[Stage] Opening speech intent', { ownerId: activeCardId.value, behavior })
   currentChatIntent = speechRuntimeStore.openIntent({
     ownerId: activeCardId.value,
     priority: 'normal',
-    behavior: 'interrupt',
+    behavior,
   })
   console.log('[Stage] Speech intent opened', { intentId: currentChatIntent.intentId, streamId: currentChatIntent.streamId })
 
