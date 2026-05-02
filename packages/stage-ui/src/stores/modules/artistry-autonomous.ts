@@ -105,7 +105,14 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
   function foldConceptStack(
     stack: string[],
     visualAssets: Record<string, any>,
-    defaults: { provider: string, model: string, options: any },
+    defaults: {
+      provider: string
+      model: string
+      options: any
+      speechProvider?: string
+      speechModel?: string
+      speechVoiceId?: string
+    },
   ) {
     let resolvedProvider = defaults.provider
     let resolvedModel = defaults.model
@@ -702,8 +709,10 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
     if (folded.speechProvider && folded.speechProvider !== 'inherit') {
       artistLog(`ActivateConcept: Applying speech override to runtime:`, { provider: folded.speechProvider, voice: folded.speechVoiceId })
       speechStore.activeSpeechProvider = folded.speechProvider
-      speechStore.activeSpeechModel = folded.speechModel
-      speechStore.activeSpeechVoiceId = folded.speechVoiceId
+      if (folded.speechModel)
+        speechStore.activeSpeechModel = folded.speechModel
+      if (folded.speechVoiceId)
+        speechStore.activeSpeechVoiceId = folded.speechVoiceId
 
       moduleUpdates.speech = {
         ...moduleUpdates.speech,

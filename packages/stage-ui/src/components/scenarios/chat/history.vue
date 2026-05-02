@@ -132,10 +132,12 @@ const renderMessages = computed<(ChatHistoryItem | DirectorNote)[]>(() => {
       return timeA - timeB
 
     // Stability fallback: prioritize user over assistant if timestamps are identical
-    if (a.role !== b.role) {
-      if (a.role === 'user')
+    const roleA = 'role' in a ? a.role : undefined
+    const roleB = 'role' in b ? b.role : undefined
+    if (roleA !== roleB) {
+      if (roleA === 'user')
         return -1
-      if (b.role === 'user')
+      if (roleB === 'user')
         return 1
     }
 

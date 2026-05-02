@@ -576,7 +576,7 @@ export const useDiscordStore = defineStore('discord', () => {
       await sendMessageToDiscord(source.channelId, cleanedText)
     }
 
-    const onStreamEnd = async (context: any) => {
+    const onStreamEnd = async () => {
       const hash = window.location.hash || '#/'
       const isStage = hash === '#/' || hash.startsWith('#/stage')
 

@@ -131,6 +131,12 @@ export interface AiriExtension {
     activeBackgroundId?: string | null
     // Legacy key from older local card revisions. Read-only for migration.
     selectedModelId?: string
+    // Unified manifestation expressions for VRM/Live2D
+    active_expressions?: Record<string, number>
+  }
+
+  imageJournal?: {
+    selfie: boolean
   }
 
   artistry?: {
@@ -541,11 +547,12 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       modules: {
         ...existingExtension?.modules,
         consciousness: {
+          ...existingExtension?.modules?.consciousness,
           provider: existingExtension?.modules?.consciousness?.provider || defaultModules.consciousness.provider,
           model: existingExtension?.modules?.consciousness?.model || defaultModules.consciousness.model,
-          ...existingExtension?.modules?.consciousness,
         },
         speech: {
+          ...existingExtension?.modules?.speech,
           provider: existingExtension?.modules?.speech?.provider || defaultModules.speech.provider,
           model: existingExtension?.modules?.speech?.model || defaultModules.speech.model,
           voice_id: existingExtension?.modules?.speech?.voice_id || defaultModules.speech.voice_id,
@@ -553,7 +560,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
           rate: existingExtension?.modules?.speech?.rate,
           ssml: existingExtension?.modules?.speech?.ssml,
           language: existingExtension?.modules?.speech?.language,
-          ...existingExtension?.modules?.speech,
         },
         vrm: existingExtension?.modules?.vrm,
         live2d: existingExtension?.modules?.live2d,
