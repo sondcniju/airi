@@ -23,6 +23,7 @@ const sharedCacheDir = resolve(join(import.meta.dirname, '..', '..', '.cache'))
 
 export default defineConfig({
   optimizeDeps: {
+    esbuildOptions: { target: 'esnext' },
     include: [
       'uncrypto',
     ],
