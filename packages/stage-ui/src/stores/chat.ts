@@ -849,6 +849,18 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
       // Turn loop ended
 
+      // --- NO_REPLY Guard ---
+      // If the model explicitly chose to remain silent, we abort downstream processing.
+      if ((rawFullText || '').trim() === 'NO_REPLY' || (rawFullText || '').trim() === '[NO_REPLY]') {
+        chatLog('[ChatDebug] AI decided to remain silent via NO_REPLY sentinel. Aborting turn completion hooks.')
+        if (isForegroundSession()) {
+          streamingMessage.value = { role: 'assistant', content: '', slices: [], tool_results: [] }
+        }
+        await hooks.emitStreamEndHooks(streamingMessageContext)
+        return
+      }
+      // ----------------------
+
       if (!isStaleGeneration() && buildingMessage.slices.length > 0) {
         // NOTICE: Persist the full raw LLM output (including orchestration tokens like
         // <|ACTOR:|>, <|ACT:|>, <|DELAY:|>) so past turns fed back to the LLM retain

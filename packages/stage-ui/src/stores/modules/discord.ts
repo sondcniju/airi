@@ -40,7 +40,7 @@ const MAX_EVENT_LOG_ENTRIES = 200
 
 // ── Slash Command Definitions ──────────────────────────────────────────────────
 
-const COMMANDS_VERSION = 4
+const COMMANDS_VERSION = 5
 const CORE_COMMANDS: DiscordCommandDefinition[] = [
   {
     name: 'status',
@@ -119,6 +119,23 @@ const CORE_COMMANDS: DiscordCommandDefinition[] = [
     name: 'leave',
     description: 'Disconnect the bot from the voice channel',
   },
+  {
+    name: 'chatmode',
+    description: 'Change the chat mode for handling multiple messages',
+    options: [
+      {
+        name: 'mode',
+        description: 'The mode to use (followup, steer, or collect)',
+        type: 3, // String
+        required: true,
+        choices: [
+          { name: 'followup', value: 'followup' },
+          { name: 'steer', value: 'steer' },
+          { name: 'collect', value: 'collect' },
+        ],
+      },
+    ],
+  },
 ]
 
 export const useDiscordStore = defineStore('discord', () => {
@@ -135,6 +152,33 @@ export const useDiscordStore = defineStore('discord', () => {
   const enabled = useLocalStorageManualReset<boolean>('settings/discord/enabled', false)
   const token = useLocalStorageManualReset<string>('settings/discord/token', '')
   const lastRegisteredVersion = useLocalStorageManualReset<number>('settings/discord/lastRegisteredVersion', 0)
+  const chatMode = useLocalStorageManualReset<'followup' | 'steer' | 'collect'>('settings/discord/chatMode', 'followup')
+
+  const pendingCollectBatch = ref<{ formattedContent: string, attachments: any[], msg: DiscordInboundMessage }[]>([])
+  let collectTimer: ReturnType<typeof setTimeout> | null = null
+
+  function flushCollectBatch() {
+    if (pendingCollectBatch.value.length === 0)
+      return
+    const batch = [...pendingCollectBatch.value]
+    pendingCollectBatch.value = []
+
+    const combinedContent = batch.map(b => b.formattedContent).join('\n\n')
+    const combinedAttachments = batch.flatMap(b => b.attachments)
+    const lastMsg = batch[batch.length - 1].msg
+
+    void chatOrchestrator.ingest(combinedContent, {
+      attachments: combinedAttachments,
+      metadata: {
+        _discordSource: {
+          messageId: lastMsg.messageId,
+          channelId: lastMsg.channelId,
+          userId: lastMsg.userId,
+          username: lastMsg.username,
+        },
+      },
+    })
+  }
 
   // ── Live Service State ─────────────────────────────────────────────────────
   const serviceStatus = ref<DiscordServiceStatus>({
@@ -423,6 +467,40 @@ export const useDiscordStore = defineStore('discord', () => {
         return null
       }).filter(Boolean) as any[]
 
+      if (chatMode.value === 'collect') {
+        pendingCollectBatch.value.push({ formattedContent, attachments, msg })
+        if (collectTimer)
+          clearTimeout(collectTimer)
+        collectTimer = setTimeout(flushCollectBatch, 5000)
+        return
+      }
+
+      if (chatMode.value === 'steer' && chatOrchestrator.sending) {
+        console.log(`[DiscordStore] Steer mode active. Aborting current generation and rolling up context.`)
+        const partialText = chatOrchestrator.streamingMessage?.content || ''
+
+        chatSession.bumpSessionGeneration(chatSession.activeSessionId)
+
+        const steerContent = partialText
+          ? `You were saying: "${partialText}", but then ${msg.displayName} interrupted with:\n${msg.content}`
+          : formattedContent
+
+        setTimeout(() => {
+          void chatOrchestrator.ingest(steerContent, {
+            attachments,
+            metadata: {
+              _discordSource: {
+                messageId: msg.messageId,
+                channelId: msg.channelId,
+                userId: msg.userId,
+                username: msg.username,
+              },
+            },
+          })
+        }, 100)
+        return
+      }
+
       void chatOrchestrator.ingest(formattedContent, {
         attachments,
         metadata: {
@@ -691,6 +769,16 @@ export const useDiscordStore = defineStore('discord', () => {
           await invokeReplyInteraction?.({
             interactionId: payload.interactionId,
             content: `🎬 Autonomous Artistry has been set to **${mode?.toUpperCase()}**.`,
+          })
+        }
+      }
+      else if (payload.commandName === 'chatmode') {
+        const mode = payload.options.mode?.toString() as 'followup' | 'steer' | 'collect'
+        if (mode && ['followup', 'steer', 'collect'].includes(mode)) {
+          chatMode.value = mode
+          await invokeReplyInteraction?.({
+            interactionId: payload.interactionId,
+            content: `⚙️ Chat mode has been set to **${mode.toUpperCase()}**.`,
           })
         }
       }
