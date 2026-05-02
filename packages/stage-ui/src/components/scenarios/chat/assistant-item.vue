@@ -345,7 +345,10 @@ const resolvedSlices = computed(() => {
               <span text-sm text="black/60 dark:white/65" font-normal class="inline <sm:hidden">{{ label }}</span>
             </div>
 
-            <div v-if="resolvedSlices.length > 0" class="break-words" :class="mood ? 'text-neutral-800 dark:text-neutral-200' : 'text-primary-700 dark:primary-100'">
+            <div v-if="message.content === 'NO_REPLY' || message.rawContent === 'NO_REPLY'" class="py-1 text-sm text-neutral-500/70 italic dark:text-neutral-400/70">
+              The character chose not to respond in this turn
+            </div>
+            <div v-else-if="resolvedSlices.length > 0" class="break-words" :class="mood ? 'text-neutral-800 dark:text-neutral-200' : 'text-primary-700 dark:primary-100'">
               <template v-for="(slice, sliceIndex) in resolvedSlices" :key="sliceIndex">
                 <ChatToolCallBlock
                   v-if="slice.type === 'tool-call'"

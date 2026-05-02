@@ -4,12 +4,14 @@ import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka
 defineProps<{
   /** Tooltip for the main button */
   title?: string
+  imagineMode?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'attach'): void
   (e: 'screenshot'): void
   (e: 'view-journal'): void
+  (e: 'toggle-imagine'): void
 }>()
 </script>
 
@@ -62,6 +64,20 @@ const emit = defineEmits<{
             <span class="text-[13px] text-neutral-900 font-semibold leading-none dark:text-neutral-100">Attach Image</span>
             <span class="mt-1 text-[10px] text-neutral-600/70 dark:text-neutral-400/70">Upload from your computer</span>
           </div>
+        </button>
+
+        <!-- Imagine Mode -->
+        <button
+          class="mb-2 w-full flex items-center gap-3 rounded-xl p-2.5 text-left transition-all"
+          :class="imagineMode ? 'bg-primary-500/10 dark:bg-primary-900/30 ring-1 ring-primary-500/50' : 'bg-neutral-50/50 dark:bg-neutral-800/20 hover:bg-neutral-100 dark:hover:bg-neutral-800/30'"
+          @click="emit('toggle-imagine')"
+        >
+          <div class="i-solar:magic-stick-3-bold-duotone text-lg" :class="imagineMode ? 'text-primary-500' : 'text-neutral-600 dark:text-neutral-400'" />
+          <div class="flex flex-1 flex-col">
+            <span class="text-[13px] font-semibold leading-none" :class="imagineMode ? 'text-primary-600 dark:text-primary-400' : 'text-neutral-900 dark:text-neutral-100'">Imagine Mode</span>
+            <span class="mt-1 text-[10px]" :class="imagineMode ? 'text-primary-500/70' : 'text-neutral-600/70 dark:text-neutral-400/70'">Prompts director to imagine a new scene</span>
+          </div>
+          <div v-if="imagineMode" class="i-solar:check-circle-bold text-sm text-primary-500" />
         </button>
 
         <!-- Image Journal -->

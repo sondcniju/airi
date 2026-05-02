@@ -622,6 +622,9 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
         chatLog(`[ChatDebug] Starting inference step ${bridgedSteps}`)
 
+        let noReplyBuffer = ''
+        let isCheckingNoReply = true
+
         // Reconstruct messages for this turn using the segmented bridgedTurnsHistory.
         let newMessages = inferenceMessages.map((msg: any) => {
           const { context: _context, id: _id, createdAt: _createdAt, ...withoutContext } = msg
@@ -760,6 +763,25 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
                   text: healedText,
                   sessionId,
                 })
+
+                if (isCheckingNoReply) {
+                  noReplyBuffer += healedText
+                  const target1 = 'NO_REPLY'
+                  const target2 = '[NO_REPLY]'
+
+                  if (target1.startsWith(noReplyBuffer.trimStart()) || target2.startsWith(noReplyBuffer.trimStart())) {
+                    // Still perfectly matches the silence sentinel prefix, hold it in buffer
+                    break
+                  }
+                  else {
+                    // Diverged from silence sentinel. Release buffer and stop checking.
+                    isCheckingNoReply = false
+                    await parser.consume(noReplyBuffer)
+                    noReplyBuffer = ''
+                    break
+                  }
+                }
+
                 await parser.consume(healedText)
                 break
               }
@@ -790,6 +812,13 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
             }
           },
         })
+
+        if (isCheckingNoReply && noReplyBuffer.trim().length > 0) {
+          const rawTrimmed = (rawFullText || '').trim()
+          if (rawTrimmed !== 'NO_REPLY' && rawTrimmed !== '[NO_REPLY]') {
+            await parser.consume(noReplyBuffer)
+          }
+        }
 
         clearStreamIdleTimeout()
         await parser.end()
@@ -853,6 +882,21 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       // If the model explicitly chose to remain silent, we abort downstream processing.
       if ((rawFullText || '').trim() === 'NO_REPLY' || (rawFullText || '').trim() === '[NO_REPLY]') {
         chatLog('[ChatDebug] AI decided to remain silent via NO_REPLY sentinel. Aborting turn completion hooks.')
+
+        if (!isStaleGeneration()) {
+          const currentMessages = chatSession.getSessionMessages(sessionId)
+          chatSession.setSessionMessages(sessionId, [
+            ...currentMessages,
+            {
+              ...toRaw(buildingMessage),
+              role: 'assistant',
+              content: 'NO_REPLY',
+              rawContent: 'NO_REPLY',
+              slices: [],
+            } as any,
+          ])
+        }
+
         if (isForegroundSession()) {
           streamingMessage.value = { role: 'assistant', content: '', slices: [], tool_results: [] }
         }

@@ -530,7 +530,7 @@ export const useDiscordStore = defineStore('discord', () => {
         return
       }
 
-      const ttsText = chat.output.content
+      const ttsText = chat.outputText || chat.output.content
       const error = chat.output.error
 
       if (error) {
@@ -574,10 +574,17 @@ export const useDiscordStore = defineStore('discord', () => {
       // consumers should never see them.
       const cleanedText = stripMarkers(typeof ttsText === 'string' ? ttsText : String(ttsText))
       await sendMessageToDiscord(source.channelId, cleanedText)
+    }
 
-      // Clear typing heartbeat as the message is now sent
+    const onStreamEnd = async (context: any) => {
+      const hash = window.location.hash || '#/'
+      const isStage = hash === '#/' || hash.startsWith('#/stage')
+
+      if (!isStage)
+        return
+
       if (typingHeartbeat) {
-        console.log('[DiscordStore] Turn complete, clearing typing heartbeat.')
+        console.log('[DiscordStore] Stream ended, clearing typing heartbeat.')
         clearInterval(typingHeartbeat)
         typingHeartbeat = null
       }
@@ -857,6 +864,7 @@ export const useDiscordStore = defineStore('discord', () => {
     const cleanupChatHooks = [
       chatOrchestrator.onChatTurnComplete(onChatTurnComplete),
       chatOrchestrator.onBeforeSend(onBeforeSend),
+      chatOrchestrator.onStreamEnd(onStreamEnd),
     ]
 
     const backgroundStore = useBackgroundStore()
