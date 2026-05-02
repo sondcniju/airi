@@ -25,7 +25,7 @@ type PersistedBackgroundItem = Omit<BackgroundItem, 'file'> & {
 
 type BackgroundPreferenceRecord = Record<string, Pick<BackgroundOption, 'id' | 'blur'>>
 
-export const useBackgroundStore = defineStore('background', () => {
+export const useBackgroundStore = defineStore('stage-layouts:background', () => {
   // TODO: STORAGE_PREFIX used with multiple less maintainable `localforage` and `key.startsWith(...)` call that creates complexity.
   const STORAGE_PREFIX = 'background-'
   const presets: BackgroundItem[] = [
