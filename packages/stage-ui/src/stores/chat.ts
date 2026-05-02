@@ -196,6 +196,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     let streamIdleTimeout: ReturnType<typeof setTimeout> | undefined
 
     let fullText = ''
+    let rawFullText = ''
     try {
       sending.value = true
       let effectiveModel = options.model || activeModel.value
@@ -610,12 +611,14 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       })
 
       let turnSpeechContent = ''
-      const bridgedTurnsHistory: { content: string, tool_calls?: any[], tool_results: any[] }[] = []
+      let turnRawContent = ''
+      const bridgedTurnsHistory: { content: string, rawContent?: string, tool_calls?: any[], tool_results: any[] }[] = []
 
       while (bridgedSteps < 5) {
         bridgedSteps++
         needsBridgedFollowUp = false
         turnSpeechContent = ''
+        turnRawContent = ''
 
         chatLog(`[ChatDebug] Starting inference step ${bridgedSteps}`)
 
@@ -625,8 +628,12 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           const rawMessage = toRaw(withoutContext)
 
           if (rawMessage.role === 'assistant') {
-            const { slices: _slices, tool_results: _toolResults, categorization: _categorization, ...rest } = rawMessage as ChatAssistantMessage
-            return toRaw(rest)
+            const { slices: _slices, tool_results: _toolResults, categorization: _categorization, rawContent: _rawContent, ...rest } = rawMessage as ChatAssistantMessage
+            // NOTICE: Prefer rawContent (full LLM output with orchestration tokens) over
+            // content (display-friendly, stripped). This prevents the model from "forgetting"
+            // to use ACTOR/ACT/DELAY tokens as conversation history grows.
+            const inferenceContent = (rawMessage as ChatAssistantMessage).rawContent || rest.content
+            return { ...toRaw(rest), content: inferenceContent }
           }
 
           return rawMessage
@@ -636,7 +643,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         for (const turn of bridgedTurnsHistory) {
           newMessages.push({
             role: 'assistant',
-            content: turn.content,
+            content: turn.rawContent || turn.content,
             tool_calls: turn.tool_calls,
           })
           for (const res of turn.tool_results) {
@@ -746,6 +753,8 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
                 const healedText = healMozibake(event.text)
                 chatLog('text-delta:', healedText)
                 fullText += healedText
+                rawFullText += healedText
+                turnRawContent += healedText
                 ;(window as any).electron.ipcRenderer.send('llm-raw-output', {
                   type: 'delta',
                   text: healedText,
@@ -764,10 +773,10 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
                 break
               }
               case 'finish':
-                chatLog('Stream finished. Reason:', (event as any).finishReason, 'fullText length:', fullText.length)
+                chatLog('Stream finished. Reason:', (event as any).finishReason, 'rawFullText length:', rawFullText.length)
                 ;(window as any).electron.ipcRenderer.send('llm-raw-output', {
                   type: 'full',
-                  text: fullText,
+                  text: rawFullText,
                   sessionId,
                 })
                 break
@@ -822,6 +831,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
         bridgedTurnsHistory.push({
           content: turnSpeechContent,
+          rawContent: turnRawContent,
           tool_calls: buildingMessage.slices
             .filter(s => s.type === 'tool-call' && currentTurnResults.some(r => r.id === (s as any).toolCall?.id))
             .map(s => (s as any).toolCall),
@@ -840,6 +850,11 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       // Turn loop ended
 
       if (!isStaleGeneration() && buildingMessage.slices.length > 0) {
+        // NOTICE: Persist the full raw LLM output (including orchestration tokens like
+        // <|ACTOR:|>, <|ACT:|>, <|DELAY:|>) so past turns fed back to the LLM retain
+        // the tokens. This prevents behavioral drift where the model stops using tokens
+        // because it never sees them in its own history.
+        ;(buildingMessage as any).rawContent = rawFullText
         const currentMessages = chatSession.getSessionMessages(sessionId)
         chatSession.setSessionMessages(sessionId, [...currentMessages, toRaw(buildingMessage)])
       }

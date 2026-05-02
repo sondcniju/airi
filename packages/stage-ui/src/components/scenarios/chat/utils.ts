@@ -1,5 +1,7 @@
 import type { ChatHistoryItem } from '../../../types/chat'
 
+import { stripMarkers } from '../../../composables/response-categoriser'
+
 function isTextPart(part: unknown): part is { type: 'text', text?: string } {
   return typeof part === 'object'
     && part !== null
@@ -38,7 +40,7 @@ export function getChatHistoryItemCopyText(message: ChatHistoryItem): string {
     }
 
     if (typeof message.content === 'string')
-      return message.content
+      return stripMarkers(message.content)
 
     if (Array.isArray(message.content)) {
       const text = getTextFromContentParts(message.content)

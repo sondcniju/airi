@@ -267,7 +267,7 @@ export function setupApp(options?: AppOptions): { app: H3, closeAllPeers: () => 
         logger.warn('No AUTHENTICATION_TOKEN provided. Gateway will only accept empty tokens for authentication. This is INSECURE.')
       }
 
-      logger.withFields({ peer: peer.id, activePeers: peers.size }).log('[TESTING] connected')
+      logger.withFields({ peer: peer.id, activePeers: peers.size }).debug('[TESTING] connected')
     },
     message: (peer, message) => {
       const authenticatedPeer = peers.get(peer.id)
@@ -315,7 +315,7 @@ export function setupApp(options?: AppOptions): { app: H3, closeAllPeers: () => 
         logger.withFields(logFields).debug('received event', { type: event.type })
       }
       else {
-        logger.withFields(logFields).log('received event', { type: event.type })
+        logger.withFields(logFields).debug('received event', { type: event.type })
       }
 
       if (authenticatedPeer) {
@@ -571,7 +571,7 @@ export function setupApp(options?: AppOptions): { app: H3, closeAllPeers: () => 
       if (p)
         unregisterModulePeer(p, 'connection closed')
 
-      logger.withFields({ peer: peer.id, peerRemote: peer.remoteAddress, details, activePeers: peers.size }).log('[TESTING] closed')
+      logger.withFields({ peer: peer.id, peerRemote: peer.remoteAddress, details, activePeers: peers.size }).debug('[TESTING] closed')
       peers.delete(peer.id)
     },
   }))

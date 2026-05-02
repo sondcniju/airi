@@ -28,6 +28,12 @@ export interface ChatAssistantMessage extends AssistantMessage {
     id: string
     result?: string | CommonContentPart[]
   }[]
+  /**
+   * The full raw LLM output including orchestration tokens (`<|ACTOR:|>`, `<|ACT:|>`, etc.)
+   * and reasoning blocks. Stored separately from `content` (which is display-friendly) so
+   * that past turns fed back to the LLM retain the tokens, preventing behavioral drift.
+   */
+  rawContent?: string
   categorization?: {
     speech: string
     reasoning: string

@@ -491,7 +491,11 @@ export const useDiscordStore = defineStore('discord', () => {
       }
       eventLog.value = [...eventLog.value.slice(-(MAX_EVENT_LOG_ENTRIES - 1)), logEntry]
 
-      await sendMessageToDiscord(source.channelId, ttsText)
+      // NOTICE: Strip orchestration tokens (<|ACTOR:|>, <|ACT:|>, etc.) before sending
+      // to Discord. The raw tokens are preserved in the DB for LLM context, but external
+      // consumers should never see them.
+      const cleanedText = stripMarkers(typeof ttsText === 'string' ? ttsText : String(ttsText))
+      await sendMessageToDiscord(source.channelId, cleanedText)
 
       // Clear typing heartbeat as the message is now sent
       if (typingHeartbeat) {

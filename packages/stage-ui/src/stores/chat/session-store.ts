@@ -7,6 +7,7 @@ import { defineStore, storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 
 import { client } from '../../composables/api'
+import { stripMarkers } from '../../composables/response-categoriser'
 import { useLocalFirstRequest } from '../../composables/use-local-first'
 import { chatSessionsRepo } from '../../database/repos/chat-sessions.repo'
 import { useAuthStore } from '../auth'
@@ -112,7 +113,10 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     return messages.map(message => ({
       id: message.id ?? nanoid(),
       role: message.role,
-      content: extractMessageContent(message),
+      // NOTICE: Strip orchestration tokens before syncing to remote server.
+      // The local DB retains rawContent for LLM inference, but remote consumers
+      // should only see clean, display-friendly content.
+      content: stripMarkers(extractMessageContent(message)),
       createdAt: message.createdAt,
     }))
   }
