@@ -749,6 +749,54 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
     artistLog('ActivateConcept: Success.', { conceptId, nextConceptStack })
   }
 
+  /**
+   * Lightweight voice-only preload for TTS generation-time ACTOR swaps.
+   * Updates ONLY the speech store (provider/model/voice) so the next TTS call
+   * generates audio with the correct voice. Does NOT swap the model, background,
+   * or concept stack — those visual changes are deferred to playback-time via
+   * activateConcept() called from the playback manager's onEnd handler.
+   */
+  function preloadConceptVoice(conceptId: string) {
+    const { activeCard } = cardStore
+    if (!activeCard || !activeCard.extensions?.airi)
+      return
+
+    const airiExt = activeCard.extensions.airi as any
+    const visualAssets = airiExt.visual_assets || {}
+    const currentStack = airiExt.active_concepts || []
+    const artistry = airiExt.artistry || {}
+
+    // Resolve the stack as if this concept were activated
+    const nextConceptStack = resolveConceptStack(currentStack, [conceptId], visualAssets)
+
+    // Fold to get speech values
+    const folded = foldConceptStack(
+      nextConceptStack,
+      visualAssets,
+      {
+        provider: artistry.provider || artistryStore.activeProvider,
+        model: artistry.model || artistryStore.activeModel,
+        options: artistry.options || artistryStore.providerOptions,
+        speechProvider: airiExt?.modules?.speech?.provider || speechStore.activeSpeechProvider,
+        speechModel: airiExt?.modules?.speech?.model || speechStore.activeSpeechModel,
+        speechVoiceId: airiExt?.modules?.speech?.voice_id || speechStore.activeSpeechVoiceId,
+      },
+    )
+
+    // Only update speech runtime — no model/background/card changes
+    if (folded.speechProvider && folded.speechProvider !== 'inherit') {
+      artistLog(`PreloadVoice: Applying speech override for upcoming TTS:`, { provider: folded.speechProvider, voice: folded.speechVoiceId })
+      speechStore.activeSpeechProvider = folded.speechProvider
+      if (folded.speechModel)
+        speechStore.activeSpeechModel = folded.speechModel
+      if (folded.speechVoiceId)
+        speechStore.activeSpeechVoiceId = folded.speechVoiceId
+    }
+    else {
+      artistLog(`PreloadVoice: No speech override for concept "${conceptId}", keeping current voice.`)
+    }
+  }
+
   function findNoteForImage(title?: string, prompt?: string) {
     if (!title && !prompt)
       return null
@@ -768,6 +816,7 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
     runArtistTask,
     loadDirectorNotes,
     activateConcept,
+    preloadConceptVoice,
     applyCurrentStackManifestations,
     findNoteForImage,
   }

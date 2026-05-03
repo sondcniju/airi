@@ -480,8 +480,12 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
     if (request.special) {
       const actorId = parseActor(request.special)
       if (actorId) {
-        console.log('[Stage:TTS] Actor swap detected in TTS generator, updating state...', actorId)
-        await artistryAutonomousStore.activateConcept(actorId)
+        // NOTICE: Only preload the VOICE here (generation-time) so the next audio
+        // segment uses the correct TTS provider/model/voice. The full concept
+        // activation (model swap, background swap, concept stack update) is deferred
+        // to playback-time via the playback manager's onEnd → specialTokenQueue path.
+        console.log('[Stage:TTS] Actor swap detected — preloading voice only (model deferred to playback)', actorId)
+        artistryAutonomousStore.preloadConceptVoice(actorId)
         return null
       }
     }
