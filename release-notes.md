@@ -1,38 +1,30 @@
-# AIRI Release Notes - April 29, 2026 (v0.9.1-stable.20260429)
+# AIRI Release Notes - May 3, 2026 (v0.9.1-stable.20260503)
 
-This release focuses on a massive overhaul of the Discord integration, significant performance wins for Live2D, and the introduction of the new "lhack" suite for real-time model modification.
+This release introduces the **Production Studio**, a powerful new way to build and manage character manifestations through "Concept Stacking," alongside significant improvements to Discord interaction logic and long-term memory integration.
 
 ## 🚀 Key Highlights
 
-### 🎭 Discord Revamp (Alpha)
-The Discord service has been completely rebuilt to provide a native-feeling experience for your companions.
-- **Slash Commands**: Take control with `/status`, `/imagine`, `/character`, `/new`, `/history`, and `/director`.
-- **Image Pipeline**: Companions can now "see" images attached to Discord messages (via VLM routing) and send their own visual manifestations back to your channels.
-- **Typing Indicators**: Real-time feedback when your companion is generating a response.
-- **Mission Control**: Improved UI for monitoring Discord service status and gateway telemetry.
+### 🎬 Production Studio & Concept Stacking
+The Card Editor now features a dedicated **Production Studio** for architecting complex character behaviors and visuals.
+- **Concept Registry**: A new system to register and stack "Concepts" (Base or Layered) onto your characters.
+- **Immersive Concept Stacking**: Layer multiple prompts, artistry rules, and behaviors to create highly nuanced manifestations.
+- **Tabbed Builder Modal**: A streamlined interface for creating and managing your concept library.
+- **Manifestation Bridge**: Improved logic for synchronizing concepts with the live stage.
 
-### 🖌️ Live2D Hacker (lhack) Introduction
-A new specialized panel for real-time modification of Live2D models.
-- **Texture Deck**: Surgical upload/download of model textures for precise, live editing.
-- **Surgical Eraser**: Improved tools for removing or hiding specific model components.
-- **Persistence**: Enhanced export stability ensures your custom tweaks are preserved across sessions.
+### 🎭 Discord Service: Queue vs. Steer
+Inspired by OpenClaw, we've refined how companions manage Discord conversations.
+- **Interaction Modes**: Switch between "Queue" (ordered processing) and "Steer" (proactive/reactive) modes for more natural chat flow.
+- **NO_REPLY Hook**: AI companions can now intelligently decide to remain silent when a response isn't necessary, preventing channel noise.
+- **Stability**: Fixed "typing loops" and improved the reliability of message history insertion.
 
-### ⚡ Live2D Performance & Compatibility
-Significant internal refactors to the Live2D engine to improve stability and speed.
-- **Framerate Optimization**: Resolved severe lag and garbage collection pressure, especially noticeable on complex models.
-- **SDK 5.3 Support**: Added compatibility guards for the latest generation of Live2D models.
-- **Scaling & Clipping**: Fixed layout cropping and scaling bound issues that affected model visibility.
-
-### 🧠 Brain & Memory Refinements
-- **Eternal Thread**: Refined long-term memory distillation with new context sliders and stricter validation rules.
-- **Persona Refresh**: Improved system prompt handling with stable IDs and head-tail pruning for long conversations.
-- **Mood Extraction**: Restored inline bracket-based mood parsing for dynamic chat bubble styling.
+### 🧠 Advanced Memory & Orchestration
+- **Eternal Record Integration**: Autonomous artistry now utilizes "Eternal Record" context injection, allowing companions to reference deeper historical patterns during generation.
+- **Token-Driven Sync**: New multi-character synchronization driven by raw tokens for precise coordination between companions.
+- **Hallucination Protection**: Refined reasoning pipelines for the Autonomous Director to significantly reduce hallucinations in character manifestations.
 
 ## 🛠️ Stability & Fixes
-- **Discord**: Implemented **Leadership Election** to prevent duplicate responses when multiple AIRI windows are open.
-- **Discord**: Fixed frequent IPC crashes and typecheck regressions after recent system rebases.
-- **Artistry**: Moved "Director Monitor" and history depth settings to per-character configurations for better control.
-- **LLM**: Robust fallbacks for `response_format` to prevent generation failures on certain providers.
-
----
-*Thank you for being part of the AIRI evolution!*
+- **macOS Refinement**: Significant stability and interface fixes specifically for macOS environments, ensuring a premium experience on Apple silicon.
+- **Workflow Safety**: Successfully implemented and verified the new **Process Safety Guidelines**, ensuring build stability without disruptive environment nukes.
+- **Metadata Persistence**: Resolved issues where Studio metadata was lost during character ingestion or card edits.
+- **Store Safety**: Fixed a Pinia store ID collision that caused background state conflicts.
+- **Message Ordering**: Fixed a regression that caused messages in the chat history to occasionally appear out of order.

@@ -905,7 +905,12 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       }
       // ----------------------
 
-      if (!isStaleGeneration() && buildingMessage.slices.length > 0) {
+      // Check if we have any meaningful content to persist
+      const hasSlices = buildingMessage.slices.length > 0
+      const hasReasoning = !!(buildingMessage as any).categorization?.reasoning?.trim()
+      const hasRawOutput = !!rawFullText?.trim()
+
+      if (!isStaleGeneration() && (hasSlices || hasReasoning || hasRawOutput)) {
         // NOTICE: Persist the full raw LLM output (including orchestration tokens like
         // <|ACTOR:|>, <|ACT:|>, <|DELAY:|>) so past turns fed back to the LLM retain
         // the tokens. This prevents behavioral drift where the model stops using tokens
