@@ -123,6 +123,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
     let resolvedSpeechModel = defaults.speechModel
     let resolvedSpeechVoiceId = defaults.speechVoiceId
     let resolvedExpressions: Record<string, number> = {}
+    let resolvedBackgroundId: string | undefined
     let accumulatedPrompt = ''
 
     for (const conceptId of stack) {
@@ -148,6 +149,9 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       }
       if (asset.manifestation?.mood) {
         resolvedMood = asset.manifestation.mood
+      }
+      if (asset.manifestation?.backgroundId && asset.manifestation.backgroundId !== 'inherit') {
+        resolvedBackgroundId = asset.manifestation.backgroundId
       }
 
       // Speech: last override wins
@@ -175,6 +179,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       speechModel: resolvedSpeechModel,
       speechVoiceId: resolvedSpeechVoiceId,
       activeExpressions: resolvedExpressions,
+      backgroundId: resolvedBackgroundId,
       promptSnippets: accumulatedPrompt,
     }
   }
@@ -722,6 +727,13 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
       }
     }
 
+    // Background: Only apply when Director is OFF (manual scene control)
+    const autonomousEnabled = artistry.autonomousEnabled ?? false
+    if (!autonomousEnabled && folded.backgroundId) {
+      artistLog(`ActivateConcept: Applying background override "${folded.backgroundId}" (Director is OFF)`)
+      moduleUpdates.activeBackgroundId = folded.backgroundId
+    }
+
     // 4. Perform the update
     cardStore.updateCard(activeCardId, {
       extensions: {
@@ -735,6 +747,54 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
     } as any)
 
     artistLog('ActivateConcept: Success.', { conceptId, nextConceptStack })
+  }
+
+  /**
+   * Lightweight voice-only preload for TTS generation-time ACTOR swaps.
+   * Updates ONLY the speech store (provider/model/voice) so the next TTS call
+   * generates audio with the correct voice. Does NOT swap the model, background,
+   * or concept stack — those visual changes are deferred to playback-time via
+   * activateConcept() called from the playback manager's onEnd handler.
+   */
+  function preloadConceptVoice(conceptId: string) {
+    const { activeCard } = cardStore
+    if (!activeCard || !activeCard.extensions?.airi)
+      return
+
+    const airiExt = activeCard.extensions.airi as any
+    const visualAssets = airiExt.visual_assets || {}
+    const currentStack = airiExt.active_concepts || []
+    const artistry = airiExt.artistry || {}
+
+    // Resolve the stack as if this concept were activated
+    const nextConceptStack = resolveConceptStack(currentStack, [conceptId], visualAssets)
+
+    // Fold to get speech values
+    const folded = foldConceptStack(
+      nextConceptStack,
+      visualAssets,
+      {
+        provider: artistry.provider || artistryStore.activeProvider,
+        model: artistry.model || artistryStore.activeModel,
+        options: artistry.options || artistryStore.providerOptions,
+        speechProvider: airiExt?.modules?.speech?.provider || speechStore.activeSpeechProvider,
+        speechModel: airiExt?.modules?.speech?.model || speechStore.activeSpeechModel,
+        speechVoiceId: airiExt?.modules?.speech?.voice_id || speechStore.activeSpeechVoiceId,
+      },
+    )
+
+    // Only update speech runtime — no model/background/card changes
+    if (folded.speechProvider && folded.speechProvider !== 'inherit') {
+      artistLog(`PreloadVoice: Applying speech override for upcoming TTS:`, { provider: folded.speechProvider, voice: folded.speechVoiceId })
+      speechStore.activeSpeechProvider = folded.speechProvider
+      if (folded.speechModel)
+        speechStore.activeSpeechModel = folded.speechModel
+      if (folded.speechVoiceId)
+        speechStore.activeSpeechVoiceId = folded.speechVoiceId
+    }
+    else {
+      artistLog(`PreloadVoice: No speech override for concept "${conceptId}", keeping current voice.`)
+    }
   }
 
   function findNoteForImage(title?: string, prompt?: string) {
@@ -756,6 +816,7 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
     runArtistTask,
     loadDirectorNotes,
     activateConcept,
+    preloadConceptVoice,
     applyCurrentStackManifestations,
     findNoteForImage,
   }
