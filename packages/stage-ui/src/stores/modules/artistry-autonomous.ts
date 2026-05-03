@@ -123,6 +123,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
     let resolvedSpeechModel = defaults.speechModel
     let resolvedSpeechVoiceId = defaults.speechVoiceId
     let resolvedExpressions: Record<string, number> = {}
+    let resolvedBackgroundId: string | undefined
     let accumulatedPrompt = ''
 
     for (const conceptId of stack) {
@@ -148,6 +149,9 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       }
       if (asset.manifestation?.mood) {
         resolvedMood = asset.manifestation.mood
+      }
+      if (asset.manifestation?.backgroundId && asset.manifestation.backgroundId !== 'inherit') {
+        resolvedBackgroundId = asset.manifestation.backgroundId
       }
 
       // Speech: last override wins
@@ -175,6 +179,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       speechModel: resolvedSpeechModel,
       speechVoiceId: resolvedSpeechVoiceId,
       activeExpressions: resolvedExpressions,
+      backgroundId: resolvedBackgroundId,
       promptSnippets: accumulatedPrompt,
     }
   }
@@ -720,6 +725,13 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
         model: folded.speechModel,
         voice_id: folded.speechVoiceId,
       }
+    }
+
+    // Background: Only apply when Director is OFF (manual scene control)
+    const autonomousEnabled = artistry.autonomousEnabled ?? false
+    if (!autonomousEnabled && folded.backgroundId) {
+      artistLog(`ActivateConcept: Applying background override "${folded.backgroundId}" (Director is OFF)`)
+      moduleUpdates.activeBackgroundId = folded.backgroundId
     }
 
     // 4. Perform the update

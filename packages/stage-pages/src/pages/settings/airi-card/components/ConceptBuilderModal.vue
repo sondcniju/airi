@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useModelStore } from '@proj-airi/stage-ui-three'
+import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
+import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
@@ -27,6 +29,7 @@ interface ConceptData {
   manifestation?: {
     modelId?: string
     mood?: string
+    backgroundId?: string
     active_expressions?: Record<string, number>
   }
   speech?: {
@@ -53,6 +56,8 @@ const displayModelsStore = useDisplayModelsStore()
 const providersStore = useProvidersStore()
 const speechStore = useSpeechStore()
 const modelStore = useModelStore()
+const backgroundStore = useBackgroundStore()
+const airiCardStore = useAiriCardStore()
 
 const { activeSpeechProvider, activeSpeechModel, activeSpeechVoiceId } = storeToRefs(speechStore)
 
@@ -79,6 +84,14 @@ const selectedSpeechProvider = ref<string>('inherit')
 const selectedSpeechModel = ref<string>('')
 const selectedSpeechVoiceId = ref<string>('')
 
+// Scene Overrides
+const selectedBackgroundId = ref<string>('inherit')
+
+// Director status (determines if Scene tab is functional)
+const isDirectorActive = computed(() => {
+  return airiCardStore.activeCard?.extensions?.airi?.artistry?.autonomousEnabled ?? false
+})
+
 // Initialize when modal opens or props change
 watch(() => [props.modelValue, props.conceptId, props.initialData], () => {
   if (props.modelValue) {
@@ -100,6 +113,8 @@ watch(() => [props.modelValue, props.conceptId, props.initialData], () => {
     selectedSpeechProvider.value = props.initialData?.speech?.provider || 'inherit'
     selectedSpeechModel.value = props.initialData?.speech?.model || ''
     selectedSpeechVoiceId.value = props.initialData?.speech?.voice_id || ''
+
+    selectedBackgroundId.value = props.initialData?.manifestation?.backgroundId || 'inherit'
 
     selectedExpressions.value = props.initialData?.manifestation?.active_expressions
       ? { ...props.initialData.manifestation.active_expressions }
@@ -149,6 +164,17 @@ const speechVoiceOptions = computed(() => {
     value: v.id,
     label: v.name || v.id,
   }))
+})
+
+const backgroundOptions = computed(() => {
+  const bgs = backgroundStore.availableBackgrounds || []
+  return [
+    { value: 'inherit', label: 'No Override' },
+    ...bgs.map(bg => ({
+      value: bg.id,
+      label: bg.title || bg.id,
+    })),
+  ]
 })
 
 // Watchers for speech provider changes
@@ -204,6 +230,7 @@ function handleSave() {
       manifestation: {
         modelId: selectedModelId.value !== 'inherit' ? selectedModelId.value : undefined,
         mood: selectedMood.value.trim() || undefined,
+        backgroundId: selectedBackgroundId.value !== 'inherit' ? selectedBackgroundId.value : undefined,
         active_expressions: Object.keys(selectedExpressions.value).length > 0
           ? { ...selectedExpressions.value }
           : undefined,
@@ -245,7 +272,7 @@ function handleSave() {
           <!-- Tab Navigation -->
           <div class="mt-6 flex gap-1">
             <button
-              v-for="t in ['identity', 'artistry', 'manifestation', 'speech']"
+              v-for="t in ['identity', 'artistry', 'manifestation', 'scene', 'speech']"
               :key="t"
               class="rounded-lg px-4 py-2 text-xs font-bold transition-all"
               :class="activeTab === t ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20' : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800'"
@@ -428,6 +455,66 @@ function handleSave() {
                 <Select v-model="selectedSpeechVoiceId" :options="speechVoiceOptions" />
                 <p class="text-[10px] text-neutral-500 italic">
                   The unique voice assigned to this concept/actress.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Scene Tab -->
+          <div v-if="activeTab === 'scene'" class="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
+            <!-- Director Active Disclaimer -->
+            <div v-if="isDirectorActive" class="flex items-start gap-3 border border-amber-300/40 rounded-xl bg-amber-50/80 p-4 dark:border-amber-600/30 dark:bg-amber-900/20">
+              <div class="i-solar:danger-triangle-bold mt-0.5 shrink-0 text-lg text-amber-500" />
+              <div>
+                <span class="text-sm text-amber-800 font-bold dark:text-amber-300">Scene Control Disabled</span>
+                <p class="mt-1 text-[11px] text-amber-700 leading-relaxed dark:text-amber-400">
+                  The Autonomous Director is currently active for this character. Scene overrides defined here will be ignored while the Director manages the visual environment. Disable the Director in the Artistry settings to enable manual scene control.
+                </p>
+              </div>
+            </div>
+
+            <!-- Explanatory Header -->
+            <div class="flex items-start gap-3 border border-neutral-200 rounded-xl bg-neutral-50/50 p-4 dark:border-neutral-700 dark:bg-black/20">
+              <div class="i-solar:clapperboard-open-play-bold-duotone mt-0.5 shrink-0 text-lg text-primary-500" />
+              <div>
+                <span class="text-sm text-neutral-700 font-bold dark:text-neutral-300">How Scene Overrides Work</span>
+                <p class="mt-1 text-[11px] text-neutral-500 leading-relaxed">
+                  When the <code class="rounded bg-neutral-200 px-1 py-0.5 text-[10px] font-mono dark:bg-neutral-700">&lt;|ACTOR:{{ id || 'ID' }}|&gt;</code> token is triggered during a conversation, the background will automatically switch to the one selected below.
+                  This lets each character or costume maintain their own unique stage set.
+                </p>
+              </div>
+            </div>
+
+            <!-- Background Selector -->
+            <div class="flex flex-col gap-2" :class="{ 'pointer-events-none opacity-40': isDirectorActive }">
+              <label class="text-sm text-neutral-700 font-bold dark:text-neutral-300">Stage Background</label>
+              <Select v-model="selectedBackgroundId" :options="backgroundOptions" />
+              <p class="text-[10px] text-neutral-500 italic">
+                Choose a background from your gallery. Add more via the Image Gallery.
+              </p>
+            </div>
+
+            <!-- Background Preview -->
+            <div v-if="selectedBackgroundId !== 'inherit'" class="mt-2">
+              <div
+                v-if="backgroundStore.getBackgroundUrl(selectedBackgroundId)"
+                class="overflow-hidden border border-neutral-200 rounded-xl shadow-sm dark:border-neutral-700"
+              >
+                <img
+                  :src="backgroundStore.getBackgroundUrl(selectedBackgroundId)!"
+                  :alt="backgroundOptions.find(o => o.value === selectedBackgroundId)?.label || 'Preview'"
+                  class="h-40 w-full object-cover"
+                >
+                <div class="bg-neutral-50/80 px-3 py-2 dark:bg-black/30">
+                  <p class="truncate text-[10px] text-neutral-500 font-medium">
+                    {{ backgroundOptions.find(o => o.value === selectedBackgroundId)?.label }}
+                  </p>
+                </div>
+              </div>
+              <div v-else class="border border-neutral-200 rounded-xl border-dashed bg-neutral-50/50 p-6 text-center dark:border-neutral-700 dark:bg-black/20">
+                <div class="i-solar:gallery-broken mx-auto mb-2 text-2xl text-neutral-300" />
+                <p class="text-xs text-neutral-400">
+                  Preview unavailable — background may still be loading.
                 </p>
               </div>
             </div>
