@@ -210,7 +210,10 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   const defaultPostHistoryInstructions = t('settings.pages.card.creation.defaults.posthistoryinstructions')
 
   const mapEntriesSerializer = {
-    read: (v: string) => new Map(JSON.parse(v)) as Map<string, AiriCard>,
+    read: (v: string) => {
+      const data = JSON.parse(v)
+      return new Map(data) as Map<string, AiriCard>
+    },
     write: (v: Map<string, AiriCard>) => JSON.stringify(Array.from(v.entries())),
   }
 
@@ -694,11 +697,12 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       return normalized || fallback
     }
 
-    // Handle ccv3 format if needed
+    // Branch: Character Card V3 (standard format)
     if ('data' in card) {
       const ccv3Card = card as ccv3.CharacterCardV3
       return {
-        name: ccv3Card.data.name,
+        name: ccv3Card.data.name || '',
+        nickname: (ccv3Card.data as any).nickname || '',
         version: normalizeVersion(ccv3Card.data.character_version),
         description: ccv3Card.data.description ?? '',
         creator: ccv3Card.data.creator ?? '',
@@ -709,7 +713,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         greetings: [
           ccv3Card.data.first_mes,
           ...(ccv3Card.data.alternate_greetings ?? []),
-        ],
+        ].filter(Boolean),
         greetingsGroupOnly: ccv3Card.data.group_only_greetings ?? [],
         systemPrompt: normalizeRequiredText(ccv3Card.data.system_prompt, defaultSystemPrompt),
         postHistoryInstructions: normalizeRequiredText(ccv3Card.data.post_history_instructions, defaultPostHistoryInstructions),
@@ -732,19 +736,29 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       }
     }
 
+    // Branch: Native AiriCard / Legacy Card (spread with overrides)
+    const cardData = card as any
     return {
-      ...card,
-      version: normalizeVersion(card.version),
-      systemPrompt: normalizeRequiredText(card.systemPrompt, defaultSystemPrompt),
-      postHistoryInstructions: normalizeRequiredText(card.postHistoryInstructions, defaultPostHistoryInstructions),
+      name: cardData.name || '',
+      nickname: cardData.nickname || '',
+      version: normalizeVersion(cardData.version),
+      description: cardData.description || '',
+      personality: cardData.personality || '',
+      scenario: cardData.scenario || '',
+      greetings: cardData.greetings || [],
+      messageExample: cardData.messageExample || [],
+      systemPrompt: normalizeRequiredText(cardData.systemPrompt, defaultSystemPrompt),
+      postHistoryInstructions: normalizeRequiredText(cardData.postHistoryInstructions, defaultPostHistoryInstructions),
+      ...cardData, // Spread remaining properties (tags, etc.)
       extensions: {
-        ...card.extensions,
+        ...cardData.extensions,
         airi: stripEmbeddedBackgroundData(resolveAiriExtension(card)),
       },
     }
   }
 
   function initialize() {
+    // Compact and normalize all cards on startup
     cards.value = compactAllCardsMap(cards.value)
 
     const nextCards = new Map(cards.value)
