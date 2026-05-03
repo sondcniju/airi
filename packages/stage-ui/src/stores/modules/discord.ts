@@ -874,7 +874,7 @@ export const useDiscordStore = defineStore('discord', () => {
       // 1. Detection Log
       const detectLog: DiscordEventLogEntry = {
         timestamp: Date.now(),
-        type: 'DEBUG_IMAGE',
+        type: 'image-debug-log',
         summary: `New background detected: ${entry.id} (Type: ${entry.type})`,
       }
       eventLog.value = [...eventLog.value.slice(-(MAX_EVENT_LOG_ENTRIES - 1)), detectLog]
@@ -890,7 +890,7 @@ export const useDiscordStore = defineStore('discord', () => {
         console.log(`[DiscordStore] Skipping image routing: isConnected=${isConnected.value}, lastChannelId=${lastChannelId.value}`)
         const failLog: DiscordEventLogEntry = {
           timestamp: Date.now(),
-          type: 'DEBUG_IMAGE',
+          type: 'image-debug-log',
           summary: `Routing skipped: Connected=${isConnected.value}, LastChannel=${lastChannelId.value}`,
         }
         eventLog.value = [...eventLog.value.slice(-(MAX_EVENT_LOG_ENTRIES - 1)), failLog]
@@ -905,7 +905,7 @@ export const useDiscordStore = defineStore('discord', () => {
         console.log(`[DiscordStore] Skipping image routing: Window (${hash}) is not Stage leader.`)
         const leaderLog: DiscordEventLogEntry = {
           timestamp: Date.now(),
-          type: 'DEBUG_IMAGE',
+          type: 'image-debug-log',
           summary: `Routing skipped: This window (${hash}) is not the Stage leader.`,
         }
         eventLog.value = [...eventLog.value.slice(-(MAX_EVENT_LOG_ENTRIES - 1)), leaderLog]
