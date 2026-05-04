@@ -313,21 +313,40 @@ function processMarkers(content: string) {
   }
 }
 
-modsServer.onEvent('output:gen-ai:chat:message', (event) => {
+// NOTICE: These modsServer listeners exist ONLY for external plugin/mod messages
+// that bypass the normal chat orchestrator pipeline. Messages originating from
+// the local chatOrchestrator are ALREADY processed token-by-token via the
+// speechPipeline's onTokenSpecial hook. Blindly re-processing them here caused
+// every ACT/DELAY/ACTOR token to execute TWICE — once during streaming and again
+// when the full message was broadcast via the context bridge. The
+// `stage-tamagotchi` and `stage-web` flags let us identify and skip local messages.
+const modsServerCleanups: Array<() => void> = []
+
+modsServerCleanups.push(modsServer.onEvent('output:gen-ai:chat:message', (event) => {
+  // Skip messages that originated from this app's own chat pipeline
+  if (event.data?.['stage-tamagotchi'] || event.data?.['stage-web']) {
+    return
+  }
+
   // eslint-disable-next-line no-console
   console.debug('[Stage] Received external message:', event.data)
   if (typeof event.data?.message?.content === 'string') {
     processMarkers(event.data.message.content)
   }
-})
+}))
 
-modsServer.onEvent('input:text', (event) => {
+modsServerCleanups.push(modsServer.onEvent('input:text', (event) => {
+  // Skip messages that originated from this app's own input pipeline
+  if (event.data?.['stage-tamagotchi'] || event.data?.['stage-web']) {
+    return
+  }
+
   // eslint-disable-next-line no-console
   console.debug('[Stage] Received external input:', event.data)
   if (event.data?.text) {
     processMarkers(event.data.text)
   }
-})
+}))
 
 const lipSyncNode = ref<AudioNode>()
 
@@ -964,6 +983,7 @@ onUnmounted(() => {
 
   chatHookCleanups.forEach(dispose => dispose?.())
   viewUpdateCleanups.forEach(dispose => dispose?.())
+  modsServerCleanups.forEach(dispose => dispose?.())
   void speechRuntimeStore.unregisterHost(speechPipeline)
   if (typeof window !== 'undefined') {
     window.removeEventListener(resizeStateEventName, handleResizeStateChange as EventListener)

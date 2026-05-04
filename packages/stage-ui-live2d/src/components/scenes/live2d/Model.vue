@@ -679,6 +679,15 @@ watch(() => props.scale, setScaleAndPosition)
 let dropShadowFrameCounter = 0
 // TODO: This is hacky!
 function updateDropShadowFilterLoop() {
+  // NOTICE: Guard against orphaned RAF loops. When the component unmounts during
+  // an ACTOR swap, the old loop must die immediately, otherwise it retains the
+  // full Live2DModel in closure memory and keeps calling getComputedStyle on a
+  // detached DOM node, eventually crashing the renderer via OOM / main-thread lockup.
+  if (isUnmounted) {
+    dropShadowAnimationId.value = 0
+    return
+  }
+
   dropShadowFrameCounter++
   // Throttle the getComputedStyle DOM read to prevent layout thrashing (1fps lag)
   if (dropShadowFrameCounter % 10 === 0) {
@@ -804,6 +813,14 @@ onMounted(async () => {
 onUnmounted(() => {
   isUnmounted = true
   disposeShouldUpdateView?.()
+
+  // NOTICE: Explicitly cancel the drop shadow RAF loop on unmount. The isUnmounted
+  // guard inside the loop is the primary defense, but cancelling the pending frame
+  // prevents even one extra tick from firing after teardown.
+  if (dropShadowAnimationId.value) {
+    cancelAnimationFrame(dropShadowAnimationId.value)
+    dropShadowAnimationId.value = 0
+  }
 })
 
 function listMotionGroups() {
