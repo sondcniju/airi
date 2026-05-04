@@ -377,6 +377,45 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
        * Evaluates a potential tool marker string.
        * RETURNS: Info about the match and whether it was successfully bridged as a tool call.
        */
+      function tryParseLenientJson(json: string): any {
+        let sanitized = json.trim()
+        if (!sanitized)
+          return {}
+
+        // Handle unclosed quotes at the end of the string
+        const openQuotes = (sanitized.match(/"/g) || []).length
+        if (openQuotes % 2 !== 0) {
+          sanitized += '"'
+        }
+
+        // Handle missing closing braces/brackets
+        const openBraces = (sanitized.match(/\{/g) || []).length
+        const closeBraces = (sanitized.match(/\}/g) || []).length
+        for (let i = 0; i < openBraces - closeBraces; i++) {
+          sanitized += '}'
+        }
+
+        const openBrackets = (sanitized.match(/\[/g) || []).length
+        const closeBrackets = (sanitized.match(/\]/g) || []).length
+        for (let i = 0; i < openBrackets - closeBrackets; i++) {
+          sanitized += ']'
+        }
+
+        try {
+          return JSON.parse(sanitized)
+        }
+        catch (e) {
+          // If still failing, try one last desperation fix: remove the last key if it looks truncated
+          try {
+            const desperation = `${sanitized.replace(/,\s*"[\w-]+"[:\s]*"[^"]*$/g, '')}}`
+            return JSON.parse(desperation)
+          }
+          catch {
+            throw e
+          }
+        }
+      }
+
       async function tryBridgeMarker(input: string): Promise<{ matchedText: string, bridged: boolean }> {
         chatLog('tryBridgeMarker evaluating input (partial):', input.trim().substring(0, 100))
         // Supports: <|tool:args|>, [call_tool:tool, args], and hybrid <|tool:args</tool_call>
@@ -394,10 +433,10 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         let argsRaw: string
 
         // check if it's the JSON flavor: <tool_call>{"name": "...", "arguments": "..."}</tool_call>
-        const potentialJson = match[1] || ''
-        if (potentialJson.trim().startsWith('{')) {
+        const potentialJson = (match[1] || '').trim()
+        if (potentialJson.startsWith('{')) {
           try {
-            const parsed = JSON.parse(potentialJson)
+            const parsed = tryParseLenientJson(potentialJson)
             toolName = parsed.name
             argsRaw = typeof parsed.arguments === 'string' ? parsed.arguments : JSON.stringify(parsed.arguments)
           }
@@ -422,7 +461,8 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         chatLog(`Bridging marker to tool call: ${toolName}`)
         try {
           const args: Record<string, any> = {}
-          const kvRegex = /(?:^|[, \n\t]+)\s*([\w-]+)\s*[:=]\s*(?:"([^"]*)"|'([^']*)'|(\d+(?:\.\d+)?)|(true|false)|(\{.*\}|\[.*\]))/g
+          // NOTICE: We allow unclosed quotes at the end of the string (?:'|$) to handle truncation gracefully.
+          const kvRegex = /(?:^|[, \n\t]+)\s*([\w-]+)\s*[:=]\s*(?:"([^"]*)(?:"|$)|'([^']*)(?:'|$)|(\d+(?:\.\d+)?)|(true|false)|(\{.*(?:\}|$)|\[.*(?:\]|$)))/g
           let kvMatch
 
           while ((kvMatch = kvRegex.exec(argsRaw)) !== null) {
@@ -441,7 +481,19 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
             }
             else if (valComplex !== undefined) {
               try {
-                args[key] = JSON.parse(valComplex.replace(/'/g, '"'))
+                // Try to sanitize and parse complex JSON-like objects
+                const sanitized = valComplex
+                  .replace(/'/g, '"')
+                  .trim()
+
+                // If it looks truncated (starts with { but doesn't end with }), try to close it
+                let toParse = sanitized
+                if (toParse.startsWith('{') && !toParse.endsWith('}'))
+                  toParse += '}'
+                if (toParse.startsWith('[') && !toParse.endsWith(']'))
+                  toParse += ']'
+
+                args[key] = JSON.parse(toParse)
               }
               catch {
                 args[key] = valComplex
@@ -451,7 +503,9 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
           if (Object.keys(args).length === 0) {
             try {
-              const cleaned = argsRaw.trim().replace(/^\{/, '').replace(/\}$/, '').replace(/(\w+):/g, '"$1":').replace(/'/g, '"')
+              let cleaned = argsRaw.trim().replace(/^\{/, '').replace(/\}$/, '').replace(/(\w+):/g, '"$1":').replace(/'/g, '"')
+              if (argsRaw.trim().startsWith('{') && !cleaned.endsWith('}'))
+                cleaned += '"}' // Guessing it ended inside a string
               Object.assign(args, JSON.parse(`{${cleaned}}`))
             }
             catch {}
@@ -560,7 +614,8 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
                 if (tool && (tool as any).execute) {
                   chatLog(`Manually executing bridged tool: ${toolCall.function.name}`)
                   try {
-                    const result = await (tool as any).execute(JSON.parse(toolCall.function.arguments))
+                    const parsedArgs = tryParseLenientJson(toolCall.function.arguments)
+                    const result = await (tool as any).execute(parsedArgs)
                     toolCallQueue.enqueue({
                       type: 'tool-call-result',
                       id: toolCall.id,
