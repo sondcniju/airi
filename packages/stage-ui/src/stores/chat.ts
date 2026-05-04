@@ -462,6 +462,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         try {
           const args: Record<string, any> = {}
           // NOTICE: We allow unclosed quotes at the end of the string (?:'|$) to handle truncation gracefully.
+          // We use a non-capturing group (?:...) for the alternatives to keep the group indexes for key/valDouble/etc consistent.
           const kvRegex = /(?:^|[, \n\t]+)\s*([\w-]+)\s*[:=]\s*(?:"([^"]*)(?:"|$)|'([^']*)(?:'|$)|(\d+(?:\.\d+)?)|(true|false)|(\{.*(?:\}|$)|\[.*(?:\]|$)))/g
           let kvMatch
 
