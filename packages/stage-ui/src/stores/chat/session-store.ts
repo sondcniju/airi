@@ -276,8 +276,9 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       return
     const messages = snapshotMessages(ensureSessionMessageIds(sessionId))
     const now = Date.now()
-    const updatedMeta = {
+    const updatedMeta: ChatSessionMeta = {
       ...meta,
+      messageCount: messages.length,
       updatedAt: now,
     }
 
@@ -368,16 +369,16 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     const currentUserId = getCurrentUserId()
     const sessionId = nanoid()
     const now = Date.now()
+    const initialMessages = options?.messages?.length ? options.messages : [generateInitialMessage()]
     const meta: ChatSessionMeta = {
       sessionId,
       userId: currentUserId,
       characterId,
       title: options?.title,
+      messageCount: initialMessages.length,
       createdAt: now,
       updatedAt: now,
     }
-
-    const initialMessages = options?.messages?.length ? options.messages : [generateInitialMessage()]
 
     sessionMetas.value[sessionId] = meta
     sessionMessages.value[sessionId] = initialMessages
@@ -754,6 +755,34 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     return await createSession(characterId, { setActive: false, messages: nextMessages })
   }
 
+  async function deleteSession(sessionId: string) {
+    const characterId = sessionMetas.value[sessionId]?.characterId
+    if (!characterId)
+      return
+
+    await enqueuePersist(() => chatSessionsRepo.deleteSession(sessionId))
+
+    delete sessionMessages.value[sessionId]
+    delete sessionMetas.value[sessionId]
+    delete sessionGenerations.value[sessionId]
+    loadedSessions.delete(sessionId)
+
+    const characterIndex = index.value?.characters[characterId]
+    if (characterIndex) {
+      delete characterIndex.sessions[sessionId]
+      if (characterIndex.activeSessionId === sessionId) {
+        const remaining = Object.keys(characterIndex.sessions)
+        if (remaining.length > 0) {
+          setActiveSession(remaining[0])
+        }
+        else {
+          await createSession(characterId)
+        }
+      }
+      await persistIndex()
+    }
+  }
+
   function deleteMessage(messageId: string, sessionId = activeSessionId.value) {
     if (!sessionId)
       return
@@ -901,6 +930,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     cleanupMessages,
     getAllSessions,
     resetAllSessions,
+    getCharacterIndex,
 
     ensureSession,
     setSessionMessages,
@@ -912,6 +942,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     bumpSessionGeneration,
     getSessionGenerationValue,
 
+    deleteSession,
     deleteMessage,
     forkSession,
     inscribeTurn,

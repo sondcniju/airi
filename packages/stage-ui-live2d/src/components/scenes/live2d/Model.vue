@@ -721,66 +721,76 @@ watch(mouthOpenSize, (value) => {
 watch(currentMotion, value => setMotion(value.group, value.index))
 watch(paused, value => value ? pixiApp.value?.stop() : pixiApp.value?.start())
 
-// Watch and apply all model parameters dynamically
-// NOTICE: We watch both model instance and parameters to ensure state is applied after model reload.
-watch([() => model.value, () => modelParameters.value], ([currModel, params]) => {
+// Watch for model changes to apply current parameters once
+watch(model, (currModel) => {
   if (currModel) {
-    const coreModel = currModel.internalModel.coreModel
-    // Standard parameters
-    coreModel.setParameterValueById('ParamAngleX', params.angleX)
-    coreModel.setParameterValueById('ParamAngleY', params.angleY)
-    coreModel.setParameterValueById('ParamAngleZ', params.angleZ)
-    coreModel.setParameterValueById('ParamEyeLOpen', params.leftEyeOpen)
-    coreModel.setParameterValueById('ParamEyeROpen', params.rightEyeOpen)
-    coreModel.setParameterValueById('ParamEyeSmile', params.leftEyeSmile)
-    coreModel.setParameterValueById('ParamBrowLX', params.leftEyebrowLR)
-    coreModel.setParameterValueById('ParamBrowRX', params.rightEyebrowLR)
-    coreModel.setParameterValueById('ParamBrowLY', params.leftEyebrowY)
-    coreModel.setParameterValueById('ParamBrowRY', params.rightEyebrowY)
-    coreModel.setParameterValueById('ParamBrowLAngle', params.leftEyebrowAngle)
-    coreModel.setParameterValueById('ParamBrowRAngle', params.rightEyebrowAngle)
-    coreModel.setParameterValueById('ParamBrowLForm', params.leftEyebrowForm)
-    coreModel.setParameterValueById('ParamBrowRForm', params.rightEyebrowForm)
-    coreModel.setParameterValueById('ParamMouthOpenY', params.mouthOpen)
-    coreModel.setParameterValueById('ParamMouthForm', params.mouthForm)
-    coreModel.setParameterValueById('ParamCheek', params.cheek)
-    coreModel.setParameterValueById('ParamBodyAngleX', params.bodyAngleX)
-    coreModel.setParameterValueById('ParamBodyAngleY', params.bodyAngleY)
-    coreModel.setParameterValueById('ParamBodyAngleZ', params.bodyAngleZ)
-    coreModel.setParameterValueById('ParamBreath', params.breath)
+    applyParameters(currModel.internalModel.coreModel as any, modelParameters.value)
+  }
+})
 
-    // Dynamic parameters (from CDI)
-    Object.entries(params).forEach(([key, value]) => {
-      // If it's not one of our standard keys, it's a dynamic one
-      const standardKeys = [
-        'angleX',
-        'angleY',
-        'angleZ',
-        'leftEyeOpen',
-        'rightEyeOpen',
-        'leftEyeSmile',
-        'leftEyebrowLR',
-        'rightEyebrowLR',
-        'leftEyebrowY',
-        'rightEyebrowY',
-        'leftEyebrowAngle',
-        'rightEyebrowAngle',
-        'leftEyebrowForm',
-        'rightEyebrowForm',
-        'mouthOpen',
-        'mouthForm',
-        'cheek',
-        'bodyAngleX',
-        'bodyAngleY',
-        'bodyAngleZ',
-        'breath',
-      ]
-      if (!standardKeys.includes(key)) {
-        coreModel.setParameterValueById(key, value)
-      }
-    })
+// Watch parameters deeply but apply only if model exists
+watch(modelParameters, (params) => {
+  const coreModel = getCoreModel()
+  if (coreModel) {
+    applyParameters(coreModel, params)
   }
 }, { deep: true })
+
+function applyParameters(coreModel: any, params: Record<string, number>) {
+  // Standard parameters
+  coreModel.setParameterValueById('ParamAngleX', params.angleX)
+  coreModel.setParameterValueById('ParamAngleY', params.angleY)
+  coreModel.setParameterValueById('ParamAngleZ', params.angleZ)
+  coreModel.setParameterValueById('ParamEyeLOpen', params.leftEyeOpen)
+  coreModel.setParameterValueById('ParamEyeROpen', params.rightEyeOpen)
+  coreModel.setParameterValueById('ParamEyeSmile', params.leftEyeSmile)
+  coreModel.setParameterValueById('ParamBrowLX', params.leftEyebrowLR)
+  coreModel.setParameterValueById('ParamBrowRX', params.rightEyebrowLR)
+  coreModel.setParameterValueById('ParamBrowLY', params.leftEyebrowY)
+  coreModel.setParameterValueById('ParamBrowRY', params.rightEyebrowY)
+  coreModel.setParameterValueById('ParamBrowLAngle', params.leftEyebrowAngle)
+  coreModel.setParameterValueById('ParamBrowRAngle', params.rightEyebrowAngle)
+  coreModel.setParameterValueById('ParamBrowLForm', params.leftEyebrowForm)
+  coreModel.setParameterValueById('ParamBrowRForm', params.rightEyebrowForm)
+  coreModel.setParameterValueById('ParamMouthOpenY', params.mouthOpen)
+  coreModel.setParameterValueById('ParamMouthForm', params.mouthForm)
+  coreModel.setParameterValueById('ParamCheek', params.cheek)
+  coreModel.setParameterValueById('ParamBodyAngleX', params.bodyAngleX)
+  coreModel.setParameterValueById('ParamBodyAngleY', params.bodyAngleY)
+  coreModel.setParameterValueById('ParamBodyAngleZ', params.bodyAngleZ)
+  coreModel.setParameterValueById('ParamBreath', params.breath)
+
+  // Dynamic parameters (from CDI)
+  Object.entries(params).forEach(([key, value]) => {
+    // If it's not one of our standard keys, it's a dynamic one
+    const standardKeys = [
+      'angleX',
+      'angleY',
+      'angleZ',
+      'leftEyeOpen',
+      'rightEyeOpen',
+      'leftEyeSmile',
+      'leftEyebrowLR',
+      'rightEyebrowLR',
+      'leftEyebrowY',
+      'rightEyebrowY',
+      'leftEyebrowAngle',
+      'rightEyebrowAngle',
+      'leftEyebrowForm',
+      'rightEyebrowForm',
+      'mouthOpen',
+      'mouthForm',
+      'cheek',
+      'bodyAngleX',
+      'bodyAngleY',
+      'bodyAngleZ',
+      'breath',
+    ]
+    if (!standardKeys.includes(key)) {
+      coreModel.setParameterValueById(key, value)
+    }
+  })
+}
 
 // Watch for idle animation setting changes and stop motions if disabled
 watch(live2dIdleAnimationEnabled, (enabled) => {

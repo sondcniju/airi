@@ -5,6 +5,7 @@ export interface ChatSessionMeta {
   userId: string
   characterId: string
   title?: string
+  messageCount?: number
   createdAt: number
   updatedAt: number
 }

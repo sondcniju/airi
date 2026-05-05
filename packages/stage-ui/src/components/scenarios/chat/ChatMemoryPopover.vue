@@ -19,6 +19,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   (e: 'view-context'): void
+  (e: 'manage-sessions'): void
 }>()
 
 const router = useRouter()
@@ -173,16 +174,29 @@ function navigateToMemory() {
         </div>
 
         <!-- Footer / Link -->
-        <button
-          class="w-full flex items-center justify-between rounded-xl p-2 text-left transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          @click="navigateToMemory"
-        >
-          <div class="flex items-center gap-2">
-            <div class="i-solar:settings-minimalistic-linear text-neutral-400" />
-            <span class="text-xs text-neutral-600 font-medium dark:text-neutral-300">Memory Management</span>
-          </div>
-          <div class="i-solar:alt-arrow-right-linear text-xs text-neutral-400" />
-        </button>
+        <div class="space-y-1">
+          <button
+            class="w-full flex items-center justify-between rounded-xl p-2 text-left transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            @click="emit('manage-sessions')"
+          >
+            <div class="flex items-center gap-2">
+              <div class="i-solar:layers-minimalistic-linear text-neutral-400" />
+              <span class="text-xs text-neutral-600 font-medium dark:text-neutral-300">Session Management</span>
+            </div>
+            <div class="i-solar:alt-arrow-right-linear text-xs text-neutral-400" />
+          </button>
+
+          <button
+            class="w-full flex items-center justify-between rounded-xl p-2 text-left transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            @click="navigateToMemory"
+          >
+            <div class="flex items-center gap-2">
+              <div class="i-solar:settings-minimalistic-linear text-neutral-400" />
+              <span class="text-xs text-neutral-600 font-medium dark:text-neutral-300">Memory Management</span>
+            </div>
+            <div class="i-solar:alt-arrow-right-linear text-xs text-neutral-400" />
+          </button>
+        </div>
       </PopoverContent>
     </PopoverPortal>
   </PopoverRoot>

@@ -61,7 +61,7 @@ export const useTextJournalStore = defineStore('text-journal', () => {
 
   async function load() {
     const currentUserId = getCurrentUserId()
-    if (initializedForUserId.value === currentUserId)
+    if (initializedForUserId.value === currentUserId || loading.value)
       return
 
     loading.value = true

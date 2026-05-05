@@ -8,6 +8,7 @@ import {
   ChatHistory,
   ChatImagesPopover,
   ChatMemoryPopover,
+  ChatSessionModal,
   JournalPreviewModal,
 } from '@proj-airi/stage-ui/components'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
@@ -187,6 +188,7 @@ function formatLocalDayKey(date: Date): string {
 
 const trashConfirmOpen = ref(false)
 const showContext = ref(false)
+const showSessions = ref(false)
 
 const characterName = computed(() => activeCard.value?.name || 'AIRI')
 const effectiveSystemPrompt = computed(() => buildSystemPrompt(activeCard.value))
@@ -681,6 +683,7 @@ watch(messageInput, () => {
         show-cache-status
         :title="`Memory & Context for ${characterName}`"
         @view-context="showContext = true"
+        @manage-sessions="showSessions = true"
       />
 
       <ChatImagesPopover
@@ -778,6 +781,10 @@ watch(messageInput, () => {
     />
 
     <!-- Context Dialog -->
+    <ChatSessionModal
+      v-model="showSessions"
+    />
+
     <CharacterContextDialog
       v-model="showContext"
       :character-name="characterName"

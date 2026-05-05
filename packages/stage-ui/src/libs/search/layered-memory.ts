@@ -18,6 +18,9 @@ const indexStorage = createStorage({
 
 export interface LayeredSearchResult extends HybridSearchResult {}
 
+let isPersisting = false
+let isIndexing = false
+
 export const layeredMemory = {
   async init() {
     const snapshot = await indexStorage.getItem('snapshot')
@@ -25,8 +28,16 @@ export const layeredMemory = {
   },
 
   async persist() {
-    const snapshot = await searchWorker.persist()
-    await indexStorage.setItem('snapshot', snapshot)
+    if (isPersisting)
+      return
+    isPersisting = true
+    try {
+      const snapshot = await searchWorker.persist()
+      await indexStorage.setItem('snapshot', snapshot)
+    }
+    finally {
+      isPersisting = false
+    }
   },
 
   async search(query: string, limit = 10): Promise<LayeredSearchResult[]> {
@@ -46,7 +57,15 @@ export const layeredMemory = {
   },
 
   async indexDocuments(documents: any[]) {
-    await searchWorker.index(documents)
-    await this.persist()
+    if (isIndexing)
+      return
+    isIndexing = true
+    try {
+      await searchWorker.index(documents)
+      await this.persist()
+    }
+    finally {
+      isIndexing = false
+    }
   },
 }
