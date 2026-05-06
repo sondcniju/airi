@@ -5,6 +5,7 @@ import { env } from 'node:process'
 
 import Vue from '@vitejs/plugin-vue'
 import Unocss from 'unocss/vite'
+import Info from 'unplugin-info/vite'
 import Yaml from 'unplugin-yaml/vite'
 import Inspect from 'vite-plugin-inspect'
 
@@ -41,6 +42,7 @@ export default defineConfig({
     ],
   },
   plugins: [
+    Info(),
     // TODO: Type wrong for `unplugin-yaml` in Histoire required
     // Vite version, wait until Histoire updates to support Vite 7
     Yaml() as Plugin,
