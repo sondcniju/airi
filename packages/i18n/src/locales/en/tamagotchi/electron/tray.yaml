@@ -4,6 +4,7 @@ menu:
       show: Show
       adjust_sizes: Adjust sizes
       recommended_size: Recommended (450x600)
+      mini_size: Mini (220x315)
       full_height: Full Height
       half_height: Half Height
       full_screen: Full Screen

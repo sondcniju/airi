@@ -68,6 +68,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
   const lastHeartbeatTime = ref<number>(Date.now())
   const isDreamStateEvaluating = ref(false)
+  const isUpdatingSensors = ref(false)
   const isHeartbeatEvaluating = ref(false)
   let heartbeatInterval: any = null
 
@@ -110,6 +111,13 @@ export const useProactivityStore = defineStore('proactivity', () => {
   }
 
   async function updateSensors() {
+    if (isUpdatingSensors.value) {
+      // eslint-disable-next-line no-console
+      console.log('[Proactivity] Sensor update already in progress, skipping tick.')
+      return
+    }
+
+    isUpdatingSensors.value = true
     // eslint-disable-next-line no-console
     console.log('[Proactivity] Starting updateSensors tick...')
     console.time('[Proactivity] updateSensors')
@@ -125,6 +133,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
     try {
       // Parallelize all OS sensor probes to reduce total latency to the slowest single call.
       const probes = [
+        // Only trigger load if not already initialized or loading
         textJournalStore.load(),
         getIdleTimeInvoke ? getIdleTimeInvoke() : Promise.resolve(undefined),
         getActiveWindowInvoke ? getActiveWindowInvoke() : Promise.resolve(undefined),
@@ -196,6 +205,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
     }
     finally {
       console.timeEnd('[Proactivity] updateSensors')
+      isUpdatingSensors.value = false
     }
   }
 

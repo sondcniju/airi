@@ -5,6 +5,7 @@ import type { SpeechCapabilitiesInfo } from '@proj-airi/stage-ui/stores/provider
 
 import kebabcase from '@stdlib/string-base-kebabcase'
 
+import { useLive2d } from '@proj-airi/stage-ui-live2d'
 import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { animations } from '@proj-airi/stage-ui-three/assets/vrm'
 import { DEFAULT_ARTISTRY_WIDGET_INSTRUCTION } from '@proj-airi/stage-ui/constants/prompts/artistry-instruction'
@@ -62,6 +63,7 @@ const stageModelStore = useSettingsStageModel()
 const modelStore = useModelStore()
 const customVrmAnimationsStore = useCustomVrmAnimationsStore()
 const backgroundStore = useBackgroundStore()
+const live2dStore = useLive2d()
 
 const { sensorPayload } = storeToRefs(proactivityStore)
 const { activeProvider: consciousnessProvider, activeModel: defaultConsciousnessModel } = storeToRefs(consciousnessStore)
@@ -70,9 +72,18 @@ const { stageModelSelected: defaultDisplayModelId } = storeToRefs(stageModelStor
 const { activeProvider: defaultArtistryProvider } = storeToRefs(artistryStore)
 const { availableExpressions } = storeToRefs(modelStore)
 const { animationOptions } = storeToRefs(customVrmAnimationsStore)
+const { availableExpressions: live2dExpressions } = storeToRefs(live2dStore)
 
 // Determine if we're in edit mode
 const isEditMode = computed(() => !!props.cardId)
+
+const isLive2d = computed(() => {
+  const modelId = selectedDisplayModelId.value || defaultDisplayModelId.value
+  const model = displayModelsStore.displayModels.find(m => m.id === modelId)
+  if (!model)
+    return false
+  return model.format === DisplayModelFormat.Live2dZip || model.format === DisplayModelFormat.Live2dDirectory
+})
 
 // Modules configuration
 const selectedConsciousnessProvider = ref<string>('')
@@ -89,6 +100,8 @@ const selectedArtistryWidgetInstruction = ref<string>('')
 const selectedArtistryAutonomousEnabled = ref<boolean>(false)
 const selectedArtistryAutonomousThreshold = ref<number>(70)
 const selectedArtistryAutonomousTarget = ref<'user' | 'assistant'>('user')
+const selectedArtistryAutonomousMonitorEnabled = ref<boolean>(true)
+const selectedArtistryAutonomousHistoryDepth = ref<number>(3)
 const selectedArtistrySpawnMode = ref<'bg' | 'widget' | 'inline' | 'bg_widget'>('bg_widget')
 const selectedArtistryConfigStr = ref<string>('{\n  \n}')
 const generationEnabled = ref<boolean>(false)
@@ -257,6 +270,9 @@ const sceneOptions = computed(() => {
 })
 
 const actingModelExpressionOptions = computed(() => {
+  if (isLive2d.value) {
+    return live2dExpressions.value.map(e => e.name).sort((a, b) => a.localeCompare(b))
+  }
   const modelExps = [...availableExpressions.value]
   const vrmaExps = Object.keys(animations)
   return [...new Set([...modelExps, ...vrmaExps])].sort((a, b) => a.localeCompare(b))
@@ -507,7 +523,9 @@ async function saveCard(card: Card): Promise<boolean> {
     extensions: {
       ...rawCard.extensions,
       airi: {
+        ...existingAiriExt,
         modules: {
+          ...existingAiriExt?.modules,
           consciousness: {
             provider: selectedConsciousnessProvider.value || consciousnessProvider.value,
             model: selectedConsciousnessModel.value || defaultConsciousnessModel.value,
@@ -520,50 +538,62 @@ async function saveCard(card: Card): Promise<boolean> {
           displayModelId: selectedDisplayModelId.value || defaultDisplayModelId.value,
           activeBackgroundId: selectedActiveBackgroundId.value || 'none',
         },
-        agents: {},
+        agents: existingAiriExt?.agents || {},
         heartbeats: {
+          ...existingAiriExt?.heartbeats,
           enabled: heartbeatsEnabled.value,
           intervalMinutes: heartbeatsIntervalMinutes.value,
           prompt: heartbeatsPrompt.value,
           injectIntoPrompt: heartbeatsInjectIntoPrompt.value,
           useAsLocalGate: heartbeatsUseAsLocalGate.value,
           contextOptions: {
+            ...existingAiriExt?.heartbeats?.contextOptions,
             windowHistory: heartbeatsContextWindowHistory.value,
             systemLoad: heartbeatsContextSystemLoad.value,
             usageMetrics: heartbeatsContextUsageMetrics.value,
           },
           schedule: {
+            ...existingAiriExt?.heartbeats?.schedule,
             start: heartbeatsScheduleStart.value,
             end: heartbeatsScheduleEnd.value,
           },
           respectSchedule: heartbeatsRespectSchedule.value,
         },
         dreamState: {
+          ...existingAiriExt?.dreamState,
           enabled: dreamStateEnabled.value,
           strictAfkGating: dreamStateStrictAfkGating.value,
-          journalingThreshold: 'balanced',
-          maxSessionsPerDay: 4,
-          sessionTimeoutMinutes: 60,
-          afkThresholdMinutes: 5,
-          minConversationTurns: 4,
+          journalingThreshold: existingAiriExt?.dreamState?.journalingThreshold || 'balanced',
+          maxSessionsPerDay: existingAiriExt?.dreamState?.maxSessionsPerDay || 4,
+          sessionTimeoutMinutes: existingAiriExt?.dreamState?.sessionTimeoutMinutes || 60,
+          afkThresholdMinutes: existingAiriExt?.dreamState?.afkThresholdMinutes || 5,
+          minConversationTurns: existingAiriExt?.dreamState?.minConversationTurns || 4,
           lastProcessedAt: existingAiriExt?.dreamState?.lastProcessedAt,
           dailyRunDate: existingAiriExt?.dreamState?.dailyRunDate,
           dailyRunCount: existingAiriExt?.dreamState?.dailyRunCount ?? 0,
         },
         acting: {
+          ...existingAiriExt?.acting,
           modelExpressionPrompt: selectedActingModelExpressionPrompt.value,
           speechExpressionPrompt: selectedActingSpeechExpressionPrompt.value,
           speechMannerismPrompt: selectedActingSpeechMannerismPrompt.value,
           idleAnimations: [...(selectedActingIdleAnimations.value || [])],
         },
         generation: {
+          ...existingAiriExt?.generation,
           enabled: generationEnabled.value,
           provider: generationProvider.value || selectedConsciousnessProvider.value || consciousnessProvider.value,
           model: generationModel.value || selectedConsciousnessModel.value || defaultConsciousnessModel.value,
-          known: generationKnown,
+          known: {
+            ...existingAiriExt?.generation?.known,
+            ...generationKnown,
+          },
           advanced: generationAdvanced,
         },
         groundingEnabled: groundingEnabled.value,
+        visual_assets: existingAiriExt?.visual_assets || {},
+        active_concepts: existingAiriExt?.active_concepts || [],
+        eternal_record: existingAiriExt?.eternal_record || { relational_milestones: [], lore_bits: [] },
       } as AiriExtension,
     },
   }
@@ -578,6 +608,8 @@ async function saveCard(card: Card): Promise<boolean> {
     autonomousEnabled: selectedArtistryAutonomousEnabled.value,
     autonomousThreshold: selectedArtistryAutonomousThreshold.value,
     autonomousTarget: selectedArtistryAutonomousTarget.value,
+    autonomousMonitorEnabled: selectedArtistryAutonomousMonitorEnabled.value,
+    autonomousHistoryDepth: selectedArtistryAutonomousHistoryDepth.value,
     options: (() => {
       try {
         return selectedArtistryConfigStr.value.trim() ? JSON.parse(selectedArtistryConfigStr.value) : undefined
@@ -624,6 +656,8 @@ function initializeCard(): Card {
   selectedArtistryWidgetInstruction.value = airiExt?.artistry?.widgetInstruction || DEFAULT_ARTISTRY_WIDGET_INSTRUCTION
   selectedArtistryAutonomousEnabled.value = airiExt?.artistry?.autonomousEnabled ?? false
   selectedArtistryAutonomousThreshold.value = airiExt?.artistry?.autonomousThreshold ?? 70
+  selectedArtistryAutonomousMonitorEnabled.value = airiExt?.artistry?.autonomousMonitorEnabled ?? true
+  selectedArtistryAutonomousHistoryDepth.value = airiExt?.artistry?.autonomousHistoryDepth ?? 3
   selectedArtistryAutonomousTarget.value = airiExt?.artistry?.autonomousTarget ?? 'user'
   selectedArtistrySpawnMode.value = airiExt?.artistry?.spawnMode ?? 'bg_widget'
   generationEnabled.value = airiExt?.generation?.enabled ?? false
@@ -838,6 +872,7 @@ function getDefaultPlaceholder(defaultValue: string | undefined): string {
             :acting-mannerism-options="actingMannerismOptions"
             :acting-speech-capabilities-loading="actingSpeechCapabilitiesLoading"
             :selected-speech-provider-label="selectedSpeechProvider || speechProvider || 'none'"
+            :is-live2d="isLive2d"
             :is-vrma-expression="isVrmaExpression"
             :insert-model-expression="insertModelExpression"
             :insert-speech-tag="insertSpeechTag"
@@ -876,6 +911,8 @@ function getDefaultPlaceholder(defaultValue: string | undefined): string {
             v-model:selected-artistry-widget-instruction="selectedArtistryWidgetInstruction"
             v-model:selected-artistry-autonomous-enabled="selectedArtistryAutonomousEnabled"
             v-model:selected-artistry-autonomous-threshold="selectedArtistryAutonomousThreshold"
+            v-model:selected-artistry-autonomous-monitor-enabled="selectedArtistryAutonomousMonitorEnabled"
+            v-model:selected-artistry-autonomous-history-depth="selectedArtistryAutonomousHistoryDepth"
             v-model:selected-artistry-autonomous-target="selectedArtistryAutonomousTarget"
             v-model:selected-artistry-spawn-mode="selectedArtistrySpawnMode"
             v-model:selected-artistry-config-str="selectedArtistryConfigStr"

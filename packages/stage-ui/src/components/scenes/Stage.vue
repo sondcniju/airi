@@ -25,7 +25,7 @@ import { generateSpeech } from '@xsai/generate-speech'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
-import { useSpecialTokenQueue } from '../../composables/queues'
+import { parseActor, useSpecialTokenQueue } from '../../composables/queues'
 import { categorizeResponse } from '../../composables/response-categoriser'
 import { llmInferenceEndToken } from '../../constants'
 import { EMOTION_EmotionMotionName_value, EMOTION_VRMExpressionName_value, EmotionThinkMotionName } from '../../constants/emotions'
@@ -34,7 +34,9 @@ import { useBackgroundStore } from '../../stores/background'
 import { useChatOrchestratorStore } from '../../stores/chat'
 import { useModsServerChannelStore } from '../../stores/mods/api/channel-server'
 import { useAiriCardStore } from '../../stores/modules'
+import { useAutonomousArtistryStore } from '../../stores/modules/artistry-autonomous'
 import { useConsciousnessStore } from '../../stores/modules/consciousness'
+import { useDiscordStore } from '../../stores/modules/discord'
 import { useSpeechStore } from '../../stores/modules/speech'
 import { useProvidersStore } from '../../stores/providers'
 import { useSettings } from '../../stores/settings'
@@ -137,6 +139,8 @@ const speechRuntimeStore = useSpeechRuntimeStore()
 const backgroundStore = useBackgroundStore()
 
 const { activeBackgroundUrl } = storeToRefs(backgroundStore)
+const discordStore = useDiscordStore()
+const artistryAutonomousStore = useAutonomousArtistryStore()
 const resizeStateEventName = useElectronWindowResizeStateEvent()
 const isWindowResizing = ref(false)
 const reducedRenderScale = computed(() => {
@@ -283,6 +287,11 @@ specialTokenQueue.onHandlerEvent('delay', (delay) => {
   // eslint-disable-next-line no-console
   console.log('[Stage] Delay token detected:', delay)
 })
+specialTokenQueue.onHandlerEvent('actor', (actorId) => {
+  // eslint-disable-next-line no-console
+  console.log('[Stage] Actor swap token detected:', actorId)
+  void artistryAutonomousStore.activateConcept(actorId)
+})
 
 // Play special token: delay or emotion
 function playSpecialToken(special: string) {
@@ -294,7 +303,7 @@ function playSpecialToken(special: string) {
 const modsServer = useModsServerChannelStore()
 
 function processMarkers(content: string) {
-  const markers = content.match(/<\|(?:ACT|DELAY)[^\r\n]*?(?:\|>|>)/gi)
+  const markers = content.match(/<\|(?:ACT|DELAY|ACTOR)[^\r\n]*?(?:\|>|>)/gi)
   if (markers) {
     // eslint-disable-next-line no-console
     console.debug('[Stage] Markers detected:', markers)
@@ -304,21 +313,40 @@ function processMarkers(content: string) {
   }
 }
 
-modsServer.onEvent('output:gen-ai:chat:message', (event) => {
+// NOTICE: These modsServer listeners exist ONLY for external plugin/mod messages
+// that bypass the normal chat orchestrator pipeline. Messages originating from
+// the local chatOrchestrator are ALREADY processed token-by-token via the
+// speechPipeline's onTokenSpecial hook. Blindly re-processing them here caused
+// every ACT/DELAY/ACTOR token to execute TWICE — once during streaming and again
+// when the full message was broadcast via the context bridge. The
+// `stage-tamagotchi` and `stage-web` flags let us identify and skip local messages.
+const modsServerCleanups: Array<() => void> = []
+
+modsServerCleanups.push(modsServer.onEvent('output:gen-ai:chat:message', (event) => {
+  // Skip messages that originated from this app's own chat pipeline
+  if (event.data?.['stage-tamagotchi'] || event.data?.['stage-web']) {
+    return
+  }
+
   // eslint-disable-next-line no-console
   console.debug('[Stage] Received external message:', event.data)
   if (typeof event.data?.message?.content === 'string') {
     processMarkers(event.data.message.content)
   }
-})
+}))
 
-modsServer.onEvent('input:text', (event) => {
+modsServerCleanups.push(modsServer.onEvent('input:text', (event) => {
+  // Skip messages that originated from this app's own input pipeline
+  if (event.data?.['stage-tamagotchi'] || event.data?.['stage-web']) {
+    return
+  }
+
   // eslint-disable-next-line no-console
   console.debug('[Stage] Received external input:', event.data)
   if (event.data?.text) {
     processMarkers(event.data.text)
   }
-})
+}))
 
 const lipSyncNode = ref<AudioNode>()
 
@@ -352,6 +380,35 @@ if (typeof window !== 'undefined') {
     // eslint-disable-next-line no-console
     console.log('[DEBUG] Stopping all animations')
     vrmViewerRef.value?.stopAnimations()
+  }
+
+  (window as any).testMarker = (content: string) => {
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG] Manually testing marker:', content)
+    playSpecialToken(content)
+  }
+
+  ;(window as any).simulateAssistant = (content: string) => {
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG] Simulating assistant response:', content)
+
+    const intent = ensureSpeechIntent()
+
+    // Split content into markers and text segments
+    const parts = content.split(/(<\|(?:ACT|DELAY|ACTOR)[^\r\n]*?(?:\|>|>))/gi)
+    for (const part of parts) {
+      if (!part)
+        continue
+      if (part.startsWith('<|')) {
+        intent.writeSpecial(part)
+      }
+      else {
+        intent.writeLiteral(part)
+      }
+    }
+    intent.writeFlush()
+    intent.end()
+    currentChatIntent = null
   }
 }
 
@@ -439,6 +496,19 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
     if (signal.aborted)
       return null
 
+    if (request.special) {
+      const actorId = parseActor(request.special)
+      if (actorId) {
+        // NOTICE: Only preload the VOICE here (generation-time) so the next audio
+        // segment uses the correct TTS provider/model/voice. The full concept
+        // activation (model swap, background swap, concept stack update) is deferred
+        // to playback-time via the playback manager's onEnd → specialTokenQueue path.
+        console.log('[Stage:TTS] Actor swap detected — preloading voice only (model deferred to playback)', actorId)
+        artistryAutonomousStore.preloadConceptVoice(actorId)
+        return null
+      }
+    }
+
     if (activeSpeechProvider.value === 'speech-noop')
       return null
 
@@ -515,6 +585,10 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
       if (signal.aborted || !res || res.byteLength === 0)
         return null
 
+      // Tap into the audio stream for Discord Voice Notes
+      // We slice() because decodeAudioData(res) will detach the original buffer.
+      discordStore.addAudioToTurn(res.slice(0))
+
       const audioBuffer = await audioContext.decodeAudioData(res)
       return audioBuffer
     }
@@ -523,6 +597,14 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
     }
   },
   playback: playbackManager,
+})
+
+speechPipeline.on('onIntentEnd', () => {
+  void discordStore.flushAudioTurn()
+})
+
+speechPipeline.on('onIntentCancel', () => {
+  discordStore.clearAudioTurn()
 })
 
 // NOTICE: the speech runtime host must follow the Stage lifecycle. If a previous Stage instance
@@ -607,15 +689,15 @@ function setupAnalyser() {
 let currentChatIntent: ReturnType<typeof speechRuntimeStore.openIntent> | null = null
 const currentChatIntentReceivedLiteral = ref(false)
 
-function ensureSpeechIntent() {
+function ensureSpeechIntent(behavior: 'interrupt' | 'queue' = 'interrupt') {
   if (currentChatIntent)
     return currentChatIntent
 
-  console.log('[Stage] Opening speech intent', { ownerId: activeCardId.value })
+  console.log('[Stage] Opening speech intent', { ownerId: activeCardId.value, behavior })
   currentChatIntent = speechRuntimeStore.openIntent({
     ownerId: activeCardId.value,
     priority: 'normal',
-    behavior: 'interrupt',
+    behavior,
   })
   console.log('[Stage] Speech intent opened', { intentId: currentChatIntent.intentId, streamId: currentChatIntent.streamId })
 
@@ -641,6 +723,7 @@ chatHookCleanups.push(onBeforeMessageComposed(async () => {
   // Reset the entire host pipeline on each new assistant turn so later chat TTS cannot inherit
   // stale proactivity/chat intent state.
   speechPipeline.stopAll('new-message')
+  discordStore.clearAudioTurn()
 
   setupAnalyser()
   await setupLipSync()
@@ -900,6 +983,7 @@ onUnmounted(() => {
 
   chatHookCleanups.forEach(dispose => dispose?.())
   viewUpdateCleanups.forEach(dispose => dispose?.())
+  modsServerCleanups.forEach(dispose => dispose?.())
   void speechRuntimeStore.unregisterHost(speechPipeline)
   if (typeof window !== 'undefined') {
     window.removeEventListener(resizeStateEventName, handleResizeStateChange as EventListener)

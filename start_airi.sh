@@ -3,6 +3,9 @@
 # AIRI Tamagotchi - Local Dev Starter (macOS/Linux)
 # Use this for a simple, one-shot startup.
 
+# Safeguard: prevent VS Code from forcing Electron into Node mode
+unset ELECTRON_RUN_AS_NODE
+
 # Default to 5173. If your settings/model vanished after an update,
 # try entering 5174 to recover your local storage from previous versions.
 read -p "Enter port (default 5173): " PORT_NUM

@@ -30,13 +30,17 @@ function resolveMaxFps(limit?: number) {
 }
 
 function installRenderGuard(app: Application) {
+  let lastErrorTime = 0
   const guardedRender = () => {
     try {
       app.render()
     }
     catch (error) {
-      console.error('[Live2D] Pixi render error.', error)
-      app.ticker.stop()
+      const now = Date.now()
+      if (now - lastErrorTime > 5000) {
+        console.error('[Live2D] Pixi render error (throttled 5s).', error)
+        lastErrorTime = now
+      }
     }
   }
 

@@ -7,6 +7,7 @@ import { defineStore, storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 
 import { client } from '../../composables/api'
+import { stripMarkers } from '../../composables/response-categoriser'
 import { useLocalFirstRequest } from '../../composables/use-local-first'
 import { chatSessionsRepo } from '../../database/repos/chat-sessions.repo'
 import { useAuthStore } from '../auth'
@@ -43,6 +44,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   let syncQueue = Promise.resolve()
   const loadedSessions = new Set<string>()
   const loadingSessions = new Map<string, Promise<void>>()
+  let ensuringSessionPromise: Promise<void> | null = null
 
   // I know this nu uh, better than loading all language on rehypeShiki
   const codeBlockSystemPrompt = '- For any programming code block, always specify the programming language that supported on @shikijs/rehype on the rendered markdown, eg. ```python ... ```\n'
@@ -99,9 +101,11 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       }
     })
 
-    if (changed)
+    if (changed) {
       sessionMessages.value[sessionId] = next
-
+      // NOTICE: We do NOT persist here to avoid infinite loops,
+      // but we return the modified array.
+    }
     return next
   }
 
@@ -109,7 +113,10 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     return messages.map(message => ({
       id: message.id ?? nanoid(),
       role: message.role,
-      content: extractMessageContent(message),
+      // NOTICE: Strip orchestration tokens before syncing to remote server.
+      // The local DB retains rawContent for LLM inference, but remote consumers
+      // should only see clean, display-friendly content.
+      content: stripMarkers(extractMessageContent(message)),
       createdAt: message.createdAt,
     }))
   }
@@ -269,8 +276,9 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       return
     const messages = snapshotMessages(ensureSessionMessageIds(sessionId))
     const now = Date.now()
-    const updatedMeta = {
+    const updatedMeta: ChatSessionMeta = {
       ...meta,
+      messageCount: messages.length,
       updatedAt: now,
     }
 
@@ -295,14 +303,22 @@ export const useChatSessionStore = defineStore('chat-session', () => {
 
   function setSessionMessages(sessionId: string, next: ChatHistoryItem[]) {
     const prev = sessionMessages.value[sessionId] ?? []
-    sessionMessages.value[sessionId] = next
+    const prevIds = new Set(prev.map(m => m.id).filter(Boolean))
+
+    // 1. Assign IDs to all messages in the new array first
+    const nextWithIds = next.map(msg => ({
+      ...msg,
+      id: msg.id ?? nanoid(),
+    }))
+
+    // 2. Set the store value
+    sessionMessages.value[sessionId] = nextWithIds
+
+    // 3. Persist
     void persistSession(sessionId)
 
-    // NOTICE: Broadcast any NEW messages so other windows can apply them immediately.
-    // This covers the primary STT ingestion path (chat.ts performSend) which uses
-    // setSessionMessages rather than inscribeTurn.
-    const prevIds = new Set(prev.map(m => m.id).filter(Boolean))
-    for (const msg of next) {
+    // 4. Broadcast ONLY truly new messages based on stable IDs
+    for (const msg of nextWithIds) {
       if (msg.id && !prevIds.has(msg.id)) {
         broadcastStreamEvent({ type: 'session-updated', sessionId, message: JSON.parse(JSON.stringify(msg)) })
       }
@@ -353,16 +369,16 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     const currentUserId = getCurrentUserId()
     const sessionId = nanoid()
     const now = Date.now()
+    const initialMessages = options?.messages?.length ? options.messages : [generateInitialMessage()]
     const meta: ChatSessionMeta = {
       sessionId,
       userId: currentUserId,
       characterId,
       title: options?.title,
+      messageCount: initialMessages.length,
       createdAt: now,
       updatedAt: now,
     }
-
-    const initialMessages = options?.messages?.length ? options.messages : [generateInitialMessage()]
 
     sessionMetas.value[sessionId] = meta
     sessionMessages.value[sessionId] = initialMessages
@@ -392,49 +408,91 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   }
 
   async function ensureActiveSessionForCharacter() {
-    const currentUserId = getCurrentUserId()
-    const characterId = getCurrentCharacterId()
+    if (ensuringSessionPromise)
+      return ensuringSessionPromise
 
-    console.info('[ChatSession] ensureActiveSessionForCharacter:start', {
-      currentUserId,
-      characterId,
-      activeSessionId: activeSessionId.value,
-    })
+    ensuringSessionPromise = (async () => {
+      const currentUserId = getCurrentUserId()
+      const characterId = getCurrentCharacterId()
 
-    if (!index.value || index.value.userId !== currentUserId)
-      await loadIndexForUser(currentUserId)
+      console.info('[ChatSession] ensureActiveSessionForCharacter:start', {
+        currentUserId,
+        characterId,
+        activeSessionId: activeSessionId.value,
+      })
 
-    await lifetimeMemory.loadForCharacter(characterId)
+      if (!index.value || index.value.userId !== currentUserId)
+        await loadIndexForUser(currentUserId)
 
-    const characterIndex = getCharacterIndex(characterId)
-    if (!characterIndex) {
-      console.info('[ChatSession] no character index, creating session', { characterId })
-      await createSession(characterId)
-      return
+      await lifetimeMemory.loadForCharacter(characterId)
+
+      const characterIndex = getCharacterIndex(characterId)
+      if (!characterIndex) {
+        console.info('[ChatSession] no character index, creating session', { characterId })
+        await createSession(characterId)
+        return
+      }
+
+      if (!characterIndex.activeSessionId) {
+        console.info('[ChatSession] character has no active session, creating session', { characterId })
+        await createSession(characterId)
+        return
+      }
+
+      let activeId = characterIndex.activeSessionId
+      await loadSession(activeId)
+
+      // RECOVERY BRIDGE: If active session is empty but others exist, switch to the most populated one.
+      const currentMessages = sessionMessages.value[activeId] ?? []
+      if (currentMessages.length <= 1) {
+        const otherSessionIds = Object.keys(characterIndex.sessions).filter(id => id !== activeId)
+        if (otherSessionIds.length > 0) {
+          console.info('[ChatSession] RECOVERY BRIDGE: Active session is empty, checking candidates...', { characterId, count: otherSessionIds.length })
+          let bestId = activeId
+          let maxCount = currentMessages.length
+
+          for (const otherId of otherSessionIds) {
+            await loadSession(otherId)
+            const count = sessionMessages.value[otherId]?.length ?? 0
+            if (count > maxCount) {
+              maxCount = count
+              bestId = otherId
+            }
+          }
+
+          if (bestId !== activeId) {
+            console.info('[ChatSession] RECOVERY BRIDGE: Switching to populated session', { from: activeId, to: bestId, messageCount: maxCount })
+            activeId = bestId
+            characterIndex.activeSessionId = bestId
+            await persistIndex()
+          }
+        }
+      }
+
+      activeSessionId.value = activeId
+      ensureSession(activeId)
+
+      // NOTICE: Ensure prompt is up to date immediately after card-switch context is resolved.
+      refreshActiveSystemMessage({
+        sessionId: activeId,
+        characterId,
+        prompt: systemPrompt.value,
+      })
+
+      console.info('[ChatSession] ensureActiveSessionForCharacter:resolved', {
+        characterId,
+        activeSessionId: activeSessionId.value,
+        messageCount: sessionMessages.value[activeSessionId.value]?.length ?? 0,
+        allLoadedSessions: Array.from(loadedSessions),
+      })
+    })()
+
+    try {
+      await ensuringSessionPromise
     }
-
-    if (!characterIndex.activeSessionId) {
-      console.info('[ChatSession] character has no active session, creating session', { characterId })
-      await createSession(characterId)
-      return
+    finally {
+      ensuringSessionPromise = null
     }
-
-    activeSessionId.value = characterIndex.activeSessionId
-    await loadSession(characterIndex.activeSessionId)
-    ensureSession(characterIndex.activeSessionId)
-
-    // NOTICE: Ensure prompt is up to date immediately after card-switch context is resolved.
-    refreshActiveSystemMessage({
-      sessionId: characterIndex.activeSessionId,
-      characterId,
-      prompt: systemPrompt.value,
-    })
-
-    console.info('[ChatSession] ensureActiveSessionForCharacter:resolved', {
-      characterId,
-      activeSessionId: activeSessionId.value,
-      messageCount: sessionMessages.value[activeSessionId.value]?.length ?? 0,
-    })
   }
 
   async function initialize() {
@@ -444,9 +502,35 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       return initializePromise
     initializing.value = true
     initializePromise = (async () => {
+      console.info('[ChatSession] initialize:start')
       await shortTermMemory.load()
+
+      // 1. Resolve the active character session
       await ensureActiveSessionForCharacter()
       ready.value = true
+
+      // 2. RECOVERY BRIDGE: Check if there are orphaned messages in the phantom session ('')
+      // and merge them into the now-resolved active session.
+      const phantomMessages = sessionMessages.value[''] || []
+      const activeId = activeSessionId.value
+      if (phantomMessages.length > 0 && activeId && activeId !== '') {
+        const filteredPhantom = phantomMessages.filter(m => m.role !== 'system')
+        if (filteredPhantom.length > 0) {
+          console.info('[ChatSession] RECOVERY: Merging orphaned messages into active session', {
+            count: filteredPhantom.length,
+            targetSession: activeId,
+          })
+          const current = sessionMessages.value[activeId] ?? []
+          sessionMessages.value[activeId] = [...current, ...filteredPhantom]
+          sessionMessages.value[''] = [] // Clear the phantom
+          await persistSession(activeId)
+        }
+      }
+
+      console.info('[ChatSession] initialize:complete', {
+        activeSessionId: activeId,
+        ready: ready.value,
+      })
     })()
 
     try {
@@ -507,10 +591,11 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   }
 
   /**
-   * Refreshes the root system message in a session to reflect
-   * current (or provided) character settings without resetting the chat.
+   * Refreshes all persona-related system messages in a session to reflect
+   * current character settings without resetting the chat history.
+   * This ensures that even mid-chat system injections remain consistent with the Acting tab.
    */
-  function refreshActiveSystemMessage(options?: { sessionId?: string, characterId?: string, prompt?: string }) {
+  function refreshActiveSystemMessage(options?: { sessionId?: string, characterId?: string, prompt?: string, force?: boolean }) {
     const sessionId = options?.sessionId ?? activeSessionId.value
     if (!sessionId || !ready.value)
       return
@@ -520,8 +605,6 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       return
 
     // NOTICE: Strict integrity check to prevent cross-session prompt pollution.
-    // If we're updating by reactive systemPrompt change, we must ensure the
-    // session actually belongs to the active card.
     const targetCharacterId = options?.characterId ?? activeCardId.value
     if (meta.characterId !== targetCharacterId) {
       console.warn('[ChatSession] Skipping prompt refresh: session characterId mismatch', {
@@ -536,24 +619,77 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     if (!currentMessages || currentMessages.length === 0)
       return
 
-    // Logic: The first message is always the root system prompt
-    const firstMessage = currentMessages[0]
-    if (firstMessage.role !== 'system')
-      return
-
     const nextSystemMessage = options?.prompt
       ? generateInitialMessageFromPrompt(options.prompt, targetCharacterId)
       : generateInitialMessage()
 
-    if (firstMessage.content === nextSystemMessage.content)
-      return
+    let changed = false
+    const nextContent = extractMessageContent(nextSystemMessage)
 
-    console.info('[ChatSession] Refreshing system message from character settings', {
-      sessionId,
-      characterId: targetCharacterId,
+    const personaIndices: number[] = []
+    const nextMessagesBase = currentMessages.map((msg, index) => {
+      if (msg.role !== 'system')
+        return msg
+
+      const content = extractMessageContent(msg)
+      const isContext = content.startsWith('These are the contextual information retrieved')
+        || content.startsWith('[ENVIRONMENTAL AWARENESS]')
+        || content.includes('[CONTEXT_AWARENESS]')
+
+      if (isContext)
+        return msg
+
+      // This is a Persona block
+      personaIndices.push(index)
+      return msg
     })
-    const nextMessages = [nextSystemMessage, ...currentMessages.slice(1)]
-    setSessionMessages(sessionId, nextMessages)
+
+    // Determine which persona blocks to keep: Index 0 and the Last one.
+    const headIndex = personaIndices[0]
+    const tailIndex = personaIndices.length > 1 ? personaIndices[personaIndices.length - 1] : -1
+
+    const finalMessages: ChatHistoryItem[] = []
+    for (let i = 0; i < nextMessagesBase.length; i++) {
+      const msg = nextMessagesBase[i]
+
+      // If it's a Persona block, check if it's Head or Tail
+      if (personaIndices.includes(i)) {
+        if (i === headIndex || i === tailIndex) {
+          const content = extractMessageContent(msg)
+          if (options?.force || content !== nextContent) {
+            changed = true
+            finalMessages.push({
+              ...nextSystemMessage,
+              id: msg.id ?? nanoid(),
+              createdAt: msg.createdAt,
+            })
+            continue
+          }
+        }
+        else {
+          // Prune intermediate persona blocks
+          changed = true
+          continue
+        }
+      }
+
+      finalMessages.push(msg)
+    }
+
+    if (changed) {
+      console.info('[ChatSession] Successfully refreshed and pruned persona system messages', {
+        sessionId,
+        characterId: targetCharacterId,
+        originalCount: currentMessages.length,
+        newCount: finalMessages.length,
+        personaCount: personaIndices.length,
+      })
+      setSessionMessages(sessionId, finalMessages)
+      broadcastStreamEvent({ type: 'session-refreshed', sessionId })
+    }
+    else {
+      console.debug('[ChatSession] No stale persona messages found to refresh', { sessionId })
+    }
   }
 
   function getAllSessions() {
@@ -617,6 +753,34 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     const forkIndex = options.atIndex ?? parentMessages.length
     const nextMessages = parentMessages.slice(0, forkIndex)
     return await createSession(characterId, { setActive: false, messages: nextMessages })
+  }
+
+  async function deleteSession(sessionId: string) {
+    const characterId = sessionMetas.value[sessionId]?.characterId
+    if (!characterId)
+      return
+
+    await enqueuePersist(() => chatSessionsRepo.deleteSession(sessionId))
+
+    delete sessionMessages.value[sessionId]
+    delete sessionMetas.value[sessionId]
+    delete sessionGenerations.value[sessionId]
+    loadedSessions.delete(sessionId)
+
+    const characterIndex = index.value?.characters[characterId]
+    if (characterIndex) {
+      delete characterIndex.sessions[sessionId]
+      if (characterIndex.activeSessionId === sessionId) {
+        const remaining = Object.keys(characterIndex.sessions)
+        if (remaining.length > 0) {
+          setActiveSession(remaining[0])
+        }
+        else {
+          await createSession(characterId)
+        }
+      }
+      await persistIndex()
+    }
   }
 
   function deleteMessage(messageId: string, sessionId = activeSessionId.value) {
@@ -705,7 +869,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   watch(systemPrompt, () => {
     if (!ready.value)
       return
-    refreshActiveSystemMessage()
+    refreshActiveSystemMessage({ force: true })
   })
 
   watch(
@@ -729,10 +893,19 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   // event with the message payload. We apply it directly to the local store to avoid
   // race conditions with async DB persistence.
   watch(incomingSessionUpdate, (event) => {
-    if (!event || event.type !== 'session-updated')
+    if (!event)
       return
+    if (event.type === 'session-refreshed') {
+      console.info('[ChatSession] Cross-window session-refreshed, reloading session', { sessionId: event.sessionId })
+      void loadSession(event.sessionId)
+      return
+    }
+    if (event.type !== 'session-updated')
+      return
+
     if (!ready.value)
       return
+
     const { sessionId, message } = event
     console.info('[ChatSession] Cross-window session-updated, applying message directly', { sessionId, role: message.role })
     // Apply directly to store — no DB roundtrip needed
@@ -742,6 +915,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       return
     sessionMessages.value[sessionId] = [...current, message]
   })
+  // void initialize()
 
   return {
     ready,
@@ -751,10 +925,12 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     activeSessionId,
     messages,
 
+    createSession,
     setActiveSession,
     cleanupMessages,
     getAllSessions,
     resetAllSessions,
+    getCharacterIndex,
 
     ensureSession,
     setSessionMessages,
@@ -766,6 +942,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     bumpSessionGeneration,
     getSessionGenerationValue,
 
+    deleteSession,
     deleteMessage,
     forkSession,
     inscribeTurn,

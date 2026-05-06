@@ -9,7 +9,17 @@ import { safeParse } from 'valibot'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { DEFAULT_ACTING_MODEL_EXPRESSION_PROMPT, DEFAULT_ACTING_SPEECH_EXPRESSION_PROMPT, DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT, DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT, DEFAULT_HEARTBEATS_PROMPT, DEFAULT_POST_HISTORY_INSTRUCTIONS } from '../../constants/prompts/character-defaults'
+import {
+  DEFAULT_ACTING_MODEL_EXPRESSION_PROMPT,
+  DEFAULT_ACTING_SPEECH_EXPRESSION_PROMPT,
+  DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT,
+  DEFAULT_ARTISTRY_ARIA_PROMPT_PREFIX,
+  DEFAULT_ARTISTRY_LUPIN_PROMPT_PREFIX,
+  DEFAULT_ARTISTRY_RELU_PROMPT_PREFIX,
+  DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT,
+  DEFAULT_HEARTBEATS_PROMPT,
+  DEFAULT_POST_HISTORY_INSTRUCTIONS,
+} from '../../constants/prompts/character-defaults'
 import { AiriCardSchema } from '../../types/card.schema'
 import { useBackgroundStore } from '../background'
 import { DisplayModelFormat, useDisplayModelsStore } from '../display-models'
@@ -121,6 +131,12 @@ export interface AiriExtension {
     activeBackgroundId?: string | null
     // Legacy key from older local card revisions. Read-only for migration.
     selectedModelId?: string
+    // Unified manifestation expressions for VRM/Live2D
+    active_expressions?: Record<string, number>
+  }
+
+  imageJournal?: {
+    selfie: boolean
   }
 
   artistry?: {
@@ -133,6 +149,8 @@ export interface AiriExtension {
     autonomousEnabled?: boolean
     autonomousThreshold?: number
     autonomousTarget?: 'user' | 'assistant'
+    autonomousMonitorEnabled?: boolean
+    autonomousHistoryDepth?: number
   }
 
   generation?: CharacterGenerationConfig
@@ -151,12 +169,33 @@ export interface AiriExtension {
   heartbeats?: HeartbeatConfig
   dreamState?: DreamStateConfig
   groundingEnabled?: boolean
+  visual_assets?: Record<string, {
+    description: string
+    prompt?: string
+    isBase?: boolean
+    artistry?: {
+      provider?: string
+      model?: string
+      options?: Record<string, any>
+    }
+    manifestation?: {
+      modelId?: string
+      mood?: string
+      backgroundId?: string
+      active_expressions?: Record<string, number>
+    }
+  }>
+  eternal_record?: {
+    relational_milestones?: string[]
+    lore_bits?: string[]
+  }
   proactivity_metrics?: {
     ttsCount: number
     sttCount: number
     chatCount: number
     totalTurns: number
   }
+  active_concepts?: string[]
 }
 
 export interface AiriCard extends Card {
@@ -171,7 +210,10 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   const defaultPostHistoryInstructions = t('settings.pages.card.creation.defaults.posthistoryinstructions')
 
   const mapEntriesSerializer = {
-    read: (v: string) => new Map(JSON.parse(v)) as Map<string, AiriCard>,
+    read: (v: string) => {
+      const data = JSON.parse(v)
+      return new Map(data) as Map<string, AiriCard>
+    },
     write: (v: Map<string, AiriCard>) => JSON.stringify(Array.from(v.entries())),
   }
 
@@ -190,6 +232,15 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   const vrmStore = useModelStore()
   const backgroundStore = useBackgroundStore()
   const isModelSyncPrevented = ref(false)
+
+  // Production Watcher: Monitor concept stack for manifestation triggers
+  watch(() => activeCard.value?.extensions?.airi?.active_concepts, (next, prev) => {
+    if (JSON.stringify(next) !== JSON.stringify(prev)) {
+      const topConceptId = next?.[next.length - 1]
+      console.log(`[AiriCard] Concept Stack changed. Top concept: "${topConceptId}". Syncing manifestation overrides...`, { stack: next })
+      void syncCardState(activeCard.value, true)
+    }
+  }, { deep: true })
 
   const {
     activeProvider: activeConsciousnessProvider,
@@ -291,8 +342,25 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     } as any)
 
     // Verify persistence
-    const updated = cards.value.get(id)
-    console.log('[AiriCard] toggleGrounding result:', updated?.extensions?.airi?.groundingEnabled)
+  }
+
+  const setAutonomousArtistry = (id: string, enabled: boolean) => {
+    const card = cards.value.get(id)
+    if (!card)
+      return
+
+    updateCard(id, {
+      extensions: {
+        ...card.extensions,
+        airi: {
+          ...card.extensions?.airi,
+          artistry: {
+            ...card.extensions?.airi?.artistry,
+            autonomousEnabled: enabled,
+          },
+        },
+      },
+    } as any)
   }
 
   const getCard = (id: string) => {
@@ -347,18 +415,21 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         await stageModelStore.updateStageModel()
       }
 
+      // 3.5 Sync Manifestation Expressions (Unified for VRM/Live2D)
+      const nextExpressions = extension.modules?.active_expressions
+      if (nextExpressions) {
+        // Apply to both stores; the respective renderer will pick it up
+        if (Object.keys(nextExpressions).length > 0) {
+          live2dStore.activeExpressions = { ...nextExpressions }
+          vrmStore.activeExpressions = { ...nextExpressions }
+        }
+      }
+
       // Surgical sync of Live2D parameters if they belong to the active model
       const selectedModel = await displayModelsStore.getDisplayModel(stageModelStore.stageModelSelected)
-      if (selectedModel?.format === DisplayModelFormat.Live2dZip && extension.modules?.live2d) {
-        if (extension.modules.live2d.activeExpressions)
-          live2dStore.activeExpressions = { ...extension.modules.live2d.activeExpressions }
-        if (extension.modules.live2d.modelParameters)
-          live2dStore.modelParameters = { ...extension.modules.live2d.modelParameters }
-
+      if (selectedModel?.format === DisplayModelFormat.Live2dZip && (force || modelChanged)) {
         // Only trigger full view update if the model profile itself changed or forced
-        if (force || modelChanged) {
-          live2dStore.shouldUpdateView()
-        }
+        live2dStore.shouldUpdateView()
       }
       else if (selectedModel?.format === DisplayModelFormat.VRM && (force || modelChanged)) {
         vrmStore.shouldUpdateView()
@@ -457,6 +528,10 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         artistry: defaultArtistry,
         generation: defaultGeneration,
         groundingEnabled: false,
+        visual_assets: {},
+        active_concepts: [],
+        eternal_record: { relational_milestones: [], lore_bits: [] },
+        imageJournal: { selfie: false },
       }
     }
 
@@ -472,90 +547,138 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       ?? defaultModules.activeBackgroundId
 
     return {
+      ...existingExtension,
       modules: {
+        ...existingExtension?.modules,
         consciousness: {
-          provider: existingExtension.modules?.consciousness?.provider || defaultModules.consciousness.provider,
-          model: existingExtension.modules?.consciousness?.model || defaultModules.consciousness.model,
+          ...existingExtension?.modules?.consciousness,
+          provider: existingExtension?.modules?.consciousness?.provider || defaultModules.consciousness.provider,
+          model: existingExtension?.modules?.consciousness?.model || defaultModules.consciousness.model,
         },
         speech: {
-          provider: existingExtension.modules?.speech?.provider || defaultModules.speech.provider,
-          model: existingExtension.modules?.speech?.model || defaultModules.speech.model,
-          voice_id: existingExtension.modules?.speech?.voice_id || defaultModules.speech.voice_id,
-          pitch: existingExtension.modules?.speech?.pitch,
-          rate: existingExtension.modules?.speech?.rate,
-          ssml: existingExtension.modules?.speech?.ssml,
-          language: existingExtension.modules?.speech?.language,
+          ...existingExtension?.modules?.speech,
+          provider: existingExtension?.modules?.speech?.provider || defaultModules.speech.provider,
+          model: existingExtension?.modules?.speech?.model || defaultModules.speech.model,
+          voice_id: existingExtension?.modules?.speech?.voice_id || defaultModules.speech.voice_id,
+          pitch: existingExtension?.modules?.speech?.pitch,
+          rate: existingExtension?.modules?.speech?.rate,
+          ssml: existingExtension?.modules?.speech?.ssml,
+          language: existingExtension?.modules?.speech?.language,
         },
-        vrm: existingExtension.modules?.vrm,
-        live2d: existingExtension.modules?.live2d,
-        displayModelId: resolvedDisplayModelId,
-        activeBackgroundId: resolvedActiveBackgroundId,
+        vrm: existingExtension?.modules?.vrm,
+        live2d: existingExtension?.modules?.live2d,
+        // Manifestation Bridge: Fold the Active Concept Stack using "last defined wins"
+        // for override groups (modelId, backgroundId) and merge for additive groups (expressions).
+        ...(() => {
+          const activeConcepts = (existingExtension as any)?.active_concepts || []
+          const visualAssets = (existingExtension as any)?.visual_assets || {}
+          const autonomousEnabled = existingExtension?.artistry?.autonomousEnabled ?? false
+
+          let foldedModelId = resolvedDisplayModelId
+          let foldedBackgroundId = resolvedActiveBackgroundId
+
+          // Iterate bottom-to-top: last override wins
+          for (const conceptId of activeConcepts) {
+            const concept = visualAssets[conceptId]
+            if (!concept)
+              continue
+
+            // Model: last defined wins (exclusionary)
+            if (concept.manifestation?.modelId && concept.manifestation.modelId !== 'inherit') {
+              foldedModelId = concept.manifestation.modelId
+            }
+
+            // Background: last defined wins, but ONLY when Director is OFF
+            if (!autonomousEnabled && concept.manifestation?.backgroundId && concept.manifestation.backgroundId !== 'inherit') {
+              foldedBackgroundId = concept.manifestation.backgroundId
+            }
+          }
+
+          return {
+            displayModelId: foldedModelId,
+            activeBackgroundId: foldedBackgroundId,
+          }
+        })(),
       },
       artistry: {
-        ...existingExtension.artistry,
-        widgetInstruction: existingExtension.artistry?.widgetInstruction ?? defaultArtistry.widgetInstruction,
-        spawnMode: existingExtension.artistry?.spawnMode ?? 'bg_widget',
-        autonomousEnabled: existingExtension.artistry?.autonomousEnabled ?? false,
-        autonomousThreshold: existingExtension.artistry?.autonomousThreshold ?? 70,
-        autonomousTarget: existingExtension.artistry?.autonomousTarget ?? 'user',
+        ...existingExtension?.artistry,
+        widgetInstruction: existingExtension?.artistry?.widgetInstruction ?? defaultArtistry.widgetInstruction,
+        spawnMode: existingExtension?.artistry?.spawnMode ?? 'bg_widget',
+        autonomousEnabled: existingExtension?.artistry?.autonomousEnabled ?? false,
+        autonomousThreshold: existingExtension?.artistry?.autonomousThreshold ?? 70,
+        autonomousTarget: existingExtension?.artistry?.autonomousTarget ?? 'user',
+        autonomousMonitorEnabled: existingExtension?.artistry?.autonomousMonitorEnabled ?? true,
+        autonomousHistoryDepth: existingExtension?.artistry?.autonomousHistoryDepth ?? 3,
       },
       generation: {
-        enabled: existingExtension.generation?.enabled ?? defaultGeneration.enabled,
-        provider: existingExtension.generation?.provider ?? defaultGeneration.provider,
-        model: existingExtension.generation?.model ?? defaultGeneration.model,
+        ...existingExtension?.generation,
+        enabled: existingExtension?.generation?.enabled ?? defaultGeneration.enabled,
+        provider: existingExtension?.generation?.provider ?? defaultGeneration.provider,
+        model: existingExtension?.generation?.model ?? defaultGeneration.model,
         known: {
-          maxTokens: existingExtension.generation?.known?.maxTokens,
-          temperature: existingExtension.generation?.known?.temperature,
-          topP: existingExtension.generation?.known?.topP,
-          contextWidth: existingExtension.generation?.known?.contextWidth ?? defaultGeneration.known?.contextWidth,
+          ...existingExtension?.generation?.known,
+          maxTokens: existingExtension?.generation?.known?.maxTokens,
+          temperature: existingExtension?.generation?.known?.temperature,
+          topP: existingExtension?.generation?.known?.topP,
+          contextWidth: existingExtension?.generation?.known?.contextWidth ?? defaultGeneration.known?.contextWidth,
         },
-        advanced: existingExtension.generation?.advanced,
-        importedPresetMeta: existingExtension.generation?.importedPresetMeta,
+        advanced: existingExtension?.generation?.advanced,
+        importedPresetMeta: existingExtension?.generation?.importedPresetMeta,
       },
       acting: {
-        modelExpressionPrompt: existingExtension.acting?.modelExpressionPrompt ?? defaultActing.modelExpressionPrompt,
-        speechExpressionPrompt: existingExtension.acting?.speechExpressionPrompt ?? defaultActing.speechExpressionPrompt,
-        speechMannerismPrompt: existingExtension.acting?.speechMannerismPrompt ?? defaultActing.speechMannerismPrompt,
-        idleAnimations: existingExtension.acting?.idleAnimations ?? defaultActing.idleAnimations,
+        ...existingExtension?.acting,
+        modelExpressionPrompt: existingExtension?.acting?.modelExpressionPrompt ?? defaultActing.modelExpressionPrompt,
+        speechExpressionPrompt: existingExtension?.acting?.speechExpressionPrompt ?? defaultActing.speechExpressionPrompt,
+        speechMannerismPrompt: existingExtension?.acting?.speechMannerismPrompt ?? defaultActing.speechMannerismPrompt,
+        idleAnimations: existingExtension?.acting?.idleAnimations ?? defaultActing.idleAnimations,
       },
-      outfits: existingExtension.outfits ?? [],
-      agents: existingExtension.agents ?? {},
+      outfits: existingExtension?.outfits ?? [],
+      agents: existingExtension?.agents ?? {},
       heartbeats: {
-        enabled: existingExtension.heartbeats?.enabled ?? defaultHeartbeats.enabled,
-        intervalMinutes: existingExtension.heartbeats?.intervalMinutes ?? defaultHeartbeats.intervalMinutes,
-        prompt: existingExtension.heartbeats?.prompt ?? defaultHeartbeats.prompt,
-        injectIntoPrompt: existingExtension.heartbeats?.injectIntoPrompt ?? defaultHeartbeats.injectIntoPrompt,
-        useAsLocalGate: existingExtension.heartbeats?.useAsLocalGate ?? defaultHeartbeats.useAsLocalGate,
+        ...existingExtension?.heartbeats,
+        enabled: existingExtension?.heartbeats?.enabled ?? defaultHeartbeats.enabled,
+        intervalMinutes: existingExtension?.heartbeats?.intervalMinutes ?? defaultHeartbeats.intervalMinutes,
+        prompt: existingExtension?.heartbeats?.prompt ?? defaultHeartbeats.prompt,
+        injectIntoPrompt: existingExtension?.heartbeats?.injectIntoPrompt ?? defaultHeartbeats.injectIntoPrompt,
+        useAsLocalGate: existingExtension?.heartbeats?.useAsLocalGate ?? defaultHeartbeats.useAsLocalGate,
         contextOptions: {
-          windowHistory: existingExtension.heartbeats?.contextOptions?.windowHistory ?? defaultHeartbeats.contextOptions!.windowHistory,
-          systemLoad: existingExtension.heartbeats?.contextOptions?.systemLoad ?? defaultHeartbeats.contextOptions!.systemLoad,
-          usageMetrics: existingExtension.heartbeats?.contextOptions?.usageMetrics ?? defaultHeartbeats.contextOptions!.usageMetrics,
+          ...existingExtension?.heartbeats?.contextOptions,
+          windowHistory: existingExtension?.heartbeats?.contextOptions?.windowHistory ?? defaultHeartbeats.contextOptions!.windowHistory,
+          systemLoad: existingExtension?.heartbeats?.contextOptions?.systemLoad ?? defaultHeartbeats.contextOptions!.systemLoad,
+          usageMetrics: existingExtension?.heartbeats?.contextOptions?.usageMetrics ?? defaultHeartbeats.contextOptions!.usageMetrics,
         },
         schedule: {
-          start: existingExtension.heartbeats?.schedule?.start ?? defaultHeartbeats.schedule.start,
-          end: existingExtension.heartbeats?.schedule?.end ?? defaultHeartbeats.schedule.end,
+          ...existingExtension?.heartbeats?.schedule,
+          start: existingExtension?.heartbeats?.schedule?.start ?? defaultHeartbeats.schedule.start,
+          end: existingExtension?.heartbeats?.schedule?.end ?? defaultHeartbeats.schedule.end,
         },
-        respectSchedule: existingExtension.heartbeats?.respectSchedule ?? defaultHeartbeats.respectSchedule,
+        respectSchedule: existingExtension?.heartbeats?.respectSchedule ?? defaultHeartbeats.respectSchedule,
       },
       dreamState: {
-        enabled: existingExtension.dreamState?.enabled ?? defaultDreamState.enabled,
-        strictAfkGating: existingExtension.dreamState?.strictAfkGating ?? defaultDreamState.strictAfkGating,
-        journalingThreshold: existingExtension.dreamState?.journalingThreshold ?? defaultDreamState.journalingThreshold,
-        maxSessionsPerDay: existingExtension.dreamState?.maxSessionsPerDay ?? defaultDreamState.maxSessionsPerDay,
-        sessionTimeoutMinutes: existingExtension.dreamState?.sessionTimeoutMinutes ?? defaultDreamState.sessionTimeoutMinutes,
-        afkThresholdMinutes: existingExtension.dreamState?.afkThresholdMinutes ?? defaultDreamState.afkThresholdMinutes,
-        minConversationTurns: existingExtension.dreamState?.minConversationTurns ?? defaultDreamState.minConversationTurns,
-        lastProcessedAt: existingExtension.dreamState?.lastProcessedAt ?? defaultDreamState.lastProcessedAt,
-        dailyRunDate: existingExtension.dreamState?.dailyRunDate ?? defaultDreamState.dailyRunDate,
-        dailyRunCount: existingExtension.dreamState?.dailyRunCount ?? defaultDreamState.dailyRunCount,
+        ...existingExtension?.dreamState,
+        enabled: existingExtension?.dreamState?.enabled ?? defaultDreamState.enabled,
+        strictAfkGating: existingExtension?.dreamState?.strictAfkGating ?? defaultDreamState.strictAfkGating,
+        journalingThreshold: existingExtension?.dreamState?.journalingThreshold ?? defaultDreamState.journalingThreshold,
+        maxSessionsPerDay: existingExtension?.dreamState?.maxSessionsPerDay ?? defaultDreamState.maxSessionsPerDay,
+        sessionTimeoutMinutes: existingExtension?.dreamState?.sessionTimeoutMinutes ?? defaultDreamState.sessionTimeoutMinutes,
+        afkThresholdMinutes: existingExtension?.dreamState?.afkThresholdMinutes ?? defaultDreamState.afkThresholdMinutes,
+        minConversationTurns: existingExtension?.dreamState?.minConversationTurns ?? defaultDreamState.minConversationTurns,
+        lastProcessedAt: existingExtension?.dreamState?.lastProcessedAt ?? defaultDreamState.lastProcessedAt,
+        dailyRunDate: existingExtension?.dreamState?.dailyRunDate ?? defaultDreamState.dailyRunDate,
+        dailyRunCount: existingExtension?.dreamState?.dailyRunCount ?? defaultDreamState.dailyRunCount,
       },
       proactivity_metrics: {
-        ttsCount: existingExtension.proactivity_metrics?.ttsCount ?? 0,
-        sttCount: existingExtension.proactivity_metrics?.sttCount ?? 0,
-        chatCount: existingExtension.proactivity_metrics?.chatCount ?? 0,
-        totalTurns: existingExtension.proactivity_metrics?.totalTurns ?? 0,
+        ...existingExtension?.proactivity_metrics,
+        ttsCount: existingExtension?.proactivity_metrics?.ttsCount ?? 0,
+        sttCount: existingExtension?.proactivity_metrics?.sttCount ?? 0,
+        chatCount: existingExtension?.proactivity_metrics?.chatCount ?? 0,
+        totalTurns: existingExtension?.proactivity_metrics?.totalTurns ?? 0,
       },
-      groundingEnabled: existingExtension.groundingEnabled ?? false,
+      visual_assets: (existingExtension as any)?.visual_assets || {},
+      eternal_record: (existingExtension as any)?.eternal_record || { relational_milestones: [], lore_bits: [] },
+      active_concepts: (existingExtension as any)?.active_concepts ?? [],
+      groundingEnabled: existingExtension?.groundingEnabled ?? false,
+      imageJournal: (existingExtension as any)?.imageJournal || { selfie: false },
     }
   }
 
@@ -563,8 +686,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     const validation = safeParse(AiriCardSchema, card)
     if (!validation.success) {
       console.warn('[AiriCard] Validation issues found during normalization:', validation.issues)
-      // We still proceed with normalization for robustness, but we've logged the problems.
-      // In a stricter implementation, we could throw here.
     }
 
     const normalizeVersion = (version?: string | null) => {
@@ -576,11 +697,12 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       return normalized || fallback
     }
 
-    // Handle ccv3 format if needed
+    // Branch: Character Card V3 (standard format)
     if ('data' in card) {
       const ccv3Card = card as ccv3.CharacterCardV3
       return {
-        name: ccv3Card.data.name,
+        name: ccv3Card.data.name || '',
+        nickname: (ccv3Card.data as any).nickname || '',
         version: normalizeVersion(ccv3Card.data.character_version),
         description: ccv3Card.data.description ?? '',
         creator: ccv3Card.data.creator ?? '',
@@ -591,7 +713,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         greetings: [
           ccv3Card.data.first_mes,
           ...(ccv3Card.data.alternate_greetings ?? []),
-        ],
+        ].filter(Boolean),
         greetingsGroupOnly: ccv3Card.data.group_only_greetings ?? [],
         systemPrompt: normalizeRequiredText(ccv3Card.data.system_prompt, defaultSystemPrompt),
         postHistoryInstructions: normalizeRequiredText(ccv3Card.data.post_history_instructions, defaultPostHistoryInstructions),
@@ -614,19 +736,29 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       }
     }
 
+    // Branch: Native AiriCard / Legacy Card (spread with overrides)
+    const cardData = card as any
     return {
-      ...card,
-      version: normalizeVersion(card.version),
-      systemPrompt: normalizeRequiredText(card.systemPrompt, defaultSystemPrompt),
-      postHistoryInstructions: normalizeRequiredText(card.postHistoryInstructions, defaultPostHistoryInstructions),
+      name: cardData.name || '',
+      nickname: cardData.nickname || '',
+      version: normalizeVersion(cardData.version),
+      description: cardData.description || '',
+      personality: cardData.personality || '',
+      scenario: cardData.scenario || '',
+      greetings: cardData.greetings || [],
+      messageExample: cardData.messageExample || [],
+      systemPrompt: normalizeRequiredText(cardData.systemPrompt, defaultSystemPrompt),
+      postHistoryInstructions: normalizeRequiredText(cardData.postHistoryInstructions, defaultPostHistoryInstructions),
+      ...cardData, // Spread remaining properties (tags, etc.)
       extensions: {
-        ...card.extensions,
+        ...cardData.extensions,
         airi: stripEmbeddedBackgroundData(resolveAiriExtension(card)),
       },
     }
   }
 
   function initialize() {
+    // Compact and normalize all cards on startup
     cards.value = compactAllCardsMap(cards.value)
 
     const nextCards = new Map(cards.value)
@@ -661,6 +793,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
               speechMannerismPrompt: DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT,
             },
             artistry: {
+              promptPrefix: DEFAULT_ARTISTRY_RELU_PROMPT_PREFIX,
               widgetInstruction: DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT,
             },
             heartbeats: {
@@ -707,6 +840,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
               speechMannerismPrompt: DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT,
             },
             artistry: {
+              promptPrefix: DEFAULT_ARTISTRY_ARIA_PROMPT_PREFIX,
               widgetInstruction: DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT,
             },
             heartbeats: {
@@ -753,6 +887,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
               speechMannerismPrompt: DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT,
             },
             artistry: {
+              promptPrefix: DEFAULT_ARTISTRY_LUPIN_PROMPT_PREFIX,
               widgetInstruction: DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT,
             },
             heartbeats: {
@@ -807,6 +942,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     updateCard,
     getCard,
     toggleGrounding,
+    setAutonomousArtistry,
     getCardDisplayModelId,
     resetState,
     initialize,

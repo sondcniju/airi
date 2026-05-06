@@ -145,7 +145,7 @@ export function createConfig<TSchema extends PersistedSchema>(
       const raw = readFileSync(path, { encoding: 'utf-8' })
       const parsed = parseWithSchema(raw, schema)
       if (parsed.value !== undefined) {
-        console.log(`[Persistence] Loaded config from ${path}:`, parsed.value)
+        // console.log(`[Persistence] Loaded config from ${path}:`, parsed.value)
         const diagnostics = recordDiagnostics({
           status: 'ok',
           path,
@@ -191,7 +191,7 @@ export function createConfig<TSchema extends PersistedSchema>(
   }
 
   const update = (newData: InferOutput<TSchema>) => {
-    console.log(`[Persistence] Updating config ${key}. New data:`, newData)
+    // console.log(`[Persistence] Updating config ${key}. New data:`, newData)
     persistenceMap.set(key, newData)
     save()
   }
@@ -201,7 +201,7 @@ export function createConfig<TSchema extends PersistedSchema>(
     try {
       const data = persistenceMap.get(key)
       if (data !== undefined) {
-        console.log(`[Persistence] Sync flushing config to ${path}`)
+        // console.log(`[Persistence] Sync flushing config to ${path}`)
         writeFileSync(path, JSON.stringify(data))
       }
     }
@@ -228,7 +228,7 @@ export function createConfig<TSchema extends PersistedSchema>(
 }
 
 export function flushAllConfigs() {
-  console.log(`[Persistence] Flushing all ${configRegistry.size} configs...`)
+  // console.log(`[Persistence] Flushing all ${configRegistry.size} configs...`)
   for (const config of configRegistry) {
     config.flush()
   }

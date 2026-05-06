@@ -13,17 +13,29 @@ Transitioning the Discord integration from a disconnected "second process" bot i
 
 ## 1. Planned Slash Commands
 
-| Command | Description | Implementation Status |
+### Core Priority
+Commands essential for the baseline Discord integration.
+
+| Command | Arguments | Description |
 | :--- | :--- | :--- |
-| `/new` | Equivalent to the trash can icon (Clear Context). | Planned |
-| `/summon` | Joins the user's current Voice Channel. | Built-in (to be announced) |
-| `/leave` | Leaves the Voice Channel. | Built-in (to be announced) |
-| `/context` | Rollup summary of context usage (token metrics). | Planned |
-| `/history` | Dumps the last 5 messages from the current conversation. | Planned |
-| `/status` | Connection report (Character sync, Provider health). | Planned |
-| `/live` | Experimental Gemini Live audio bridging. | Planned |
-| `/character` | Switches the active AIRI card/profile directly from Discord. | Planned |
-| `/emotion` | Manually triggers character expressions/animations on the desktop avatar. | Planned |
+| `/character` | `[id: string]` | Switches the active AIRI card/profile directly from Discord. | [x] |
+| `/new` | `[msg: string]` | Creates a new session/reset. | [x] |
+| `/status` | none | Reports active character, model, and module telemetry. | [x] |
+| `/history` | `[turns: numeric]` | Dumps the last 5 messages from the current conversation. The optional `turns` parameter overrides the default of 5. |
+| `/summon` | none | Joins the user's current Voice Channel. |
+| `/leave` | none | Leaves the Voice Channel. |
+
+### Deferred / Extended Features
+Advanced toggles and routing capabilities scheduled for post-MVP.
+
+| Command | Arguments | Description |
+| :--- | :--- | :--- |
+| `/voicemode` | `mode: puppet \| voicenote \| none` | Controls TTS audio playback location (Desktop speakers, Discord voice notes, or muted). |
+| `/voicecall` | `mode: classic \| gemini` | Selects the underlying technology for real-time VC sessions (Standard TTS vs Native Gemini Live). |
+| `/director` | `mode: on \| off` | Toggles Autonomous Artistry (stops generation requests). | [ ] |
+| `/vision` | `mode: on \| off` | Toggles VLM processing for image attachments. | [plumbing done] |
+| `/imagine` | `prompt: string` | Forces a visual generation using the Artistry pipeline. | [x] |
+| `/selfie` | `[emotion: string]` | Captures a stage screenshot as is. Optional `emotion` argument overrides expression (1 of 6 core emotions). |
 
 ---
 
@@ -55,18 +67,62 @@ The unified service layer exposes deep hooks into existing AIRI store logic:
 - **State Sync Hook**: Mirrors `airiCardStore` (Name/Avatar/Bio) directly to the Discord Bot's identity via `@moeru/eventa` and `discord.js`.
 - **Camera Hook**: Integrates the **Control Island's** capture logic into the messaging flow via the **Image Journal**.
 
-### Live Mode Bridge
-Instead of a standard `Text -> STT -> LLM -> TTS -> Text` loop:
-1. Discord raw audio receiver.
-2. Direct pipe to the **Gemini Live API WebSocket**.
-3. Raw audio return from API.
-4. Direct pipe to Discord VC audio sender.
-5. **No text is involved in this cycle.**
-6. **Interruption & Barge-in**: Researching technical feasibility for natural, overlapping dialogue in the Discord VC context.
+### 🎙️ Audio Delivery & Voice Modes
+The `/voicemode` command dictates how speech is handled for standard text messages:
+- **`puppet` (Default)**: Audio is played locally on the Desktop app. Ideal for "Home Base" usage.
+- **`voicenote`**: The TTS audio chunks are collected, combined into a single `.ogg` or `.mp3` file, and uploaded to the Discord channel as a Voice Note / Attachment.
+- **`none`**: No TTS is generated. Saves significant API credits and local resources.
+
+### 📞 Voice Call Engines
+The `/voicecall` command selects the underlying technology for real-time VC sessions:
+1. **`gemini` (Modern)**:
+   - Discord raw audio -> Gemini Live WebSocket -> Discord raw audio.
+   - Low latency, "No text" involved.
+2. **`tts` (Classic)**:
+   - Discord audio -> STT -> LLM -> TTS -> Discord audio.
+   - Slower, but utilizes the high-fidelity desktop TTS providers and maintains a full text log of the VC interaction.
 
 ---
 
-## 3. Implementation Roadmap
+## 3. Revamped Settings UI: `messaging-discord.vue`
+
+The Settings page will evolve from a simple configuration box into a **Mission Control** dashboard for the Discord service. This provides essential telemetry for the user and critical debugging tools for development.
+
+### UI Summary Table
+
+| Section | Component | Description |
+| :--- | :--- | :--- |
+| **Connectivity** | Status Badge + Ping | Real-time Gateway health. |
+| **Authentication** | Masked Token + Reset | Secure credential management. |
+| **Active Presence** | Table of Guilds/VCs | Shows where AIRI is currently "Summoned." |
+| **Logic Routing** | Toggle Group | Enable VLM, Global Artistry Sync, Auto-Prefixing. |
+| **Developer Console** | Collapsible Log View | Real-time stream of Discord service events. |
+| **Debug Actions** | Button Row | [Test Auth] [Force Card Sync] [Restart Service]. |
+
+---
+
+### UI Feature Detail
+
+#### 1. Live Telemetry (The "Heartbeat")
+Provides real-time insight into the native service state:
+- **Gateway Status**: A "Connected/Disconnected" indicator with a Ping/Latency readout.
+- **Active Guilds/Channels**: A list of where AIRI is currently "present" or "summoned."
+- **Shard Info**: Visible scaling data (which shard the local process is handling).
+
+#### 2. Implementation Helpers (The "Dev Dashboard")
+Tools to ease development and verification of the new pipeline:
+- **Event Stream**: A small, scrollable log of raw Discord events (`MESSAGE_CREATE`, `INTERACTION_CREATE`) to monitor incoming traffic without checking the terminal.
+- **"Force Sync" Button**: Immediately pushes the current AIRI Card (Avatar/Bio) to Discord's API to test identity synchronization.
+- **"Simulate Event"**: Triggers a mock Discord message from the UI to test context routing and attribution logic.
+
+#### 3. Granular Configuration (The "Controls")
+- **Identity Sync Toggle**: Options for how AIRI appears (e.g., "Always use Desktop Character Name" vs. "Use Discord Nickname").
+- **Multimodal Toggles**: Enabling/disabling inbound image processing for VLM context.
+- **Voice Gates**: Configuration for "Kill Switch" sensitivity and Voice Activity thresholds for the Phase 4 bridge.
+
+---
+
+## 4. Implementation Roadmap
 
 ### Phase 1: Service Migration (No 2nd Process)
 The logic will be moved from `services/discord-bot` into a native Electron service. This removes the need for a separate process and WebSocket bridge.
@@ -74,10 +130,11 @@ The logic will be moved from `services/discord-bot` into a native Electron servi
 - **Entry Point**: `apps/stage-tamagotchi/src/main/services/airi/discord/index.ts`
 - **DI Registration**: Injected into `Injeca` via `apps/stage-tamagotchi/src/main/index.ts`.
 
-### Phase 2: Native Slash Command "Plugin"
-Instead of parsing raw text guide triggers, we use a structured command registration.
-- **Registry**: `apps/stage-tamagotchi/src/main/services/airi/discord/registry.ts`
-- **Command Handlers**: Ported and cleaned up from `services/discord-bot/src/bots/discord/commands/`.
+### Phase 2: Native Interaction Plugin
+Transitioning from passive message listening to a structured Interaction model.
+- **REST Registration**: On service start, the bot will use `REST` and `Routes.applicationCommands` to push the schema (built via `SlashCommandBuilder`) to Discord. This enables the native `/` autocomplete UI.
+- **Registry Structure**: A new `commands/` directory in the main process will house individual command files. Each file exports a `data` (schema) and an `execute` (logic) function.
+- **Interaction Handler**: The service will listen for `Events.InteractionCreate`. It will map the `commandName` to our local registry and execute the corresponding function, ensuring a native "AIRI is thinking..." state is shown during long operations.
 
 ### Phase 3: Character & Context Unification
 Synchronizing the bot with the Desktop renderer state.
@@ -92,7 +149,7 @@ The "Holy Grail" of voice interaction on Discord.
 
 ---
 
-## 4. Key Files for Adjustment
+## 5. Key Files for Adjustment
 
 ### [Main Process (Tamagotchi)]
 - **[NEW]** `apps/stage-tamagotchi/src/main/services/airi/discord/service.ts`

@@ -1161,6 +1161,9 @@ importers:
       destr:
         specifier: ^2.0.5
         version: 2.0.5
+      discord.js:
+        specifier: ^14.25.1
+        version: 14.25.1(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       dompurify:
         specifier: ^3.3.1
         version: 3.3.1
@@ -2453,9 +2456,6 @@ importers:
       pinia:
         specifier: 'catalog:'
         version: 3.0.4(typescript@5.9.3)(vue@3.5.29(typescript@5.9.3))
-      posthog-js:
-        specifier: 'catalog:'
-        version: 1.306.1
       reka-ui:
         specifier: ^2.8.2
         version: 2.8.2(vue@3.5.29(typescript@5.9.3))
@@ -2569,6 +2569,12 @@ importers:
       '@orama/orama':
         specifier: 'catalog:'
         version: 3.1.18
+      '@pixi/core':
+        specifier: ^6.5.10
+        version: 6.5.10(@pixi/constants@6.5.10)(@pixi/extensions@6.5.10)(@pixi/math@6.5.10)(@pixi/runner@6.5.10)(@pixi/settings@6.5.10(@pixi/constants@6.5.10))(@pixi/ticker@6.5.10(@pixi/extensions@6.5.10)(@pixi/settings@6.5.10(@pixi/constants@6.5.10)))(@pixi/utils@6.5.10(@pixi/constants@6.5.10)(@pixi/settings@6.5.10(@pixi/constants@6.5.10)))
+      '@pixi/utils':
+        specifier: ^6.5.10
+        version: 6.5.10(@pixi/constants@6.5.10)(@pixi/settings@6.5.10(@pixi/constants@6.5.10))
       '@proj-airi/audio':
         specifier: workspace:^
         version: link:../audio
@@ -2728,9 +2734,6 @@ importers:
       pinia:
         specifier: 'catalog:'
         version: 3.0.4(typescript@5.9.3)(vue@3.5.29(typescript@5.9.3))
-      posthog-js:
-        specifier: 'catalog:'
-        version: 1.306.1
       rehype-katex:
         specifier: ^7.0.1
         version: 7.0.1

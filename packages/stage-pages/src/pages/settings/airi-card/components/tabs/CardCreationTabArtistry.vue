@@ -16,7 +16,9 @@ const selectedArtistryPromptPrefix = defineModel<string>('selectedArtistryPrompt
 const selectedArtistryWidgetInstruction = defineModel<string>('selectedArtistryWidgetInstruction', { required: true })
 const selectedArtistryAutonomousEnabled = defineModel<boolean>('selectedArtistryAutonomousEnabled', { required: true })
 const selectedArtistryAutonomousThreshold = defineModel<number>('selectedArtistryAutonomousThreshold', { required: true })
+const selectedArtistryAutonomousMonitorEnabled = defineModel<boolean>('selectedArtistryAutonomousMonitorEnabled', { required: false, default: true })
 const selectedArtistryAutonomousTarget = defineModel<'user' | 'assistant'>('selectedArtistryAutonomousTarget', { required: true })
+const selectedArtistryAutonomousHistoryDepth = defineModel<number>('selectedArtistryAutonomousHistoryDepth', { required: false, default: 3 })
 const selectedArtistrySpawnMode = defineModel<'bg' | 'widget' | 'inline' | 'bg_widget'>('selectedArtistrySpawnMode', { required: true })
 const selectedArtistryConfigStr = defineModel<string>('selectedArtistryConfigStr', { required: true })
 
@@ -162,6 +164,57 @@ function openReplicateModel() {
             <span>Always Generate (0%)</span>
             <span>Strict (100%)</span>
           </div>
+        </div>
+
+        <!-- Director's Monitor Toggle -->
+        <div :class="['flex', 'items-center', 'justify-between', 'pt-2']">
+          <div :class="['flex', 'flex-col']">
+            <label :class="['text-[10px]', 'font-bold', 'text-neutral-500', 'uppercase', 'tracking-wider']">
+              Director's Monitor
+            </label>
+            <span :class="['text-[10px]', 'text-neutral-400', 'mt-1']">
+              Show reasoning notes in Chat and Discord logs.
+            </span>
+          </div>
+          <button
+            type="button"
+            :class="[
+              'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+              selectedArtistryAutonomousMonitorEnabled ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
+            ]"
+            @click="selectedArtistryAutonomousMonitorEnabled = !selectedArtistryAutonomousMonitorEnabled"
+          >
+            <span
+              aria-hidden="true"
+              :class="[
+                'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                selectedArtistryAutonomousMonitorEnabled ? 'translate-x-4' : 'translate-x-0',
+              ]"
+            />
+          </button>
+        </div>
+
+        <!-- History Depth Selection -->
+        <div :class="['flex', 'flex-col', 'gap-2', 'pt-2']">
+          <div :class="['flex', 'justify-between', 'items-center']">
+            <label :class="['text-[10px]', 'font-bold', 'text-neutral-500', 'uppercase', 'tracking-wider']">
+              Context Depth (Turns)
+            </label>
+            <span :class="['text-xs', 'font-mono', 'bg-primary-500/10', 'text-primary-600', 'px-2', 'py-0.5', 'rounded']">
+              {{ selectedArtistryAutonomousHistoryDepth || 3 }}
+            </span>
+          </div>
+          <input
+            v-model.number="selectedArtistryAutonomousHistoryDepth"
+            type="range"
+            min="1"
+            max="12"
+            step="1"
+            :class="['w-full', 'h-2', 'bg-neutral-200', 'dark:bg-neutral-700', 'rounded-lg', 'appearance-none', 'cursor-pointer', 'accent-primary-500']"
+          >
+          <p :class="['text-[10px]', 'text-neutral-400', 'px-1']">
+            How far back the Director should look when evaluating the scene.
+          </p>
         </div>
 
         <!-- Target Mode Selection -->

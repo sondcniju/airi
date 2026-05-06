@@ -211,19 +211,10 @@ onMounted(async () => {
     })
   }
 
-  // Broadcast Discord configuration if enabled
-  if (discordStore.enabled) {
-    discordStore.saveSettings()
+  // Auto-start Discord service if previously enabled and token is configured
+  if (discordStore.enabled && discordStore.configured) {
+    discordStore.startService()
   }
-
-  // Listen for new modules joining and push config to Discord bot if it joins
-  serverChannelStore.onEvent('registry:modules:sync', (event) => {
-    const hasDiscord = event.data.modules.some(m => m.name === 'discord')
-    if (hasDiscord && discordStore.enabled) {
-      console.log('[App] Discord bot detected in registry, pushing configuration...')
-      discordStore.saveSettings()
-    }
-  })
 
   // Listen for open-settings IPC message from main process
   defineInvokeHandler(context.value, electronOpenSettings, payload => router.push(payload?.route || '/settings'))

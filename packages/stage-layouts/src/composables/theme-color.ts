@@ -86,11 +86,11 @@ export function useBackgroundThemeColor({
   const { pause, resume } = useIntervalFn(() => {
     if (visibility.value !== 'visible')
       return
-    if (selectedOption.value?.kind === BackgroundKind.Wave && themeColorsHueDynamic)
+    if (selectedOption.value?.kind === BackgroundKind.Wave && themeColorsHueDynamic.value)
       void updateThemeColor()
   }, 250, { immediate: false })
 
-  watch([() => selectedOption.value?.kind, () => themeColorsHueDynamic], ([kind, dynamic]) => {
+  watch([() => selectedOption.value?.kind, () => themeColorsHueDynamic.value], ([kind, dynamic]) => {
     if (kind === BackgroundKind.Wave && dynamic) {
       void updateThemeColor()
       resume()

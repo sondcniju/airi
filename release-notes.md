@@ -1,44 +1,30 @@
-# AIRI Release Notes: v0.9.1-stable.20260422
+# AIRI Release Notes - May 3, 2026 (v0.9.1-stable.20260503)
 
-This update focuses on core engine stability and neurological timing. We have addressed a critical "silent crash" issue affecting Windows users and integrated high-fidelity audio pipeline improvements.
+This release introduces the **Production Studio**, a powerful new way to build and manage character manifestations through "Concept Stacking," alongside significant improvements to Discord interaction logic and long-term memory integration.
 
----
+## 🚀 Key Highlights
 
-## 🛡️ ENGINE STABILITY: "Silent Crash" Resolution
+### 🎬 Production Studio & Concept Stacking
+The Card Editor now features a dedicated **Production Studio** for architecting complex character behaviors and visuals.
+- **Concept Registry**: A new system to register and stack "Concepts" (Base or Layered) onto your characters.
+- **Immersive Concept Stacking**: Layer multiple prompts, artistry rules, and behaviors to create highly nuanced manifestations.
+- **Tabbed Builder Modal**: A streamlined interface for creating and managing your concept library.
+- **Manifestation Bridge**: Improved logic for synchronizing concepts with the live stage.
 
-We identified and resolved a critical issue where the application would fail to open on some Windows systems without any error message.
+### 🎭 Discord Service: Queue vs. Steer
+Inspired by OpenClaw, we've refined how companions manage Discord conversations.
+- **Interaction Modes**: Switch between "Queue" (ordered processing) and "Steer" (proactive/reactive) modes for more natural chat flow.
+- **NO_REPLY Hook**: AI companions can now intelligently decide to remain silent when a response isn't necessary, preventing channel noise.
+- **Stability**: Fixed "typing loops" and improved the reliability of message history insertion.
 
-*   **Native Module Safeguards**: Wrapped all hardware-level native module imports (`active-win`, `loudness`, `systeminformation`) in safety guards. The app now boots reliably even if specific native drivers are missing or incompatible.
-*   **Koffi Win32 Fallback**: Implemented a high-performance FFI fallback using `Koffi` for active window tracking on Windows. This ensures "Vision" and "Context Awareness" features remain functional even when the primary native module fails.
-*   **Binary ABI Enforcement**: Enabled mandatory native module rebuilds during the packaging phase to ensure 100% compatibility between C++ binaries and the Electron runtime.
+### 🧠 Advanced Memory & Orchestration
+- **Eternal Record Integration**: Autonomous artistry now utilizes "Eternal Record" context injection, allowing companions to reference deeper historical patterns during generation.
+- **Token-Driven Sync**: New multi-character synchronization driven by raw tokens for precise coordination between companions.
+- **Hallucination Protection**: Refined reasoning pipelines for the Autonomous Director to significantly reduce hallucinations in character manifestations.
 
----
-
-## 🎙️ AUDIO INTELLIGENCE: UST Tech Forward-Port
-
-We've forward-ported the latest advancements in audio processing from the neurological research branch (PR 1702).
-
-*   **High-Fidelity TTS Chunking**: Overhauled the speech chunking algorithm to reduce latency and improve the rhythmic flow of long-form character speech.
-*   **Latency Reduction**: Optimized the communication buffer between the LLM and the audio manifestation layer for near-instant responses.
-
----
-
-## 🎨 ARTISTRY & VISION REFINEMENTS
-
-*   **Companion-Centric Artistry**: Re-tuned the Autonomous Artistry engine to prioritize character-relevant visual manifests over generic background generations.
-*   **Model Persistence Fix**: Resolved a race condition where the "Vision" state would sometimes fail to persist across app restarts.
-*   **OpenRouter Reliability**: Fixed a 404 regression in the Artistry routing for OpenRouter-based providers.
-
----
-
-## 🖐️ TACTILE MODE ENHANCEMENTS
-
-*   **Physics Tuning**: Adjusted the tension of the "Tug-and-Pull" physics for a more natural feel on high-refresh-rate displays.
-*   **Wardrobe Manifest Stability**: Fixed a bug where dynamic outfit discovery would sometimes fail to load textures on first scan.
-
----
-
-### How to Install
-Download the `AIRI-0.9.1-stable.20260422-windows-x64-setup.exe` from the latest release artifacts and follow the installation prompts.
-
-*For detailed technical discussions on these changes, refer to the [ROSETTA_STONE.md](docs/ROSETTA_STONE.md) or the [Windows Release Guide](docs/content/en/docs/contributing/windows-release-guide.md).*
+## 🛠️ Stability & Fixes
+- **macOS Refinement**: Significant stability and interface fixes specifically for macOS environments, ensuring a premium experience on Apple silicon.
+- **Workflow Safety**: Successfully implemented and verified the new **Process Safety Guidelines**, ensuring build stability without disruptive environment nukes.
+- **Metadata Persistence**: Resolved issues where Studio metadata was lost during character ingestion or card edits.
+- **Store Safety**: Fixed a Pinia store ID collision that caused background state conflicts.
+- **Message Ordering**: Fixed a regression that caused messages in the chat history to occasionally appear out of order.

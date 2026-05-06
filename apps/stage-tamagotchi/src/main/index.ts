@@ -23,6 +23,7 @@ import { setElectronMainDirname } from './libs/electron/location'
 import { flushAllConfigs } from './libs/electron/persistence'
 import { createI18n } from './libs/i18n'
 import { createServerChannelService, setupServerChannel } from './services/airi/channel-server'
+import { setupDiscordService } from './services/airi/discord'
 import { createI18nService } from './services/airi/i18n'
 import { createMcpServersService, setupMcpStdioManager } from './services/airi/mcp-servers'
 import { setupPluginHost } from './services/airi/plugins'
@@ -220,6 +221,7 @@ app.whenReady().then(async () => {
       createMicToggleService({ context, window: deps.mainWindow })
       createVisionService({ context })
       const sensorsServicePromise = createSensorsService({ context })
+      setupDiscordService()
       defineInvokeHandler(context, electronCaptionToggleVisibility, async () => {
         console.log('[@proj-airi/stage-tamagotchi] [Main] Caption visibility toggle triggered via Control Island')
         await deps.captionWindow.toggleVisibility()

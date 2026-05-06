@@ -1,12 +1,15 @@
 import type { Message } from '@xsai/shared-chat'
 
+import type { DirectorNote } from '../../types/director'
+
 import { defineInvoke, defineInvokeEventa } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/renderer'
 import { artistryGenerateHeadless } from '@proj-airi/stage-shared'
 import { defineStore } from 'pinia'
-import { ref, toRaw } from 'vue'
+import { ref, toRaw, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
+import { directorNotesRepo } from '../../database/repos/director-notes.repo'
 import { useBackgroundStore } from '../background'
 import { useChatSessionStore } from '../chat/session-store'
 import { useLLM } from '../llm'
@@ -14,6 +17,7 @@ import { useProvidersStore } from '../providers'
 import { useAiriCardStore } from './airi-card'
 import { useArtistryStore } from './artistry'
 import { useConsciousnessStore } from './consciousness'
+import { useSpeechStore } from './speech'
 
 const artistLog = import.meta.env.DEV ? console.log.bind(console, '[AutonomousArtist]') : () => {}
 
@@ -25,8 +29,160 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
   const consciousnessStore = useConsciousnessStore()
   const providersStore = useProvidersStore()
   const chatSessionStore = useChatSessionStore()
+  const speechStore = useSpeechStore()
 
   const isProcessing = ref(false)
+  const directorNotes = ref<DirectorNote[]>([])
+
+  async function loadDirectorNotes(sessionId: string) {
+    directorNotes.value = await directorNotesRepo.getNotes(sessionId)
+  }
+
+  async function recordDirectorDecision(note: DirectorNote) {
+    directorNotes.value.push(note)
+    await directorNotesRepo.saveNotes(note.sessionId, directorNotes.value)
+  }
+
+  async function updateDirectorDecision(noteId: string, updates: Partial<DirectorNote>) {
+    const note = directorNotes.value.find(n => n.id === noteId)
+    if (note) {
+      Object.assign(note, updates)
+      await directorNotesRepo.saveNotes(note.sessionId, directorNotes.value)
+    }
+  }
+
+  // Auto-load notes when session changes
+  watch(() => chatSessionStore.activeSessionId, (newId) => {
+    if (newId) {
+      void loadDirectorNotes(newId)
+    }
+    else {
+      directorNotes.value = []
+    }
+  }, { immediate: true })
+
+  /**
+   * Resolve the next concept stack based on the Director's new selections.
+   * Implements the "Keep Base, Refresh Modifiers" rule:
+   * - If the Director selects a new Base concept, the stack is wiped and rebuilt.
+   * - If the Director selects only Layer concepts, the current Base is preserved
+   *   and all other modifiers are replaced by the Director's new choices.
+   */
+  function resolveConceptStack(
+    currentStack: string[],
+    directorPicks: string[],
+    visualAssets: Record<string, any>,
+  ): string[] {
+    const validPicks = directorPicks.filter(id => !!visualAssets[id])
+    if (validPicks.length === 0)
+      return currentStack
+
+    // Separate Director's picks into bases and layers
+    const newBases = validPicks.filter(id => visualAssets[id]?.isBase)
+    const newLayers = validPicks.filter(id => !visualAssets[id]?.isBase)
+
+    if (newBases.length > 0) {
+      // Director picked a new Base: wipe stack, apply the last Base + layers
+      const primaryBase = newBases[newBases.length - 1]
+      artistLog('Stack Resolve: New Base detected, clearing stack.', { primaryBase, layers: newLayers })
+      return [primaryBase, ...newLayers]
+    }
+
+    // Director picked only Layers: preserve existing Base, clear old modifiers
+    const currentBase = currentStack.find(id => visualAssets[id]?.isBase)
+    const nextStack = currentBase ? [currentBase] : []
+    nextStack.push(...newLayers)
+    artistLog('Stack Resolve: Refreshing modifiers, keeping base.', { currentBase, layers: newLayers })
+    return nextStack
+  }
+
+  /**
+   * Fold the active concept stack into resolved artistry and manifestation values.
+   * Iterates from bottom to top; each layer can override the one below it.
+   * - Prompts are concatenated.
+   * - Artistry (provider/model/options) and Manifestation (modelId/mood) use "last defined wins".
+   */
+  function foldConceptStack(
+    stack: string[],
+    visualAssets: Record<string, any>,
+    defaults: {
+      provider: string
+      model: string
+      options: any
+      speechProvider?: string
+      speechModel?: string
+      speechVoiceId?: string
+    },
+  ) {
+    let resolvedProvider = defaults.provider
+    let resolvedModel = defaults.model
+    let resolvedOptions = defaults.options
+    let resolvedModelId: string | undefined
+    let resolvedMood: string | undefined
+    let resolvedSpeechProvider = defaults.speechProvider
+    let resolvedSpeechModel = defaults.speechModel
+    let resolvedSpeechVoiceId = defaults.speechVoiceId
+    let resolvedExpressions: Record<string, number> = {}
+    let resolvedBackgroundId: string | undefined
+    let accumulatedPrompt = ''
+
+    for (const conceptId of stack) {
+      const asset = visualAssets[conceptId]
+      if (!asset)
+        continue
+
+      // Prompt: concatenate all snippets
+      if (asset.prompt) {
+        accumulatedPrompt += asset.prompt
+      }
+
+      // Artistry: last override wins
+      if (asset.artistry?.provider && asset.artistry.provider !== 'none' && asset.artistry.provider !== 'inherit') {
+        resolvedProvider = asset.artistry.provider
+        resolvedModel = asset.artistry.model || resolvedModel
+        resolvedOptions = asset.artistry.options || resolvedOptions
+      }
+
+      // Manifestation: last override wins
+      if (asset.manifestation?.modelId && asset.manifestation.modelId !== 'inherit') {
+        resolvedModelId = asset.manifestation.modelId
+      }
+      if (asset.manifestation?.mood) {
+        resolvedMood = asset.manifestation.mood
+      }
+      if (asset.manifestation?.backgroundId && asset.manifestation.backgroundId !== 'inherit') {
+        resolvedBackgroundId = asset.manifestation.backgroundId
+      }
+
+      // Speech: last override wins
+      if (asset.speech?.provider && asset.speech.provider !== 'none' && asset.speech.provider !== 'inherit') {
+        resolvedSpeechProvider = asset.speech.provider
+        resolvedSpeechModel = asset.speech.model || resolvedSpeechModel
+        resolvedSpeechVoiceId = asset.speech.voice_id || resolvedSpeechVoiceId
+      }
+
+      if (asset.manifestation?.active_expressions) {
+        resolvedExpressions = {
+          ...resolvedExpressions,
+          ...asset.manifestation.active_expressions,
+        }
+      }
+    }
+
+    return {
+      provider: resolvedProvider,
+      model: resolvedModel,
+      options: resolvedOptions,
+      modelId: resolvedModelId,
+      mood: resolvedMood,
+      speechProvider: resolvedSpeechProvider,
+      speechModel: resolvedSpeechModel,
+      speechVoiceId: resolvedSpeechVoiceId,
+      activeExpressions: resolvedExpressions,
+      backgroundId: resolvedBackgroundId,
+      promptSnippets: accumulatedPrompt,
+    }
+  }
 
   /**
    * Safe IPC Invoker for headless generation
@@ -79,45 +235,56 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       }
 
       // 1. Compose the "Director" prompt based on target
-      const systemPrompt = target === 'assistant'
-        ? `You are the Cinematic Director for AIRI. 
-Your job is to analyze the character's response and reaction to the user, and decide if it warrants a visual manifestation (a generative image).
-Manifestation is warranted for:
-- Descriptions of beautiful scenery or environment changes in the response
+      const airiExt = activeCard.extensions?.airi as any
+      artistLog('DEBUG: Full airi extension:', JSON.stringify(airiExt, null, 2))
+      const visualAssets = airiExt?.visual_assets || {}
+      artistLog('DEBUG: visual_assets resolved to:', JSON.stringify(visualAssets))
+      const hasConcepts = Object.keys(visualAssets).length > 0
+      const availableConceptsText = hasConcepts
+        ? Object.entries(visualAssets)
+            .map(([id, asset]: [string, any]) => `- "${id}": ${asset.description}`)
+            .join('\n')
+        : ''
+
+      const conceptsInstruction = hasConcepts
+        ? `\nAVAILABLE CONCEPTS:\n${availableConceptsText}\n`
+        : ''
+
+      const conceptsSchema = hasConcepts
+        ? ',\n  "selected_concepts": ["Array of zero or more concept IDs chosen from the Available Concepts list"]'
+        : ''
+
+      const commonInstructions = `
+A high grade (warranted) should be given for:
+- Descriptions of beautiful scenery or environment changes
 - Expressive emotional reactions or body language from the character
 - Direct mentions of food, items, or gifts in the narrative
 - Narrative actions that would look stunning as a manga/anime scene
 - Changes in the character's clothing or appearance
 
 Character Personality: ${activeCard.personality}
-
+${conceptsInstruction}
 Output EXACTLY this JSON format and nothing else:
 {
-  "reasoning": "Quick explanation of why this reaction warrants/doesn't warrant a visual",
-  "intensity": 0-100,
+  "reasoning": "Quick explanation of why this scene is visually interesting or boring",
+  "intensity": 1-100,
   "prompt": "Highly detailed, illustrative prompt for the image generator capturing the character's reaction and scene. Use Mori's style (masterpiece, high quality, manga style, intricate details)",
-  "title": "Short descriptive title for the scene"
+  "title": "Short descriptive title for the scene"${conceptsSchema}
 }`
+
+      const systemPrompt = target === 'assistant'
+        ? `You are the Cinematic Director for AIRI. 
+Your job is to ALWAYS generate a visual manifestation (a generative image) summarizing the current scene, and then grade how interesting the resulting scene is from 1 to 100.
+You should draw inspiration from the entire context history provided. If the latest response is mundane, use your artistic freedom to craft an image that captures the broader narrative arc or the environment established in the recent turns.
+${commonInstructions}`
         : `You are the Cinematic Director for AIRI. 
-Your job is to analyze the user's input and decide if it warrants a visual manifestation (a generative image).
-Manifestation is warranted for:
-- Descriptions of beautiful scenery or environment changes
-- Direct mentions of food, items, or gifts
-- Narrative actions that would look stunning as a manga/anime scene
-- Changes in the character's clothing or appearance
-
-Character Personality: ${activeCard.personality}
-
-Output EXACTLY this JSON format and nothing else:
-{
-  "reasoning": "Quick explanation of why this warrants/doesn't warrant a visual",
-  "intensity": 0-100,
-  "prompt": "Highly detailed, illustrative prompt for the image generator. Use Mori's style (masterpiece, high quality, manga style, intricate details)",
-  "title": "Short descriptive title for the scene"
-}`
+Your job is to ALWAYS generate a visual manifestation (a generative image) summarizing the current scene, and then grade how interesting the resulting scene is from 1 to 100.
+You should draw inspiration from the entire context history provided. If the latest input is mundane, use your artistic freedom to craft an image that captures the broader narrative arc or the environment established in the recent turns.
+${commonInstructions}`
 
       // 2. Rollup history and text into a single prompt to help the LLM "see" the full context
-      const recentHistory = history.slice(-3)
+      const historyDepth = (artistry as any).autonomousHistoryDepth ?? 3
+      const recentHistory = history.slice(-historyDepth)
       const historyText = recentHistory.map(m => `[${m.role === 'assistant' ? 'Companion' : 'User'}]: ${m.content}`).join('\n\n')
 
       const analysisPrompt = `Consider the recent history between the user and the character for context and inspiration, then analyze the latest ${target === 'assistant' ? 'response from the companion' : 'input from the user'} to decide if a visual manifestation is needed.
@@ -185,17 +352,73 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
       }
 
       const analysis = JSON.parse(jsonContent)
+      const selectedConcepts: string[] = Array.isArray(analysis.selected_concepts) ? analysis.selected_concepts : []
       artistLog('Parsed Analysis Result:', {
         intensity: analysis.intensity,
         reasoning: analysis.reasoning,
         title: analysis.title,
         prompt: analysis.prompt,
+        selected_concepts: selectedConcepts,
+      })
+
+      // 3.5 Stack Folding: Resolve the next concept stack and fold into final values
+      // First, resolve what the stack SHOULD look like after the Director's decision
+      const currentConceptIds = airiExt?.active_concepts || []
+      const nextConceptStack = resolveConceptStack(currentConceptIds, selectedConcepts, visualAssets)
+      artistLog('Stack Folding: Resolved next stack:', nextConceptStack)
+
+      // Fold the resolved stack to get final prompt, artistry, and manifestation values
+      const folded = foldConceptStack(
+        nextConceptStack,
+        visualAssets,
+        {
+          provider: artistry.provider || artistryStore.activeProvider,
+          model: artistry.model || artistryStore.activeModel,
+          options: artistry.options || artistryStore.providerOptions,
+          speechProvider: airiExt?.modules?.speech?.provider || speechStore.activeSpeechProvider,
+          speechModel: airiExt?.modules?.speech?.model || speechStore.activeSpeechModel,
+          speechVoiceId: airiExt?.modules?.speech?.voice_id || speechStore.activeSpeechVoiceId,
+        },
+      )
+
+      // Build the final prompt from the Director's base prompt + folded concept snippets
+      let finalPrompt = analysis.prompt + folded.promptSnippets
+      artistLog('Stack Folding: Final resolved values:', {
+        provider: folded.provider,
+        model: folded.model,
+        modelId: folded.modelId,
+        mood: folded.mood,
+        promptSnippets: folded.promptSnippets,
       })
 
       const thresholdMet = (analysis.intensity ?? 0) >= threshold
+
+      let notificationDescription = `${thresholdMet ? '✅' : '❌'} Grade: ${analysis.intensity}/${threshold}\nReason: ${analysis.reasoning?.substring(0, 130)}${analysis.reasoning?.length > 130 ? '...' : ''}`
+      if (selectedConcepts.length > 0) {
+        notificationDescription += `\n🎯 Concepts: ${selectedConcepts.join(', ')}`
+      }
+
       toast('Director\'s Decision', {
-        description: `${thresholdMet ? '✅' : '❌'} Grade: ${analysis.intensity}/${threshold}\nReason: ${analysis.reasoning?.substring(0, 130)}${analysis.reasoning?.length > 130 ? '...' : ''}`,
+        description: notificationDescription,
         duration: 7000,
+      })
+
+      const sessionId = chatSessionStore.activeSessionId
+      const noteId = Date.now().toString()
+      const noteState = thresholdMet ? 'pending' : 'done'
+
+      await recordDirectorDecision({
+        id: noteId,
+        sessionId,
+        type: 'director-note',
+        content: analysis.reasoning,
+        intensity: analysis.intensity,
+        title: analysis.title,
+        prompt: finalPrompt,
+        target,
+        state: noteState,
+        selected_concepts: selectedConcepts,
+        createdAt: Date.now(),
       })
 
       // 3. Evaluate Threshold
@@ -208,12 +431,17 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
           return
         }
 
+        // 3.7 Artistry Bridge: Use folded stack values for generation resolution
+        let resolvedProvider = folded.provider
+        let resolvedModel = folded.model
+        let resolvedOptions = folded.options
+
         const artistryGlobals = artistryStore.artistryGlobals
         const generationPayload = {
-          prompt: artistry.promptPrefix ? `${artistry.promptPrefix} ${analysis.prompt}` : analysis.prompt,
-          model: artistry.model || artistryStore.activeModel,
-          provider: artistry.provider || artistryStore.activeProvider,
-          options: artistry.options || artistryStore.providerOptions,
+          prompt: artistry.promptPrefix ? `${artistry.promptPrefix} ${finalPrompt}` : finalPrompt,
+          model: resolvedModel,
+          provider: resolvedProvider,
+          options: resolvedOptions,
           globals: artistryGlobals,
         }
 
@@ -259,26 +487,35 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
           const entryId = await backgroundStore.addBackground('journal', blob, analysis.title || 'Autonomous Scene', analysis.prompt, cardId)
           artistLog('Generation complete and added to journal.', { entryId })
 
+          await updateDirectorDecision(noteId, { state: 'done' })
+
           // 5. Route based on spawnMode
           const spawnMode = artistry.spawnMode || 'bg_widget'
           artistLog(`Routing image with mode: ${spawnMode}`)
 
           switch (spawnMode) {
-            case 'bg':
-              // Update character's active background
+            case 'bg': {
+              // Update character's active background + concept stack + manifestation
+              const bgModuleUpdates: Record<string, any> = {
+                ...activeCard.extensions.airi.modules,
+                activeBackgroundId: entryId,
+                active_expressions: folded.activeExpressions,
+              }
+              if (folded.modelId) {
+                bgModuleUpdates.displayModelId = folded.modelId
+              }
               cardStore.updateCard(cardId, {
                 extensions: {
                   ...activeCard.extensions,
                   airi: {
                     ...activeCard.extensions.airi,
-                    modules: {
-                      ...activeCard.extensions.airi.modules,
-                      activeBackgroundId: entryId,
-                    },
+                    active_concepts: nextConceptStack,
+                    modules: bgModuleUpdates,
                   },
                 },
               } as any)
               break
+            }
 
             case 'inline': {
               const imageUrl = result.imageUrl || result.base64
@@ -316,19 +553,42 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
 
             case 'bg_widget':
             default:
-              // Both: Update background AND spawn widget
-              cardStore.updateCard(cardId, {
-                extensions: {
-                  ...activeCard.extensions,
-                  airi: {
-                    ...activeCard.extensions.airi,
-                    modules: {
-                      ...activeCard.extensions.airi.modules,
-                      activeBackgroundId: entryId,
+              // Both: Update background, stack, AND spawn widget
+              {
+                if (!activeCard || !activeCard.extensions?.airi) {
+                  artistLog('Director Bridge: Aborting card update - active card or airi extension is missing.')
+                  break
+                }
+
+                // 1. Use the pre-computed nextConceptStack from the Stack Folding phase
+                artistLog('Director Bridge: Applying resolved concept stack:', nextConceptStack)
+
+                // 2. Build the surgical update payload
+                const moduleUpdates: Record<string, any> = {
+                  ...activeCard.extensions.airi.modules,
+                  activeBackgroundId: entryId,
+                }
+
+                // 3. Manifestation Bridge: If the stack fold resolved a new modelId, apply it
+                if (folded.modelId) {
+                  artistLog(`Manifestation Bridge: Updating displayModelId to "${folded.modelId}"`)
+                  moduleUpdates.displayModelId = folded.modelId
+                }
+
+                // 4. Perform a SURGICAL update to avoid shredding the modules (TTS/Brain)
+                cardStore.updateCard(cardId, {
+                  extensions: {
+                    ...activeCard.extensions,
+                    airi: {
+                      ...activeCard.extensions.airi,
+                      active_concepts: nextConceptStack,
+                      modules: moduleUpdates,
                     },
                   },
-                },
-              } as any)
+                } as any)
+
+                artistLog('Director Bridge: Card updated successfully with new concept stack:', nextConceptStack)
+              }
 
               try {
                 await invokers.addWidget({
@@ -364,8 +624,200 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
     }
   }
 
+  /**
+   * Manually trigger a synchronization of the current concept stack to physical manifestations.
+   * Useful for immediate model swaps when a user toggles an outfit in the UI.
+   */
+  async function applyCurrentStackManifestations() {
+    const { activeCard } = cardStore
+    if (!activeCard || !activeCard.extensions?.airi)
+      return
+
+    const airiExt = activeCard.extensions.airi as any
+    const visualAssets = airiExt.visual_assets || {}
+    const currentStack = airiExt.active_concepts || []
+    const artistry = airiExt.artistry || {}
+
+    artistLog('Manual Sync: Folding current stack manifestations...', currentStack)
+
+    const folded = foldConceptStack(
+      currentStack,
+      visualAssets,
+      {
+        provider: artistry.provider || artistryStore.activeProvider,
+        model: artistry.model || artistryStore.activeModel,
+        options: artistry.options || artistryStore.providerOptions,
+      },
+    )
+
+    const moduleUpdates: Record<string, any> = {
+      ...activeCard.extensions.airi.modules,
+    }
+
+    if (folded.modelId) {
+      artistLog(`Manual Sync: Applying displayModelId "${folded.modelId}"`)
+      moduleUpdates.displayModelId = folded.modelId
+    }
+
+    cardStore.updateCard(cardStore.activeCardId, {
+      extensions: {
+        ...activeCard.extensions,
+        airi: {
+          ...activeCard.extensions.airi,
+          modules: moduleUpdates,
+        },
+      },
+    } as any)
+  }
+
+  async function activateConcept(conceptId: string) {
+    const { activeCard, activeCardId } = cardStore
+    if (!activeCard || !activeCard.extensions?.airi) {
+      artistLog('ActivateConcept: Aborting - active card or airi extension is missing.')
+      return
+    }
+
+    const airiExt = activeCard.extensions.airi as any
+    const visualAssets = airiExt.visual_assets || {}
+    const currentStack = airiExt.active_concepts || []
+    const artistry = airiExt.artistry || {}
+
+    artistLog('ActivateConcept: Activating concept:', conceptId)
+
+    // 1. Resolve the next concept stack (merging Base/Layer logic)
+    const nextConceptStack = resolveConceptStack(currentStack, [conceptId], visualAssets)
+
+    // 2. Fold the resolved stack to get final manifestation values (modelId, etc.)
+    const folded = foldConceptStack(
+      nextConceptStack,
+      visualAssets,
+      {
+        provider: artistry.provider || artistryStore.activeProvider,
+        model: artistry.model || artistryStore.activeModel,
+        options: artistry.options || artistryStore.providerOptions,
+        speechProvider: airiExt?.modules?.speech?.provider || speechStore.activeSpeechProvider,
+        speechModel: airiExt?.modules?.speech?.model || speechStore.activeSpeechModel,
+        speechVoiceId: airiExt?.modules?.speech?.voice_id || speechStore.activeSpeechVoiceId,
+      },
+    )
+
+    // 3. Build the surgical update payload for the modules
+    const moduleUpdates: Record<string, any> = {
+      ...activeCard.extensions.airi.modules,
+    }
+
+    if (folded.modelId) {
+      artistLog(`ActivateConcept: Applying manifestation modelId "${folded.modelId}"`)
+      moduleUpdates.displayModelId = folded.modelId
+    }
+
+    if (folded.speechProvider && folded.speechProvider !== 'inherit') {
+      artistLog(`ActivateConcept: Applying speech override to runtime:`, { provider: folded.speechProvider, voice: folded.speechVoiceId })
+      speechStore.activeSpeechProvider = folded.speechProvider
+      if (folded.speechModel)
+        speechStore.activeSpeechModel = folded.speechModel
+      if (folded.speechVoiceId)
+        speechStore.activeSpeechVoiceId = folded.speechVoiceId
+
+      moduleUpdates.speech = {
+        ...moduleUpdates.speech,
+        provider: folded.speechProvider,
+        model: folded.speechModel,
+        voice_id: folded.speechVoiceId,
+      }
+    }
+
+    // Background: Only apply when Director is OFF (manual scene control)
+    const autonomousEnabled = artistry.autonomousEnabled ?? false
+    if (!autonomousEnabled && folded.backgroundId) {
+      artistLog(`ActivateConcept: Applying background override "${folded.backgroundId}" (Director is OFF)`)
+      moduleUpdates.activeBackgroundId = folded.backgroundId
+    }
+
+    // 4. Perform the update
+    cardStore.updateCard(activeCardId, {
+      extensions: {
+        ...activeCard.extensions,
+        airi: {
+          ...activeCard.extensions.airi,
+          active_concepts: nextConceptStack,
+          modules: moduleUpdates,
+        },
+      },
+    } as any)
+
+    artistLog('ActivateConcept: Success.', { conceptId, nextConceptStack })
+  }
+
+  /**
+   * Lightweight voice-only preload for TTS generation-time ACTOR swaps.
+   * Updates ONLY the speech store (provider/model/voice) so the next TTS call
+   * generates audio with the correct voice. Does NOT swap the model, background,
+   * or concept stack — those visual changes are deferred to playback-time via
+   * activateConcept() called from the playback manager's onEnd handler.
+   */
+  function preloadConceptVoice(conceptId: string) {
+    const { activeCard } = cardStore
+    if (!activeCard || !activeCard.extensions?.airi)
+      return
+
+    const airiExt = activeCard.extensions.airi as any
+    const visualAssets = airiExt.visual_assets || {}
+    const currentStack = airiExt.active_concepts || []
+    const artistry = airiExt.artistry || {}
+
+    // Resolve the stack as if this concept were activated
+    const nextConceptStack = resolveConceptStack(currentStack, [conceptId], visualAssets)
+
+    // Fold to get speech values
+    const folded = foldConceptStack(
+      nextConceptStack,
+      visualAssets,
+      {
+        provider: artistry.provider || artistryStore.activeProvider,
+        model: artistry.model || artistryStore.activeModel,
+        options: artistry.options || artistryStore.providerOptions,
+        speechProvider: airiExt?.modules?.speech?.provider || speechStore.activeSpeechProvider,
+        speechModel: airiExt?.modules?.speech?.model || speechStore.activeSpeechModel,
+        speechVoiceId: airiExt?.modules?.speech?.voice_id || speechStore.activeSpeechVoiceId,
+      },
+    )
+
+    // Only update speech runtime — no model/background/card changes
+    if (folded.speechProvider && folded.speechProvider !== 'inherit') {
+      artistLog(`PreloadVoice: Applying speech override for upcoming TTS:`, { provider: folded.speechProvider, voice: folded.speechVoiceId })
+      speechStore.activeSpeechProvider = folded.speechProvider
+      if (folded.speechModel)
+        speechStore.activeSpeechModel = folded.speechModel
+      if (folded.speechVoiceId)
+        speechStore.activeSpeechVoiceId = folded.speechVoiceId
+    }
+    else {
+      artistLog(`PreloadVoice: No speech override for concept "${conceptId}", keeping current voice.`)
+    }
+  }
+
+  function findNoteForImage(title?: string, prompt?: string) {
+    if (!title && !prompt)
+      return null
+    return directorNotes.value.slice().reverse().find((n) => {
+      // Direct match on title or prompt
+      if (title && n.title === title)
+        return true
+      if (prompt && n.prompt === prompt)
+        return true
+      return false
+    })
+  }
+
   return {
     isProcessing,
+    directorNotes,
     runArtistTask,
+    loadDirectorNotes,
+    activateConcept,
+    preloadConceptVoice,
+    applyCurrentStackManifestations,
+    findNoteForImage,
   }
 })

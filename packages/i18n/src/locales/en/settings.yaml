@@ -537,6 +537,37 @@ pages:
       token-description: Your Discord bot token
       token-placeholder: Enter your Discord bot token
       configured: Discord is properly configured!
+      connectivity:
+        title: Connectivity
+        status: Status
+        ping: Ping
+        connected: Connected
+        disconnected: Disconnected
+        connecting: Connecting...
+        error: Error
+        no-guilds: Not connected to any servers.
+      actions:
+        start: Start Service
+        stop: Stop Service
+        restart: Restart Service
+        force-sync: Force Card Sync
+        simulate: Simulate Message
+        test-auth: Test Auth
+        clear-log: Clear Log
+      presence:
+        title: Active Presence
+        guild: Server
+        channel: Channel
+        no-active: No active presence.
+      dev-console:
+        title: Developer Console
+        empty: No events recorded yet. Start the service to begin capturing.
+      simulate-dialog:
+        username: Username
+        username-placeholder: Enter a username...
+        content: Message
+        content-placeholder: Enter a test message...
+        send: Send
     speech:
       description: Speech synthesis
       sections:

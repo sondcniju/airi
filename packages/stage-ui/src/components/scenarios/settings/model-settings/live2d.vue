@@ -8,6 +8,7 @@ import { useI18n } from 'vue-i18n'
 
 import Live2DCustomization from './live2d-customization.vue'
 
+import { useLHackStore } from '../../../../stores'
 import { useSettings } from '../../../../stores/settings'
 import { Section } from '../../../layouts'
 import { ColorPalette } from '../../../widgets'
@@ -21,6 +22,7 @@ defineEmits<{
 
 const { t } = useI18n()
 
+const lhackStore = useLHackStore()
 const settings = useSettings()
 const {
   live2dDisableFocus,
@@ -426,6 +428,25 @@ onUnmounted(() => {
         <Button variant="secondary" @click="$emit('extractColorsFromModel')">
           {{ t('settings.live2d.theme-color-from-model.button-extract.title') }}
         </Button>
+      </div>
+
+      <!-- L-HACK Editor -->
+      <div flex="~ col gap-2">
+        <div class="px-1 text-[10px] text-neutral-400 font-bold tracking-widest uppercase">
+          L-HACK Editor
+        </div>
+        <Button
+          :variant="lhackStore.isHackerModeActive ? 'primary' : 'secondary'"
+          @click="lhackStore.toggleHackerMode"
+        >
+          <template #icon>
+            <div i-solar:mask-h-bold-duotone />
+          </template>
+          L-HACK Dashboard
+        </Button>
+        <p class="mb-2 px-1 text-[10px] text-neutral-400">
+          Open the Live2D Hacker Inspector for surgical drawable and atlas modding.
+        </p>
       </div>
 
       <!-- Technical Utils -->

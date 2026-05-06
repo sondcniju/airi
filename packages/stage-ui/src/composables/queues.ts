@@ -97,14 +97,6 @@ export function useSpecialTokenQueue(emotionsQueue: UseQueueReturn<EmotionPayloa
     return { ok: emotions.length > 0, emotions }
   }
 
-  function parseDelay(content: string) {
-    const match = /<\|DELAY:\s*(\d+)\s*(?:\|>|>)/i.exec(content)
-    if (!match)
-      return null
-    const delay = Number.parseFloat(match[1])
-    return Number.isNaN(delay) ? 0 : delay
-  }
-
   return createQueue<string>({
     handlers: [
       async (ctx) => {
@@ -120,14 +112,36 @@ export function useSpecialTokenQueue(emotionsQueue: UseQueueReturn<EmotionPayloa
         const actParsed = parseActEmotion(ctx.data)
         if (actParsed.ok) {
           for (const emotion of actParsed.emotions) {
-            // Trace log for debugging
             // eslint-disable-next-line no-console
             console.log('[Queue] Dispatching ACT payload:', emotion)
             ctx.emit('emotion', emotion)
             emotionsQueue.enqueue(emotion)
           }
         }
+
+        // 3. Check for Actor/Concept swap
+        const actorId = parseActor(ctx.data)
+        if (actorId) {
+          // eslint-disable-next-line no-console
+          console.log('[Queue] Dispatching ACTOR swap:', actorId)
+          ctx.emit('actor', actorId)
+        }
       },
     ],
   })
+}
+
+export function parseDelay(content: string) {
+  const match = /<\|DELAY:\s*(\d+)\s*(?:\|>|>)/i.exec(content)
+  if (!match)
+    return null
+  const delay = Number.parseFloat(match[1])
+  return Number.isNaN(delay) ? 0 : delay
+}
+
+export function parseActor(content: string) {
+  const match = /<\|ACTOR:\s*([\w-]+)\s*(?:\|>|>)/i.exec(content)
+  if (!match)
+    return null
+  return match[1].trim()
 }

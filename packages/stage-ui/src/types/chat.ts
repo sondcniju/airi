@@ -28,6 +28,12 @@ export interface ChatAssistantMessage extends AssistantMessage {
     id: string
     result?: string | CommonContentPart[]
   }[]
+  /**
+   * The full raw LLM output including orchestration tokens (`<|ACTOR:|>`, `<|ACT:|>`, etc.)
+   * and reasoning blocks. Stored separately from `content` (which is display-friendly) so
+   * that past turns fed back to the LLM retain the tokens, preventing behavioral drift.
+   */
+  rawContent?: string
   categorization?: {
     speech: string
     reasoning: string
@@ -36,6 +42,7 @@ export interface ChatAssistantMessage extends AssistantMessage {
     queries: string[]
     chunks: { title: string, uri: string }[]
   }
+  error?: { message: string, detail: string }
 }
 
 export type ChatMessage = ChatAssistantMessage | SystemMessage | ToolMessage | UserMessage
@@ -45,6 +52,15 @@ export interface ErrorMessage {
   content: string
 }
 
+export interface DirectorMessage {
+  role: 'director'
+  content: string
+  intensity: number
+  title?: string
+  prompt?: string
+  target?: 'user' | 'assistant'
+}
+
 export interface ContextMessage extends ContextUpdate<Record<string, unknown>, string | CommonContentPart[]> {
   metadata?: {
     source: MetadataEventSource
@@ -52,7 +68,7 @@ export interface ContextMessage extends ContextUpdate<Record<string, unknown>, s
   createdAt: number
 }
 
-export type ChatHistoryItem = (ChatMessage | ErrorMessage) & { context?: ContextMessage } & { createdAt?: number, id?: string }
+export type ChatHistoryItem = (ChatMessage | ErrorMessage | DirectorMessage) & { context?: ContextMessage } & { createdAt?: number, id?: string }
 
 export interface ChatStreamEventContext {
   message: ChatHistoryItem
@@ -72,5 +88,6 @@ export type ChatStreamEvent
     | { type: 'assistant-end', message: string, sessionId: string, context: ChatStreamEventContext }
     | { type: 'assistant-message', message: ChatAssistantMessage, sessionId: string, messageText: string, context: ChatStreamEventContext }
     | { type: 'session-updated', sessionId: string, message: ChatHistoryItem }
+    | { type: 'session-refreshed', sessionId: string }
 
 export type StreamingAssistantMessage = ChatAssistantMessage & { context?: ContextMessage } & { createdAt?: number, id?: string }

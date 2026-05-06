@@ -4,7 +4,16 @@ import JSZip from 'jszip'
 
 import { Cubism4ModelSettings, ZipLoader } from 'pixi-live2d-display/cubism4'
 
-ZipLoader.zipReader = (data: Blob, _url: string) => JSZip.loadAsync(data)
+let onZipLoaded: ((data: ArrayBuffer) => void) | null = null
+export function setOnZipLoaded(callback: (data: ArrayBuffer) => void) {
+  onZipLoaded = callback
+}
+
+ZipLoader.zipReader = async (data: Blob, _url: string) => {
+  const buffer = await data.arrayBuffer()
+  onZipLoaded?.(buffer)
+  return JSZip.loadAsync(buffer)
+}
 
 const defaultCreateSettings = ZipLoader.createSettings
 ZipLoader.createSettings = async (reader: JSZip) => {
@@ -15,6 +24,26 @@ ZipLoader.createSettings = async (reader: JSZip) => {
     }
     return defaultCreateSettings(reader)
   })()
+
+  // Handle models with anonymous motion groups (empty string)
+  // We remap them to 'Idle' to ensure AIRI can start initial animations
+  const rawJson = (settings as any).json
+  const fileRefs = rawJson?.FileReferences || rawJson?.fileReferences
+  const motions = fileRefs?.Motions || (settings as any).motions
+
+  if (motions && motions[''] && !motions.Idle) {
+    motions.Idle = motions['']
+    delete motions['']
+  }
+
+  // Sanitize null FileReferences to undefined.
+  // The library checks `if (this.physics !== void 0)` but null !== undefined is true,
+  // causing url.resolve to receive null (typeof null === 'object') and crash.
+  for (const key of ['physics', 'pose'] as const) {
+    if ((settings as any)[key] === null) {
+      (settings as any)[key] = undefined
+    }
+  }
 
   // Extract CDI data from the zip if available
   try {
@@ -98,7 +127,7 @@ function createFakeSettings(files: string[]): ModelSettings {
       Pose: pose,
       Motions: motions.length
         ? {
-            '': motions.map(motion => ({ File: motion })),
+            Idle: motions.map(motion => ({ File: motion })),
           }
         : undefined,
     },
@@ -141,6 +170,13 @@ ZipLoader.getFiles = (jsZip: JSZip, paths: string[]) =>
 
       const blob = await jsZip.file(path)!.async('blob')
 
-      return new File([blob], fileName)
+      const file = new File([blob], fileName)
+      Object.defineProperty(file, 'webkitRelativePath', {
+        value: path,
+        writable: false,
+        configurable: true,
+      })
+
+      return file
     },
   ))

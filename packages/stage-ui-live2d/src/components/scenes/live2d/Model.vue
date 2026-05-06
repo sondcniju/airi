@@ -24,6 +24,7 @@ import {
 } from '../../../composables/live2d'
 import { Emotion, EmotionNeutralMotionName } from '../../../constants/emotions'
 import { useLive2d } from '../../../stores/live2d'
+import { setOnZipLoaded } from '../../../utils/live2d-zip-loader'
 
 const props = withDefaults(defineProps<{
   modelSrc?: string
@@ -65,6 +66,11 @@ const emits = defineEmits<{
   (e: 'error', error: Error): void
 }>()
 
+// Global Model Access for LHacker
+setOnZipLoaded((buffer) => {
+  (window as any).__LHACK_LAST_ZIP_BUFFER__ = buffer
+})
+
 const componentState = defineModel<'pending' | 'loading' | 'mounted'>('state', { default: 'pending' })
 
 function parsePropsOffset() {
@@ -97,7 +103,9 @@ const offset = computed(() => parsePropsOffset())
 const pixiApp = toRef(() => props.app)
 const paused = toRef(() => props.paused)
 const focusAt = toRef(() => props.focusAt)
-const model = ref<Live2DModel<PixiLive2DInternalModel>>()
+const live2dStore = useLive2d()
+const { model } = storeToRefs(live2dStore)
+
 const initialModelWidth = ref<number>(0)
 const initialModelHeight = ref<number>(0)
 const mouthOpenSize = computed(() => Math.max(0, Math.min(100, props.mouthOpenSize)))
@@ -114,7 +122,7 @@ const dropShadowFilter = shallowRef(new DropShadowFilter({
 }))
 
 function getCoreModel() {
-  return model.value!.internalModel.coreModel as any
+  return model.value?.internalModel?.coreModel as any
 }
 
 function setScaleAndPosition() {
@@ -136,12 +144,15 @@ function setScaleAndPosition() {
   }
 
   model.value.scale.set(scale * props.scale, scale * props.scale)
-
   model.value.x = (props.width / 2) + offset.value.xOffset
   model.value.y = (props.height / 2) + offset.value.yOffset
+
+  // CRITICAL FIX: Prevent PIXI filters from clipping out-of-bounds meshes
+  if (pixiApp.value?.renderer?.screen) {
+    model.value.filterArea = pixiApp.value.renderer.screen
+  }
 }
 
-const live2dStore = useLive2d()
 const {
   currentMotion,
   availableMotions,
@@ -245,9 +256,29 @@ async function loadModel() {
     model.value = live2DModel
     // REVIEW: pixiApp and stage are guaranteed to be valid here due to the check above.
     pixiApp.value.stage.addChild(model.value)
-    initialModelWidth.value = model.value.width
-    initialModelHeight.value = model.value.height
-    model.value.anchor.set(0.5, 0.5)
+    // Safety fallback: if the logical canvas is missing or tiny (common in certain exports),
+    // use the actual container bounds to prevent a massive scale explosion.
+    // Always force an update and use local bounds to account for meshes extending beyond logical canvas
+    model.value.update(0)
+    const bounds = model.value.getLocalBounds()
+    const logicalWidth = model.value.internalModel.width
+    const logicalHeight = model.value.internalModel.height
+
+    console.info(`[Live2D Load] Logical Canvas: ${logicalWidth}x${logicalHeight} | True Bounds: ${bounds.width.toFixed(0)}x${bounds.height.toFixed(0)}`)
+
+    // Use true bounds if they are significantly larger than the logical canvas
+    if (bounds.width > logicalWidth || bounds.height > logicalHeight) {
+      initialModelWidth.value = bounds.width
+      initialModelHeight.value = bounds.height
+    }
+    else {
+      initialModelWidth.value = logicalWidth
+      initialModelHeight.value = logicalHeight
+    }
+
+    // Do NOT set anchor(0.5, 0.5)! Cubism 4 models natively center at (0,0).
+    // Applying a PIXI anchor shifts the already-centered model up, pushing the head off-canvas.
+    // model.value.anchor.set(0.5, 0.5)
     setScaleAndPosition()
 
     // --- Interaction
@@ -331,38 +362,40 @@ async function loadModel() {
     motionManagerUpdate.register(useMotionUpdatePluginIdleFocus(), 'post')
     motionManagerUpdate.register(useMotionUpdatePluginAutoEyeBlink(), 'post')
 
+    // Pre-allocate the standardKeys set outside the ticker loop to prevent massive GC pressure (60fps)
+    const standardKeys = new Set([
+      'angleX',
+      'angleY',
+      'angleZ',
+      'leftEyeOpen',
+      'rightEyeOpen',
+      'leftEyeSmile',
+      'rightEyeSmile',
+      'leftEyebrowLR',
+      'rightEyebrowLR',
+      'leftEyebrowY',
+      'rightEyebrowY',
+      'leftEyebrowAngle',
+      'rightEyebrowAngle',
+      'leftEyebrowForm',
+      'rightEyebrowForm',
+      'mouthOpen',
+      'mouthForm',
+      'cheek',
+      'bodyAngleX',
+      'bodyAngleY',
+      'bodyAngleZ',
+      'breath',
+    ])
+
     // Custom parameters plugin: applies toggle/slider/expression values from the store
     motionManagerUpdate.register((ctx) => {
       const params = ctx.modelParameters.value
       // Only apply keys that start with "Param" and aren't the standard ones managed by other plugins
-      const standardKeys = new Set([
-        'angleX',
-        'angleY',
-        'angleZ',
-        'leftEyeOpen',
-        'rightEyeOpen',
-        'leftEyeSmile',
-        'rightEyeSmile',
-        'leftEyebrowLR',
-        'rightEyebrowLR',
-        'leftEyebrowY',
-        'rightEyebrowY',
-        'leftEyebrowAngle',
-        'rightEyebrowAngle',
-        'leftEyebrowForm',
-        'rightEyebrowForm',
-        'mouthOpen',
-        'mouthForm',
-        'cheek',
-        'bodyAngleX',
-        'bodyAngleY',
-        'bodyAngleZ',
-        'breath',
-      ])
-      for (const [key, value] of Object.entries(params)) {
+      for (const key in params) {
         if (!standardKeys.has(key) && key.startsWith('Param')) {
           try {
-            ctx.model.setParameterValueById(key, value as number)
+            ctx.model.setParameterValueById(key, params[key] as number)
           }
           catch {
             // Silently ignore if parameter doesn't exist on this model
@@ -618,8 +651,19 @@ function updateDropShadowFilter() {
     return
 
   const color = getComputedStyle(dropShadowColorComputer.value).backgroundColor
-  dropShadowFilter.value.color = Number(formatHex(color)!.replace('#', '0x'))
-  model.value.filters = [dropShadowFilter.value]
+  const hex = formatHex(color)
+  if (!hex)
+    return
+
+  const parsedColor = Number(hex.replace('#', '0x'))
+
+  if (dropShadowFilter.value.color !== parsedColor) {
+    dropShadowFilter.value.color = parsedColor
+  }
+
+  if (!model.value.filters || model.value.filters.length === 0 || model.value.filters[0] !== dropShadowFilter.value) {
+    model.value.filters = [dropShadowFilter.value]
+  }
 }
 
 const handleResize = useDebounceFn(setScaleAndPosition, 100)
@@ -632,9 +676,24 @@ watch(live2dShadowEnabled, updateDropShadowFilter)
 watch(offset, setScaleAndPosition)
 watch(() => props.scale, setScaleAndPosition)
 
+let dropShadowFrameCounter = 0
 // TODO: This is hacky!
 function updateDropShadowFilterLoop() {
-  updateDropShadowFilter()
+  // NOTICE: Guard against orphaned RAF loops. When the component unmounts during
+  // an ACTOR swap, the old loop must die immediately, otherwise it retains the
+  // full Live2DModel in closure memory and keeps calling getComputedStyle on a
+  // detached DOM node, eventually crashing the renderer via OOM / main-thread lockup.
+  if (isUnmounted) {
+    dropShadowAnimationId.value = 0
+    return
+  }
+
+  dropShadowFrameCounter++
+  // Throttle the getComputedStyle DOM read to prevent layout thrashing (1fps lag)
+  if (dropShadowFrameCounter % 10 === 0) {
+    updateDropShadowFilter()
+  }
+
   if (!live2dShadowEnabled.value) {
     dropShadowAnimationId.value = 0
     return
@@ -653,70 +712,85 @@ watch([themeColorsHueDynamic, live2dShadowEnabled], ([dynamic, shadowEnabled]) =
   }
 }, { immediate: true })
 
-watch(mouthOpenSize, value => getCoreModel().setParameterValueById('ParamMouthOpenY', value))
+watch(mouthOpenSize, (value) => {
+  const coreModel = getCoreModel()
+  if (coreModel) {
+    coreModel.setParameterValueById('ParamMouthOpenY', value)
+  }
+})
 watch(currentMotion, value => setMotion(value.group, value.index))
 watch(paused, value => value ? pixiApp.value?.stop() : pixiApp.value?.start())
 
-// Watch and apply all model parameters dynamically
-// NOTICE: We watch both model instance and parameters to ensure state is applied after model reload.
-watch([() => model.value, () => modelParameters.value], ([currModel, params]) => {
+// Watch for model changes to apply current parameters once
+watch(model, (currModel) => {
   if (currModel) {
-    const coreModel = currModel.internalModel.coreModel
-    // Standard parameters
-    coreModel.setParameterValueById('ParamAngleX', params.angleX)
-    coreModel.setParameterValueById('ParamAngleY', params.angleY)
-    coreModel.setParameterValueById('ParamAngleZ', params.angleZ)
-    coreModel.setParameterValueById('ParamEyeLOpen', params.leftEyeOpen)
-    coreModel.setParameterValueById('ParamEyeROpen', params.rightEyeOpen)
-    coreModel.setParameterValueById('ParamEyeSmile', params.leftEyeSmile)
-    coreModel.setParameterValueById('ParamBrowLX', params.leftEyebrowLR)
-    coreModel.setParameterValueById('ParamBrowRX', params.rightEyebrowLR)
-    coreModel.setParameterValueById('ParamBrowLY', params.leftEyebrowY)
-    coreModel.setParameterValueById('ParamBrowRY', params.rightEyebrowY)
-    coreModel.setParameterValueById('ParamBrowLAngle', params.leftEyebrowAngle)
-    coreModel.setParameterValueById('ParamBrowRAngle', params.rightEyebrowAngle)
-    coreModel.setParameterValueById('ParamBrowLForm', params.leftEyebrowForm)
-    coreModel.setParameterValueById('ParamBrowRForm', params.rightEyebrowForm)
-    coreModel.setParameterValueById('ParamMouthOpenY', params.mouthOpen)
-    coreModel.setParameterValueById('ParamMouthForm', params.mouthForm)
-    coreModel.setParameterValueById('ParamCheek', params.cheek)
-    coreModel.setParameterValueById('ParamBodyAngleX', params.bodyAngleX)
-    coreModel.setParameterValueById('ParamBodyAngleY', params.bodyAngleY)
-    coreModel.setParameterValueById('ParamBodyAngleZ', params.bodyAngleZ)
-    coreModel.setParameterValueById('ParamBreath', params.breath)
+    applyParameters(currModel.internalModel.coreModel as any, modelParameters.value)
+  }
+})
 
-    // Dynamic parameters (from CDI)
-    Object.entries(params).forEach(([key, value]) => {
-      // If it's not one of our standard keys, it's a dynamic one
-      const standardKeys = [
-        'angleX',
-        'angleY',
-        'angleZ',
-        'leftEyeOpen',
-        'rightEyeOpen',
-        'leftEyeSmile',
-        'leftEyebrowLR',
-        'rightEyebrowLR',
-        'leftEyebrowY',
-        'rightEyebrowY',
-        'leftEyebrowAngle',
-        'rightEyebrowAngle',
-        'leftEyebrowForm',
-        'rightEyebrowForm',
-        'mouthOpen',
-        'mouthForm',
-        'cheek',
-        'bodyAngleX',
-        'bodyAngleY',
-        'bodyAngleZ',
-        'breath',
-      ]
-      if (!standardKeys.includes(key)) {
-        coreModel.setParameterValueById(key, value)
-      }
-    })
+// Watch parameters deeply but apply only if model exists
+watch(modelParameters, (params) => {
+  const coreModel = getCoreModel()
+  if (coreModel) {
+    applyParameters(coreModel, params)
   }
 }, { deep: true })
+
+function applyParameters(coreModel: any, params: Record<string, number>) {
+  // Standard parameters
+  coreModel.setParameterValueById('ParamAngleX', params.angleX)
+  coreModel.setParameterValueById('ParamAngleY', params.angleY)
+  coreModel.setParameterValueById('ParamAngleZ', params.angleZ)
+  coreModel.setParameterValueById('ParamEyeLOpen', params.leftEyeOpen)
+  coreModel.setParameterValueById('ParamEyeROpen', params.rightEyeOpen)
+  coreModel.setParameterValueById('ParamEyeSmile', params.leftEyeSmile)
+  coreModel.setParameterValueById('ParamBrowLX', params.leftEyebrowLR)
+  coreModel.setParameterValueById('ParamBrowRX', params.rightEyebrowLR)
+  coreModel.setParameterValueById('ParamBrowLY', params.leftEyebrowY)
+  coreModel.setParameterValueById('ParamBrowRY', params.rightEyebrowY)
+  coreModel.setParameterValueById('ParamBrowLAngle', params.leftEyebrowAngle)
+  coreModel.setParameterValueById('ParamBrowRAngle', params.rightEyebrowAngle)
+  coreModel.setParameterValueById('ParamBrowLForm', params.leftEyebrowForm)
+  coreModel.setParameterValueById('ParamBrowRForm', params.rightEyebrowForm)
+  coreModel.setParameterValueById('ParamMouthOpenY', params.mouthOpen)
+  coreModel.setParameterValueById('ParamMouthForm', params.mouthForm)
+  coreModel.setParameterValueById('ParamCheek', params.cheek)
+  coreModel.setParameterValueById('ParamBodyAngleX', params.bodyAngleX)
+  coreModel.setParameterValueById('ParamBodyAngleY', params.bodyAngleY)
+  coreModel.setParameterValueById('ParamBodyAngleZ', params.bodyAngleZ)
+  coreModel.setParameterValueById('ParamBreath', params.breath)
+
+  // Dynamic parameters (from CDI)
+  Object.entries(params).forEach(([key, value]) => {
+    // If it's not one of our standard keys, it's a dynamic one
+    const standardKeys = [
+      'angleX',
+      'angleY',
+      'angleZ',
+      'leftEyeOpen',
+      'rightEyeOpen',
+      'leftEyeSmile',
+      'leftEyebrowLR',
+      'rightEyebrowLR',
+      'leftEyebrowY',
+      'rightEyebrowY',
+      'leftEyebrowAngle',
+      'rightEyebrowAngle',
+      'leftEyebrowForm',
+      'rightEyebrowForm',
+      'mouthOpen',
+      'mouthForm',
+      'cheek',
+      'bodyAngleX',
+      'bodyAngleY',
+      'bodyAngleZ',
+      'breath',
+    ]
+    if (!standardKeys.includes(key)) {
+      coreModel.setParameterValueById(key, value)
+    }
+  })
+}
 
 // Watch for idle animation setting changes and stop motions if disabled
 watch(live2dIdleAnimationEnabled, (enabled) => {
@@ -749,6 +823,14 @@ onMounted(async () => {
 onUnmounted(() => {
   isUnmounted = true
   disposeShouldUpdateView?.()
+
+  // NOTICE: Explicitly cancel the drop shadow RAF loop on unmount. The isUnmounted
+  // guard inside the loop is the primary defense, but cancelling the pending frame
+  // prevents even one extra tick from firing after teardown.
+  if (dropShadowAnimationId.value) {
+    cancelAnimationFrame(dropShadowAnimationId.value)
+    dropShadowAnimationId.value = 0
+  }
 })
 
 function listMotionGroups() {

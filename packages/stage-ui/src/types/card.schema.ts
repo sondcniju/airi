@@ -1,4 +1,4 @@
-import { array, boolean, intersect, literal, number, object, optional, pipe, record, regex, string, union, unknown } from 'valibot'
+import { array, boolean, intersect, literal, looseObject, number, object, optional, pipe, record, regex, string, union, unknown } from 'valibot'
 
 /**
  * Message Example Item Schema
@@ -91,35 +91,35 @@ const AiriOutfitSchema = object({
   expressions: record(string(), number()),
 })
 
-const AiriExtensionSchema = object({
+const AiriExtensionSchema = looseObject({
   modules: optional(AiriModulesSchema),
   heartbeats: optional(AiriHeartbeatSchema),
   dreamState: optional(AiriDreamStateSchema),
   groundingEnabled: optional(boolean()),
-  generation: optional(object({
+  generation: optional(looseObject({
     enabled: boolean(),
     provider: optional(string()),
     model: optional(string()),
-    known: optional(object({
+    known: optional(looseObject({
       maxTokens: optional(number()),
       temperature: optional(number()),
       topP: optional(number()),
     })),
     advanced: optional(record(string(), unknown())),
-    importedPresetMeta: optional(object({
+    importedPresetMeta: optional(looseObject({
       source: optional(string()),
       originalKeys: optional(array(string())),
       importedAt: optional(string()),
     })),
   })),
-  acting: optional(object({
+  acting: optional(looseObject({
     modelExpressionPrompt: string(),
     speechExpressionPrompt: string(),
     speechMannerismPrompt: string(),
     idleAnimations: optional(array(string())),
   })),
   outfits: optional(array(AiriOutfitSchema)),
-  artistry: optional(object({
+  artistry: optional(looseObject({
     provider: optional(string()),
     model: optional(string()),
     promptPrefix: optional(string()),
@@ -127,20 +127,47 @@ const AiriExtensionSchema = object({
     options: optional(record(string(), unknown())),
     autonomousEnabled: optional(boolean()),
     autonomousThreshold: optional(number()),
+    autonomousHistoryDepth: optional(number()),
+    autonomousMonitorEnabled: optional(boolean()),
   })),
-  agents: optional(record(string(), object({
+  agents: optional(record(string(), looseObject({
     prompt: string(),
     enabled: optional(boolean()),
   }))),
-  imageJournal: optional(object({
+  imageJournal: optional(looseObject({
     selfie: optional(boolean()),
+  })),
+  visual_assets: optional(record(string(), looseObject({
+    description: string(),
+    prompt: optional(string()),
+    isBase: optional(boolean()),
+    artistry: optional(looseObject({
+      provider: optional(string()),
+      model: optional(string()),
+      options: optional(record(string(), unknown())),
+    })),
+    manifestation: optional(looseObject({
+      modelId: optional(string()),
+      mood: optional(string()),
+    })),
+  }))),
+  active_concepts: optional(array(string())),
+  eternal_record: optional(looseObject({
+    relational_milestones: optional(array(string())),
+    lore_bits: optional(array(string())),
+  })),
+  proactivity_metrics: optional(looseObject({
+    ttsCount: number(),
+    sttCount: number(),
+    chatCount: number(),
+    totalTurns: number(),
   })),
 })
 
 /**
  * Main AIRI Card Schema (V1)
  */
-export const AiriCardSchema = object({
+export const AiriCardSchema = looseObject({
   name: string('Card name is required'),
   nickname: optional(string()),
   version: string('Version is required'),
@@ -154,7 +181,7 @@ export const AiriCardSchema = object({
   messageExample: optional(MessageExampleSchema),
   extensions: optional(intersect([
     record(string(), unknown()),
-    object({
+    looseObject({
       airi: optional(AiriExtensionSchema),
     }),
   ])),

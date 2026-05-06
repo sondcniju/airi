@@ -5,6 +5,8 @@ export interface PreviewModalState {
   type: 'text' | 'image'
   title: string
   content: string // text content or image URL
+  prompt?: string
+  id?: string
 }
 
 export const useJournalPreviewStore = defineStore('journal-preview', () => {
@@ -14,10 +16,16 @@ export const useJournalPreviewStore = defineStore('journal-preview', () => {
     previewModal.value = { type: 'text', title: entry.title, content: entry.content }
   }
 
-  function openImagePreview(entry: { title: string, url: string | null }) {
+  function openImagePreview(entry: { title: string, url: string | null, prompt?: string, id?: string }) {
     if (!entry.url)
       return
-    previewModal.value = { type: 'image', title: entry.title, content: entry.url }
+    previewModal.value = {
+      type: 'image',
+      title: entry.title,
+      content: entry.url,
+      prompt: entry.prompt,
+      id: entry.id,
+    }
   }
 
   function closePreview() {

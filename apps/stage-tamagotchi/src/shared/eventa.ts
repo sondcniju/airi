@@ -268,4 +268,19 @@ export { electron } from '@proj-airi/electron-eventa'
 export * from '@proj-airi/electron-eventa/electron-updater'
 
 export { artistryGenerateHeadless } from '@proj-airi/stage-shared'
+export {
+  discordServiceEventLog,
+  discordServiceForceSync,
+  discordServiceGetStatus,
+  discordServiceInboundMessage,
+  discordServiceInteraction,
+  discordServiceRegisterCommands,
+  discordServiceReplyInteraction,
+  discordServiceSendMessage,
+  discordServiceSendTyping,
+  discordServiceSimulateEvent,
+  discordServiceStart,
+  discordServiceStatusChanged,
+  discordServiceStop,
+} from '@proj-airi/stage-shared'
 export * from '@proj-airi/stage-shared/shortcuts'

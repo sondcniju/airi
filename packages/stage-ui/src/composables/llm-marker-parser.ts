@@ -159,9 +159,14 @@ function createLlmMarkerParser(options?: MarkerParserOptions) {
       }
     },
 
-    async end(onLiteral: (value: string) => Promise<void> | void) {
-      if (!inTag && buffer.length > 0) {
-        await onLiteral(buffer)
+    async end(onLiteral: (value: string) => Promise<void> | void, onSpecial: (value: string) => Promise<void> | void) {
+      if (buffer.length > 0) {
+        if (inTag) {
+          await onSpecial(normalizeSpecialToken(buffer))
+        }
+        else {
+          await onLiteral(buffer)
+        }
         buffer = ''
       }
     },
@@ -186,11 +191,16 @@ function createLlmMarkerStream(input: ReadableStream<string>, options?: MarkerPa
     )
   })
     .then(async () => {
-      await parser.end(async (literal) => {
-        if (!literal)
-          return
-        write({ type: 'literal', value: literal })
-      })
+      await parser.end(
+        async (literal) => {
+          if (!literal)
+            return
+          write({ type: 'literal', value: literal })
+        },
+        async (special) => {
+          write({ type: 'special', value: special })
+        },
+      )
       close()
     })
     .catch((err) => {

@@ -344,13 +344,13 @@ function addCardPreviewNormalize(card: any) {
 }
 
 // Transform cards Map to array for display
-const cardsArray = computed<CardItem[]>(() =>
-  Array.from(cards.value.entries()).map(([id, card]) => ({
+const cardsArray = computed<CardItem[]>(() => {
+  return Array.from(cards.value.entries()).map(([id, card]) => ({
     id,
-    name: card.name,
-    description: card.description,
-  })),
-)
+    name: card.name || '',
+    description: card.description || '',
+  }))
+})
 
 // Filtered cards based on search query
 const filteredCards = computed<CardItem[]>(() => {
@@ -370,11 +370,11 @@ const sortedFilteredCards = computed<CardItem[]>(() => {
   const sorted = [...filteredCards.value]
 
   if (sortOption.value === 'nameAsc')
-    return sorted.sort((a, b) => a.name.localeCompare(b.name))
+    return sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
   else if (sortOption.value === 'nameDesc')
-    return sorted.sort((a, b) => b.name.localeCompare(a.name))
+    return sorted.sort((a, b) => (b.name || '').localeCompare(a.name || ''))
   else if (sortOption.value === 'recent')
-    return sorted.sort((a, b) => b.id.localeCompare(a.id))
+    return sorted.sort((a, b) => (b.id || '').localeCompare(a.id || ''))
   else
     return sorted
 })

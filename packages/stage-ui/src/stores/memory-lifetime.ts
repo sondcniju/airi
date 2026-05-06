@@ -143,6 +143,20 @@ function normalizeDistilledPack(value: unknown): DistilledPack {
   }
 }
 
+function normalizeLifetimeArchive(value: unknown): LifetimeArchive {
+  const archive = (value && typeof value === 'object') ? value as Record<string, unknown> : {}
+  return {
+    relationship_summary: typeof archive.relationship_summary === 'string' ? archive.relationship_summary : 'No summary generated.',
+    recurring_preferences: asStringArray(archive.recurring_preferences),
+    recurring_topics: asStringArray(archive.recurring_topics),
+    relationship_dynamics: asStringArray(archive.relationship_dynamics),
+    user_mannerisms: asStringArray(archive.user_mannerisms),
+    meaningful_old_moments: asStringArray(archive.meaningful_old_moments),
+    inside_jokes_or_motifs: asStringArray(archive.inside_jokes_or_motifs),
+    archive_notes: asStringArray(archive.archive_notes),
+  }
+}
+
 function buildBaseArchivePrompt(characterName: string, docs: SourceDoc[], chunkSummaries: any[]) {
   const flattened = {
     durableFacts: [...new Set(chunkSummaries.flatMap((c: any) => c.durable_facts || []))],
@@ -193,7 +207,9 @@ function buildBaseArchivePrompt(characterName: string, docs: SourceDoc[], chunkS
   ].join('\n')
 }
 
-function renderLifetimeArchiveMd(characterName: string, archive: LifetimeArchive, docCount: number, chunkCount: number) {
+function renderLifetimeArchiveMd(characterName: string, rawArchive: LifetimeArchive | Record<string, unknown> | undefined, docCount: number, chunkCount: number) {
+  console.log('[memory-lifetime] Rendering Lifetime Archive with raw data:', rawArchive)
+  const archive = normalizeLifetimeArchive(rawArchive)
   return [
     `# Lifetime Archive: ${characterName}`,
     '',
@@ -341,7 +357,22 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
         record.messages.forEach((msg, idx) => {
           if (msg.role === 'system' || !msg.content)
             return
-          const text = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
+
+          let text = ''
+          if (typeof msg.content === 'string') {
+            text = msg.content
+          }
+          else if (Array.isArray(msg.content)) {
+            // Extract ONLY text parts, ignoring images, tool calls, and binary blobs
+            text = msg.content
+              .filter(part => part && typeof part === 'object' && 'type' in part && part.type === 'text' && 'text' in part)
+              .map(part => (part as any).text)
+              .join('\n')
+          }
+
+          if (!text.trim())
+            return
+
           docs.push({
             id: `raw:${sessionId}:${idx}`,
             layer: 'raw',
@@ -381,24 +412,97 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
     return docs.sort((a, b) => a.timestamp.localeCompare(b.timestamp))
   }
 
+  function validateJsonSchema(data: any, schema: any) {
+    if (!data || typeof data !== 'object')
+      throw new Error('Parsed data is not a valid JSON object.')
+    if (Object.keys(data).length === 0)
+      throw new Error('Model returned an empty object {}.')
+
+    if (schema.required) {
+      for (const key of schema.required) {
+        if (!(key in data)) {
+          throw new Error(`Model response is missing required key: ${key}`)
+        }
+      }
+    }
+    return data
+  }
+
   async function callJsonMode<T>(prompt: string, schema: object, provider: ChatProvider, modelId: string, systemExtras: string[] = []): Promise<T> {
     const systemPrompt = [
       'You must return ONLY valid JSON.',
       'Do not return markdown fences.',
       'Do not add commentary.',
+      'CRITICAL INSTRUCTIONS:',
+      '- NEVER return an empty object {} or null.',
+      '- NEVER return the schema definition itself. You must return the ACTUAL extracted data that fits the schema.',
+      '- Fill in all required fields with the requested information.',
       'Return JSON matching this schema exactly:',
       JSON.stringify(schema, null, 2),
       ...systemExtras,
     ].join('\n')
 
-    const response = await llmStore.generate(modelId, provider, [
+    const messages: any[] = [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: prompt },
-    ], {
-      requestOverrides: { response_format: { type: 'json_object' } },
-    })
+    ]
 
-    return JSON.parse(response.text || '{}') as T
+    let lastError: unknown
+
+    // 1. Try original json_object mode
+    try {
+      const response = await llmStore.generate(modelId, provider, messages, {
+        requestOverrides: { response_format: { type: 'json_object' } },
+      })
+      const text = response.text || (response as any).reasoning || (response as any).reasoning_content || '{}'
+      console.log(`[memory-lifetime] [json_object] Response text length: ${text.length}`)
+      const parsed = JSON.parse(text)
+      return validateJsonSchema(parsed, schema) as T
+    }
+    catch (err: any) {
+      lastError = err
+      console.warn('[memory-lifetime] json_object format failed, falling back to json_schema:', err?.message || err)
+    }
+
+    // 2. Try json_schema mode (Structured Outputs)
+    try {
+      const response = await llmStore.generate(modelId, provider, messages, {
+        requestOverrides: {
+          response_format: {
+            type: 'json_schema',
+            json_schema: { name: 'memory_artifact', schema },
+          },
+        },
+      })
+      const text = response.text || (response as any).reasoning || (response as any).reasoning_content || '{}'
+      console.log(`[memory-lifetime] [json_schema] Response text length: ${text.length}`)
+      const parsed = JSON.parse(text)
+      return validateJsonSchema(parsed, schema) as T
+    }
+    catch (err: any) {
+      lastError = err
+      console.warn('[memory-lifetime] json_schema format failed, falling back to system prompt enforcement:', err?.message || err)
+    }
+
+    // 3. Fallback: No response_format, rely purely on system prompt and try to parse
+    try {
+      const response = await llmStore.generate(modelId, provider, messages, {})
+      let text = response.text || (response as any).reasoning || (response as any).reasoning_content || '{}'
+
+      // Clean potential markdown fences
+      if (text.startsWith('```')) {
+        text = text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/, '').trim()
+      }
+
+      console.log(`[memory-lifetime] [fallback] Response text length: ${text.length}`)
+      const parsed = JSON.parse(text)
+      return validateJsonSchema(parsed, schema) as T
+    }
+    catch (err) {
+      console.error('[memory-lifetime] Final JSON parse fallback failed:', err)
+      lastError = err
+      throw lastError
+    }
   }
 
   async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3, backoffBase = 2000): Promise<T> {
@@ -419,7 +523,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
     throw lastError
   }
 
-  async function provision(characterId: string, resume = false, intervalSeconds = 0) {
+  async function provision(characterId: string, resume = false, intervalSeconds = 0, contextLimitTokens = 64) {
     const card = cards.value.get(characterId)
     if (!card)
       throw new Error('Character not found')
@@ -446,14 +550,27 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
       let session: ProvisioningSession
       let docs: SourceDoc[] = []
       const chunks: SourceDoc[][] = []
-      const chunkSize = 20
+      const contextLimitChars = contextLimitTokens * 1024 * 4 // ~4 chars per token
 
       if (resume && activeSession.value) {
         session = activeSession.value
         docs = await collectSourceDocs(characterId)
-        for (let i = 0; i < docs.length; i += chunkSize) {
-          chunks.push(docs.slice(i, i + chunkSize))
+
+        // Budgeted Chunking (Loosey-Goosey)
+        let currentChunk: SourceDoc[] = []
+        let currentChars = 0
+        for (const doc of docs) {
+          const docChars = doc.text.length
+          if (currentChars + docChars > contextLimitChars && currentChunk.length > 0) {
+            chunks.push(currentChunk)
+            currentChunk = []
+            currentChars = 0
+          }
+          currentChunk.push(doc)
+          currentChars += docChars
         }
+        if (currentChunk.length > 0)
+          chunks.push(currentChunk)
       }
       else {
         progress.value = {
@@ -465,9 +582,23 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
           message: 'Collecting relationship history...',
         }
         docs = await collectSourceDocs(characterId)
-        for (let i = 0; i < docs.length; i += chunkSize) {
-          chunks.push(docs.slice(i, i + chunkSize))
+
+        // Budgeted Chunking (Loosey-Goosey)
+        let currentChunk: SourceDoc[] = []
+        let currentChars = 0
+        for (const doc of docs) {
+          const docChars = doc.text.length
+          if (currentChars + docChars > contextLimitChars && currentChunk.length > 0) {
+            chunks.push(currentChunk)
+            currentChunk = []
+            currentChars = 0
+          }
+          currentChunk.push(doc)
+          currentChars += docChars
         }
+        if (currentChunk.length > 0)
+          chunks.push(currentChunk)
+
         session = {
           characterId,
           phase: 'chunking',
@@ -479,6 +610,12 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
         }
         await provisioningSessionRepo.save(session)
         activeSession.value = session
+      }
+
+      // EXPOSE FOR DEBUGGING
+      if (typeof window !== 'undefined') {
+        (window as any).__LIFETIME_DEBUG_CHUNKS = chunks
+        console.log('[memory-lifetime] Chunks prepared for inspection:', chunks)
       }
 
       // N chunks + 1 base synthesis + 2 distillation passes = N + 3
@@ -493,6 +630,16 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
           progress.value.currentChunk = i + 1
           progress.value.completedCalls = i
           progress.value.message = `Analyzing history in chunks... (${i + 1}/${chunks.length})`
+
+          const currentChunkData = chunks[i]
+          const chunkPromptBody = currentChunkData.map((doc, index) => `${index + 1}. [${doc.layer.toUpperCase()}] [${doc.timestamp || 'undated'}] ${doc.text}`).join('\n')
+
+          console.log(`[memory-lifetime] Processing Chunk ${i + 1}/${chunks.length}`, {
+            docCount: currentChunkData.length,
+            charCount: chunkPromptBody.length,
+            estimatedTokens: Math.round(chunkPromptBody.length / 4),
+            data: currentChunkData,
+          })
 
           const chunkPrompt = [
             `You are building a durable relationship archive for the character "${card.name}".`,
@@ -512,7 +659,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
             '- inside jokes or motifs',
             '',
             'Source records:',
-            ...chunks[i].map((doc, index) => `${index + 1}. [${doc.layer.toUpperCase()}] [${doc.timestamp || 'undated'}] ${doc.text}`),
+            chunkPromptBody,
           ].join('\n')
 
           const summary = await withRetry(() => callJsonMode<any>(chunkPrompt, ChunkArchiveJsonSchema, provider, modelId))
@@ -704,6 +851,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
       }
     }
     catch (err) {
+      console.error('[memory-lifetime] Provisioning failed:', err)
       error.value = err instanceof Error ? err.message : String(err)
       progress.value.phase = 'error'
       progress.value.message = 'Failed to provision lifetime history.'
@@ -764,10 +912,10 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
     }
   }
 
-  async function restart(characterId: string) {
+  async function restart(characterId: string, contextLimitTokens = 64) {
     await provisioningSessionRepo.delete(characterId)
     activeSession.value = null
-    await provision(characterId, false)
+    await provision(characterId, false, 0, contextLimitTokens)
   }
 
   return {

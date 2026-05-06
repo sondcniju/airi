@@ -8,6 +8,7 @@ import {
   ChatHistory,
   ChatImagesPopover,
   ChatMemoryPopover,
+  ChatSessionModal,
   JournalPreviewModal,
 } from '@proj-airi/stage-ui/components'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
@@ -20,6 +21,7 @@ import { useJournalPreviewStore } from '@proj-airi/stage-ui/stores/journal-previ
 import { useShortTermMemoryStore } from '@proj-airi/stage-ui/stores/memory-short-term'
 import { useTextJournalStore } from '@proj-airi/stage-ui/stores/memory-text-journal'
 import { buildSystemPrompt, useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { useAutonomousArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry-autonomous'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
@@ -60,6 +62,7 @@ const providersStore = useProvidersStore()
 const { activeModel, activeProvider } = storeToRefs(useConsciousnessStore())
 const settingsChat = useSettingsChat()
 const isComposing = ref(false)
+const isImagineMode = ref(false)
 const CHAT_WINDOW_TITLE = 'AIRI - Chat Window'
 
 const journalPreviewStore = useJournalPreviewStore()
@@ -185,6 +188,7 @@ function formatLocalDayKey(date: Date): string {
 
 const trashConfirmOpen = ref(false)
 const showContext = ref(false)
+const showSessions = ref(false)
 
 const characterName = computed(() => activeCard.value?.name || 'AIRI')
 const effectiveSystemPrompt = computed(() => buildSystemPrompt(activeCard.value))
@@ -249,6 +253,12 @@ async function handleSend() {
   // optimistic clear
   messageInput.value = ''
   attachments.value = []
+
+  if (isImagineMode.value) {
+    const artistryStore = useAutonomousArtistryStore()
+    void artistryStore.runArtistTask(textToSend, chatSession.messages as any, 'assistant')
+    return
+  }
 
   try {
     const providerConfig = providersStore.getProviderConfig(activeProvider.value)
@@ -673,9 +683,12 @@ watch(messageInput, () => {
         show-cache-status
         :title="`Memory & Context for ${characterName}`"
         @view-context="showContext = true"
+        @manage-sessions="showSessions = true"
       />
 
       <ChatImagesPopover
+        :imagine-mode="isImagineMode"
+        @toggle-imagine="isImagineMode = !isImagineMode"
         @attach="fileInput?.click()"
         @screenshot="handleScreenshotClick"
         @view-journal="navigateToImageJournal"
@@ -753,7 +766,7 @@ watch(messageInput, () => {
     <BasicTextarea
       v-model="messageInput"
       :send-mode="settingsChat.sendMode"
-      :placeholder="t('stage.message')"
+      :placeholder="isImagineMode ? 'Describe a scene to imagine...' : t('stage.message')"
       class="ph-no-capture"
       text="primary-600 dark:primary-100  placeholder:primary-500 dark:placeholder:primary-200"
       border="solid 2 primary-200/20 dark:primary-400/20"
@@ -768,6 +781,10 @@ watch(messageInput, () => {
     />
 
     <!-- Context Dialog -->
+    <ChatSessionModal
+      v-model="showSessions"
+    />
+
     <CharacterContextDialog
       v-model="showContext"
       :character-name="characterName"

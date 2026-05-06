@@ -137,6 +137,17 @@ function extractTextContent(node: Element): string {
  * Categorizes a model response by dynamically extracting any XML-like tags
  * Works with any tag format the model uses
  */
+/**
+ * Strips AIRI LLM markers <|...|> from text.
+ */
+export function stripMarkers(text: string) {
+  return text
+    .replace(/<\|[\s\S]*?\|>/g, '')
+    // NOTICE: older AIRI card prompt text accidentally taught some models to close ACT tags
+    // with plain `>` instead of `|>`. Strip those legacy markers too so they never leak into UI/TTS.
+    .replace(/<\|(?:ACT|DELAY|llm_[\w:-])[^\r\n>]*>/gi, '')
+}
+
 export function categorizeResponse(
   response: string,
   _providerId?: string,
@@ -148,7 +159,7 @@ export function categorizeResponse(
     // No tags found, treat everything as speech
     return {
       segments: [],
-      speech: response,
+      speech: stripMarkers(response),
       reasoning: '',
       raw: response,
     }
@@ -198,14 +209,6 @@ export function categorizeResponse(
 
   // Speech is everything outside tags
   const speech = speechParts.join(' ').trim()
-
-  // NOTICE: strip LLM markers <|...|> from the final output as they are handled
-  //         separately by the stage/orchestrator system and should not appear in UI.
-  const stripMarkers = (text: string) => text
-    .replace(/<\|[\s\S]*?\|>/g, '')
-    // NOTICE: older AIRI card prompt text accidentally taught some models to close ACT tags
-    // with plain `>` instead of `|>`. Strip those legacy markers too so they never leak into UI/TTS.
-    .replace(/<\|(?:ACT|DELAY|llm_[\w:-])[^\r\n>]*>/gi, '')
 
   return {
     segments,

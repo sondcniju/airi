@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import type { ChatAssistantMessage, ChatHistoryItem, ContextMessage } from '../../../types/chat'
+import type { DirectorNote } from '../../../types/director'
 
 import { computed, onMounted, onUnmounted, provide, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import ChatAssistantItem from './assistant-item.vue'
+import DirectorNoteBubble from './DirectorNoteBubble.vue'
 import ChatErrorItem from './error-item.vue'
 import ChatUserItem from './user-item.vue'
 
+import { useAiriCardStore } from '../../../stores/modules/airi-card'
+import { useAutonomousArtistryStore } from '../../../stores/modules/artistry-autonomous'
+import { useSettingsChat } from '../../../stores/settings'
 import { chatScrollContainerKey } from './constants'
-import { getChatHistoryItemKey } from './message-key'
 
 const props = withDefaults(defineProps<{
   messages: ChatHistoryItem[]
@@ -85,8 +89,12 @@ watch(() => props.sending, (val) => {
   }
 }, { flush: 'post' })
 
+const chatSettings = useSettingsChat()
+const artistryStore = useAutonomousArtistryStore()
+const cardStore = useAiriCardStore()
+
 const labels = computed(() => ({
-  assistant: props.assistantLabel ?? t('stage.chat.message.character-name.airi'),
+  assistant: props.assistantLabel ?? cardStore.activeCard?.nickname ?? cardStore.activeCard?.name ?? t('stage.chat.message.character-name.airi'),
   user: props.userLabel ?? t('stage.chat.message.character-name.you'),
   error: props.errorLabel ?? t('stage.chat.message.character-name.core-system'),
 }))
@@ -101,19 +109,42 @@ function shouldShowPlaceholder(message: ChatHistoryItem) {
 
   return message.context?.createdAt === ts || message.createdAt === ts
 }
-const renderMessages = computed<ChatHistoryItem[]>(() => {
-  if (!props.sending)
-    return props.messages
+const renderMessages = computed<(ChatHistoryItem | DirectorNote)[]>(() => {
+  const monitorEnabled = (cardStore.activeCard?.extensions?.airi?.artistry as any)?.autonomousMonitorEnabled ?? true
+  const directorNotes = (monitorEnabled && chatSettings.showDirectorNotes) ? (artistryStore.directorNotes || []) : []
+
+  let baseMessages: (ChatHistoryItem | DirectorNote)[] = props.messages
 
   const streamTs = streamingTs.value
-  if (!streamTs)
-    return props.messages
+  if (props.sending && streamTs) {
+    const hasStreamAlready = props.messages.some(msg => msg?.role === 'assistant' && msg?.createdAt === streamTs)
+    if (!hasStreamAlready) {
+      baseMessages = [...props.messages, streaming.value]
+    }
+  }
 
-  const hasStreamAlready = streamTs && props.messages.some(msg => msg?.role === 'assistant' && msg?.createdAt === streamTs)
-  if (hasStreamAlready)
-    return props.messages
+  // Merge and sort
+  const merged = [...baseMessages, ...directorNotes]
+  return merged.sort((a, b) => {
+    const timeA = a.createdAt || 0
+    const timeB = b.createdAt || 0
+    if (timeA !== timeB)
+      return timeA - timeB
 
-  return [...props.messages, streaming.value]
+    // Stability fallback: prioritize user over assistant if timestamps are identical
+    const roleA = 'role' in a ? a.role : undefined
+    const roleB = 'role' in b ? b.role : undefined
+    if (roleA !== roleB) {
+      if (roleA === 'user')
+        return -1
+      if (roleB === 'user')
+        return 1
+    }
+
+    const idA = (a as any).id || ''
+    const idB = (b as any).id || ''
+    return idA.localeCompare(idB)
+  })
 })
 </script>
 
@@ -127,8 +158,12 @@ const renderMessages = computed<ChatHistoryItem[]>(() => {
     :class="[variant === 'mobile' ? 'gap-1' : 'gap-2']"
     @scroll="handleScroll"
   >
-    <template v-for="(message, index) in renderMessages" :key="getChatHistoryItemKey(message, index)">
-      <div v-if="message.role === 'error'">
+    <template v-for="(message, index) in renderMessages" :key="'id' in message && message.id ? message.id : ('createdAt' in message && message.createdAt ? `ts-${message.createdAt}` : `idx-${index}`)">
+      <div v-if="'type' in message && message.type === 'director-note'">
+        <DirectorNoteBubble :note="message" />
+      </div>
+
+      <div v-else-if="'role' in message && message.role === 'error'">
         <ChatErrorItem
           :message="message"
           :label="labels.error"
@@ -137,18 +172,18 @@ const renderMessages = computed<ChatHistoryItem[]>(() => {
         />
       </div>
 
-      <div v-else-if="message.role === 'assistant'">
+      <div v-else-if="'role' in message && message.role === 'assistant'">
         <ChatAssistantItem
-          :message="message"
+          :message="message as any"
           :label="labels.assistant"
-          :show-placeholder="shouldShowPlaceholder(message) && showStreamingPlaceholder"
+          :show-placeholder="shouldShowPlaceholder(message as any) && showStreamingPlaceholder"
           :variant="variant"
         />
       </div>
 
-      <div v-else-if="message.role === 'user'">
+      <div v-else-if="'role' in message && message.role === 'user'">
         <ChatUserItem
-          :message="message"
+          :message="message as any"
           :label="labels.user"
           :variant="variant"
         />

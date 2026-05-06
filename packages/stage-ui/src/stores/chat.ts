@@ -15,7 +15,7 @@ import { useAnalytics } from '../composables'
 import { createLlmJsonInterceptor } from '../composables/llm-json-interceptor'
 import { useLlmmarkerParser } from '../composables/llm-marker-parser'
 import { categorizeResponse, createStreamingCategorizer } from '../composables/response-categoriser'
-import { createDatetimeContext, createExpressionsContext, createScenesContext, createStickersContext } from './chat/context-providers'
+import { createDatetimeContext, createEternalRecordContext, createExpressionsContext, createScenesContext, createStickersContext } from './chat/context-providers'
 import { useChatContextStore } from './chat/context-store'
 import { createChatHooks } from './chat/hooks'
 import { useChatSessionStore } from './chat/session-store'
@@ -42,6 +42,10 @@ export interface SendOptions {
    * and skip triggering the assistant's response.
    */
   skipAssistant?: boolean
+  /**
+   * Optional metadata to attach to the user message (e.g. source platform info).
+   */
+  metadata?: Record<string, any>
 }
 
 interface ForkOptions {
@@ -149,9 +153,14 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     chatContext.ingestContextMessage(createScenesContext())
     chatContext.ingestContextMessage(createExpressionsContext())
 
+    const eternalRecordContext = createEternalRecordContext(activeCard.value?.extensions?.airi?.eternal_record)
+    if (eternalRecordContext) {
+      chatContext.ingestContextMessage(eternalRecordContext)
+    }
+
     const sendingCreatedAt = Date.now()
     const streamingMessageContext: ChatStreamEventContext = {
-      message: { role: 'user', content: sendingMessage, createdAt: sendingCreatedAt, id: nanoid() },
+      message: { role: 'user', content: sendingMessage, createdAt: sendingCreatedAt, id: nanoid(), ...options.metadata },
       contexts: chatContext.getContextsSnapshot(),
       composedMessage: [],
       input: options.input,
@@ -186,6 +195,8 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     proactivityStore.incrementMetric('chat')
     let streamIdleTimeout: ReturnType<typeof setTimeout> | undefined
 
+    let fullText = ''
+    let rawFullText = ''
     try {
       sending.value = true
       let effectiveModel = options.model || activeModel.value
@@ -248,7 +259,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         return
 
       const userMessageId = nanoid()
-      const historicalUserMessage = { role: 'user' as const, content: historicalContent, createdAt: sendingCreatedAt, id: userMessageId }
+      const historicalUserMessage = { role: 'user' as const, content: historicalContent, createdAt: sendingCreatedAt, id: userMessageId, ...options.metadata }
       const inferenceUserMessage = { role: 'user' as const, content: inferenceContent, createdAt: sendingCreatedAt, id: userMessageId }
 
       const sessionMessagesForSend = chatSession.getSessionMessages(sessionId)
@@ -366,6 +377,45 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
        * Evaluates a potential tool marker string.
        * RETURNS: Info about the match and whether it was successfully bridged as a tool call.
        */
+      function tryParseLenientJson(json: string): any {
+        let sanitized = json.trim()
+        if (!sanitized)
+          return {}
+
+        // Handle unclosed quotes at the end of the string
+        const openQuotes = (sanitized.match(/"/g) || []).length
+        if (openQuotes % 2 !== 0) {
+          sanitized += '"'
+        }
+
+        // Handle missing closing braces/brackets
+        const openBraces = (sanitized.match(/\{/g) || []).length
+        const closeBraces = (sanitized.match(/\}/g) || []).length
+        for (let i = 0; i < openBraces - closeBraces; i++) {
+          sanitized += '}'
+        }
+
+        const openBrackets = (sanitized.match(/\[/g) || []).length
+        const closeBrackets = (sanitized.match(/\]/g) || []).length
+        for (let i = 0; i < openBrackets - closeBrackets; i++) {
+          sanitized += ']'
+        }
+
+        try {
+          return JSON.parse(sanitized)
+        }
+        catch (e) {
+          // If still failing, try one last desperation fix: remove the last key if it looks truncated
+          try {
+            const desperation = `${sanitized.replace(/,\s*"[\w-]+"[:\s]*"[^"]*$/g, '')}}`
+            return JSON.parse(desperation)
+          }
+          catch {
+            throw e
+          }
+        }
+      }
+
       async function tryBridgeMarker(input: string): Promise<{ matchedText: string, bridged: boolean }> {
         chatLog('tryBridgeMarker evaluating input (partial):', input.trim().substring(0, 100))
         // Supports: <|tool:args|>, [call_tool:tool, args], and hybrid <|tool:args</tool_call>
@@ -383,10 +433,10 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         let argsRaw: string
 
         // check if it's the JSON flavor: <tool_call>{"name": "...", "arguments": "..."}</tool_call>
-        const potentialJson = match[1] || ''
-        if (potentialJson.trim().startsWith('{')) {
+        const potentialJson = (match[1] || '').trim()
+        if (potentialJson.startsWith('{')) {
           try {
-            const parsed = JSON.parse(potentialJson)
+            const parsed = tryParseLenientJson(potentialJson)
             toolName = parsed.name
             argsRaw = typeof parsed.arguments === 'string' ? parsed.arguments : JSON.stringify(parsed.arguments)
           }
@@ -411,7 +461,9 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         chatLog(`Bridging marker to tool call: ${toolName}`)
         try {
           const args: Record<string, any> = {}
-          const kvRegex = /(?:^|[, \n\t]+)\s*([\w-]+)\s*[:=]\s*(?:"([^"]*)"|'([^']*)'|(\d+(?:\.\d+)?)|(true|false)|(\{.*\}|\[.*\]))/g
+          // NOTICE: We allow unclosed quotes at the end of the string (?:'|$) to handle truncation gracefully.
+          // We use a non-capturing group (?:...) for the alternatives to keep the group indexes for key/valDouble/etc consistent.
+          const kvRegex = /(?:^|[, \n\t]+)\s*([\w-]+)\s*[:=]\s*(?:"([^"]*)(?:"|$)|'([^']*)(?:'|$)|(\d+(?:\.\d+)?)|(true|false)|(\{.*(?:\}|$)|\[.*(?:\]|$)))/g
           let kvMatch
 
           while ((kvMatch = kvRegex.exec(argsRaw)) !== null) {
@@ -430,7 +482,19 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
             }
             else if (valComplex !== undefined) {
               try {
-                args[key] = JSON.parse(valComplex.replace(/'/g, '"'))
+                // Try to sanitize and parse complex JSON-like objects
+                const sanitized = valComplex
+                  .replace(/'/g, '"')
+                  .trim()
+
+                // If it looks truncated (starts with { but doesn't end with }), try to close it
+                let toParse = sanitized
+                if (toParse.startsWith('{') && !toParse.endsWith('}'))
+                  toParse += '}'
+                if (toParse.startsWith('[') && !toParse.endsWith(']'))
+                  toParse += ']'
+
+                args[key] = JSON.parse(toParse)
               }
               catch {
                 args[key] = valComplex
@@ -440,7 +504,9 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
           if (Object.keys(args).length === 0) {
             try {
-              const cleaned = argsRaw.trim().replace(/^\{/, '').replace(/\}$/, '').replace(/(\w+):/g, '"$1":').replace(/'/g, '"')
+              let cleaned = argsRaw.trim().replace(/^\{/, '').replace(/\}$/, '').replace(/(\w+):/g, '"$1":').replace(/'/g, '"')
+              if (argsRaw.trim().startsWith('{') && !cleaned.endsWith('}'))
+                cleaned += '"}' // Guessing it ended inside a string
               Object.assign(args, JSON.parse(`{${cleaned}}`))
             }
             catch {}
@@ -549,7 +615,8 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
                 if (tool && (tool as any).execute) {
                   chatLog(`Manually executing bridged tool: ${toolCall.function.name}`)
                   try {
-                    const result = await (tool as any).execute(JSON.parse(toolCall.function.arguments))
+                    const parsedArgs = tryParseLenientJson(toolCall.function.arguments)
+                    const result = await (tool as any).execute(parsedArgs)
                     toolCallQueue.enqueue({
                       type: 'tool-call-result',
                       id: toolCall.id,
@@ -599,16 +666,20 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         ],
       })
 
-      let fullText = ''
       let turnSpeechContent = ''
-      const bridgedTurnsHistory: { content: string, tool_calls?: any[], tool_results: any[] }[] = []
+      let turnRawContent = ''
+      const bridgedTurnsHistory: { content: string, rawContent?: string, tool_calls?: any[], tool_results: any[] }[] = []
 
       while (bridgedSteps < 5) {
         bridgedSteps++
         needsBridgedFollowUp = false
         turnSpeechContent = ''
+        turnRawContent = ''
 
         chatLog(`[ChatDebug] Starting inference step ${bridgedSteps}`)
+
+        let noReplyBuffer = ''
+        let isCheckingNoReply = true
 
         // Reconstruct messages for this turn using the segmented bridgedTurnsHistory.
         let newMessages = inferenceMessages.map((msg: any) => {
@@ -616,8 +687,12 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           const rawMessage = toRaw(withoutContext)
 
           if (rawMessage.role === 'assistant') {
-            const { slices: _slices, tool_results: _toolResults, categorization: _categorization, ...rest } = rawMessage as ChatAssistantMessage
-            return toRaw(rest)
+            const { slices: _slices, tool_results: _toolResults, categorization: _categorization, rawContent: _rawContent, ...rest } = rawMessage as ChatAssistantMessage
+            // NOTICE: Prefer rawContent (full LLM output with orchestration tokens) over
+            // content (display-friendly, stripped). This prevents the model from "forgetting"
+            // to use ACTOR/ACT/DELAY tokens as conversation history grows.
+            const inferenceContent = (rawMessage as ChatAssistantMessage).rawContent || rest.content
+            return { ...toRaw(rest), content: inferenceContent }
           }
 
           return rawMessage
@@ -627,7 +702,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         for (const turn of bridgedTurnsHistory) {
           newMessages.push({
             role: 'assistant',
-            content: turn.content,
+            content: turn.rawContent || turn.content,
             tool_calls: turn.tool_calls,
           })
           for (const res of turn.tool_results) {
@@ -737,11 +812,32 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
                 const healedText = healMozibake(event.text)
                 chatLog('text-delta:', healedText)
                 fullText += healedText
+                rawFullText += healedText
+                turnRawContent += healedText
                 ;(window as any).electron.ipcRenderer.send('llm-raw-output', {
                   type: 'delta',
                   text: healedText,
                   sessionId,
                 })
+
+                if (isCheckingNoReply) {
+                  noReplyBuffer += healedText
+                  const target1 = 'NO_REPLY'
+                  const target2 = '[NO_REPLY]'
+
+                  if (target1.startsWith(noReplyBuffer.trimStart()) || target2.startsWith(noReplyBuffer.trimStart())) {
+                    // Still perfectly matches the silence sentinel prefix, hold it in buffer
+                    break
+                  }
+                  else {
+                    // Diverged from silence sentinel. Release buffer and stop checking.
+                    isCheckingNoReply = false
+                    await parser.consume(noReplyBuffer)
+                    noReplyBuffer = ''
+                    break
+                  }
+                }
+
                 await parser.consume(healedText)
                 break
               }
@@ -755,10 +851,10 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
                 break
               }
               case 'finish':
-                chatLog('Stream finished. Reason:', (event as any).finishReason, 'fullText length:', fullText.length)
+                chatLog('Stream finished. Reason:', (event as any).finishReason, 'rawFullText length:', rawFullText.length)
                 ;(window as any).electron.ipcRenderer.send('llm-raw-output', {
                   type: 'full',
-                  text: fullText,
+                  text: rawFullText,
                   sessionId,
                 })
                 break
@@ -772,6 +868,13 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
             }
           },
         })
+
+        if (isCheckingNoReply && noReplyBuffer.trim().length > 0) {
+          const rawTrimmed = (rawFullText || '').trim()
+          if (rawTrimmed !== 'NO_REPLY' && rawTrimmed !== '[NO_REPLY]') {
+            await parser.consume(noReplyBuffer)
+          }
+        }
 
         clearStreamIdleTimeout()
         await parser.end()
@@ -813,6 +916,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
         bridgedTurnsHistory.push({
           content: turnSpeechContent,
+          rawContent: turnRawContent,
           tool_calls: buildingMessage.slices
             .filter(s => s.type === 'tool-call' && currentTurnResults.some(r => r.id === (s as any).toolCall?.id))
             .map(s => (s as any).toolCall),
@@ -830,7 +934,44 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
       // Turn loop ended
 
-      if (!isStaleGeneration() && buildingMessage.slices.length > 0) {
+      // --- NO_REPLY Guard ---
+      // If the model explicitly chose to remain silent, we abort downstream processing.
+      if ((rawFullText || '').trim() === 'NO_REPLY' || (rawFullText || '').trim() === '[NO_REPLY]') {
+        chatLog('[ChatDebug] AI decided to remain silent via NO_REPLY sentinel. Aborting turn completion hooks.')
+
+        if (!isStaleGeneration()) {
+          const currentMessages = chatSession.getSessionMessages(sessionId)
+          chatSession.setSessionMessages(sessionId, [
+            ...currentMessages,
+            {
+              ...toRaw(buildingMessage),
+              role: 'assistant',
+              content: 'NO_REPLY',
+              rawContent: 'NO_REPLY',
+              slices: [],
+            } as any,
+          ])
+        }
+
+        if (isForegroundSession()) {
+          streamingMessage.value = { role: 'assistant', content: '', slices: [], tool_results: [] }
+        }
+        await hooks.emitStreamEndHooks(streamingMessageContext)
+        return
+      }
+      // ----------------------
+
+      // Check if we have any meaningful content to persist
+      const hasSlices = buildingMessage.slices.length > 0
+      const hasReasoning = !!(buildingMessage as any).categorization?.reasoning?.trim()
+      const hasRawOutput = !!rawFullText?.trim()
+
+      if (!isStaleGeneration() && (hasSlices || hasReasoning || hasRawOutput)) {
+        // NOTICE: Persist the full raw LLM output (including orchestration tokens like
+        // <|ACTOR:|>, <|ACT:|>, <|DELAY:|>) so past turns fed back to the LLM retain
+        // the tokens. This prevents behavioral drift where the model stops using tokens
+        // because it never sees them in its own history.
+        ;(buildingMessage as any).rawContent = rawFullText
         const currentMessages = chatSession.getSessionMessages(sessionId)
         chatSession.setSessionMessages(sessionId, [...currentMessages, toRaw(buildingMessage)])
       }
@@ -906,6 +1047,19 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       if (!isStaleGeneration()) {
         const currentMessages = chatSession.getSessionMessages(sessionId)
         chatSession.setSessionMessages(sessionId, [...currentMessages, { ...toRaw(buildingMessage) }])
+      }
+
+      // Emit turn complete with error so downstream consumers (e.g. Discord outbound)
+      // can detect and relay failures instead of silently swallowing them.
+      try {
+        await hooks.emitChatTurnCompleteHooks({
+          output: { ...buildingMessage, error: { message: errorMessage, detail: technicalDetail } } as any,
+          outputText: String(buildingMessage.content || ''),
+          toolCalls: [],
+        } as any, streamingMessageContext)
+      }
+      catch (hookErr) {
+        console.error('Error in turn-complete hooks (error path):', hookErr)
       }
 
       throw error

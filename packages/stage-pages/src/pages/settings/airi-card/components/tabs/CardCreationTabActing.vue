@@ -10,6 +10,7 @@ defineProps<{
   actingSpeechCapabilitiesLoading: boolean
   selectedSpeechProviderLabel: string
   isVrmaExpression: (name: string) => boolean
+  isLive2d: boolean
   insertModelExpression: (name: string) => void
   insertSpeechTag: (tag: string, description?: string) => void
   insertSpeechMannerism: (id: string) => void
@@ -37,7 +38,7 @@ function toggleIdleAnimation(name: string) {
     </p>
 
     <div class="input-list ml-auto mr-auto w-90% flex flex-col gap-8">
-      <div class="border border-neutral-200 rounded-xl p-4 dark:border-neutral-700">
+      <div v-if="!isLive2d" class="border border-neutral-200 rounded-xl p-4 dark:border-neutral-700">
         <div class="mb-1 text-sm text-neutral-800 font-medium dark:text-neutral-200">
           Idle Loop / Cycle Animations
         </div>
@@ -82,18 +83,18 @@ function toggleIdleAnimation(name: string) {
               :key="name"
               class="flex items-center gap-1 border border-neutral-200 rounded-full px-3 py-1 text-xs transition-colors dark:border-neutral-700 hover:border-primary-400 hover:text-primary-500"
               :class="[
-                isVrmaExpression(name)
+                (!isLive2d && isVrmaExpression(name))
                   ? 'bg-primary-50/50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300 border-primary-200/50'
                   : 'text-neutral-600 dark:text-neutral-300',
               ]"
               @click="insertModelExpression(name)"
             >
-              <div v-if="isVrmaExpression(name)" class="i-solar:running-bold-duotone text-[10px]" />
+              <div v-if="!isLive2d && isVrmaExpression(name)" class="i-solar:running-bold-duotone text-[10px]" />
               {{ name }}
             </button>
           </div>
           <div v-else class="text-xs text-neutral-400">
-            No VRM expression list is currently available. Load a VRM model on stage to surface expression helpers here.
+            No model expression list is currently available. Load a model on stage to surface expression helpers here.
           </div>
         </div>
       </div>

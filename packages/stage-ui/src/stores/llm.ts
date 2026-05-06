@@ -58,38 +58,44 @@ export function sanitizeMessages(messages: unknown[], options?: { vision?: boole
   const rawMessages = JSON.parse(JSON.stringify(toRaw(messages))) as any[]
 
   return rawMessages.map((m: any) => {
-    if (m && m.role === 'error') {
-      return {
-        role: 'user',
-        content: `User encountered error: ${String(m.content ?? '')}`,
-      } as Message
+    // NOTICE: We must strictly sanitize the message objects to only include fields
+    // accepted by common LLM APIs (OpenAI, Anthropic, etc.). Extra fields like
+    // "id", "createdAt", or our custom "_discordSource" metadata can cause
+    // 400/502 errors on strict providers like OpenRouter/Phala.
+    const sanitized: any = {
+      role: m.role,
+      content: m.content ?? '',
     }
 
-    if (m && Array.isArray(m.content)) {
-      const contentParts = m.content as { type?: string, text?: string }[]
+    if (m.name)
+      sanitized.name = m.name
+    if (m.tool_calls)
+      (sanitized as any).tool_calls = m.tool_calls
+    if (m.tool_call_id)
+      (sanitized as any).tool_call_id = m.tool_call_id
+
+    if ((sanitized as any).role === 'error') {
+      sanitized.role = 'user'
+      sanitized.content = `User encountered error: ${String(m.content ?? '')}`
+    }
+
+    if (Array.isArray(sanitized.content)) {
+      const contentParts = sanitized.content as { type?: string, text?: string }[]
 
       // If vision is explicitly disabled, strip all image_url parts
       if (options?.vision === false && contentParts.some(p => p?.type === 'image_url')) {
-        const newContent = contentParts
+        sanitized.content = contentParts
           .map(p => p?.type === 'image_url' ? '[Image]' : (p?.text ?? ''))
           .filter(Boolean)
           .join(' ')
-
-        return {
-          ...m,
-          content: newContent,
-        } as Message
       }
-
-      // NOTICE: This block is critical for backward compatibility with LLM providers (e.g., DeepSeek)
-      // that expect message content to be a string, not an array of content parts.
-      // Failure to flatten array content (when no image_url is present) can lead to
-      // deserialization errors like "invalid type: sequence, expected a string".
-      if (!contentParts.some(p => p?.type === 'image_url')) {
-        return { ...m, content: contentParts.map(p => p?.text ?? '').join('') } as Message
+      // NOTICE: Flatten array content if no images are present for compatibility
+      else if (!contentParts.some(p => p?.type === 'image_url')) {
+        sanitized.content = contentParts.map(p => p?.text ?? '').join('')
       }
     }
-    return m as Message
+
+    return sanitized
   })
 }
 

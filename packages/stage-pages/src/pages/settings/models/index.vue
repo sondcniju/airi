@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HackerPanel, ModelSettings } from '@proj-airi/stage-ui/components/scenarios/settings/model-settings'
+import { HackerPanel, LHackerPanel, ModelSettings } from '@proj-airi/stage-ui/components/scenarios/settings/model-settings'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { Vibrant } from 'node-vibrant/browser'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
@@ -52,6 +52,7 @@ onBeforeUnmount(async () => {
       :palette="palette" @extract-colors-from-model="extractColorsFromModel"
     />
     <HackerPanel />
+    <LHackerPanel />
   </div>
 
   <div

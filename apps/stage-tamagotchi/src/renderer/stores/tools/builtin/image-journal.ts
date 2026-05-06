@@ -30,10 +30,10 @@ const addWidget = defineInvoke(context, widgetsAdd)
 
 const imageJournalParams = z.object({
   action: z.enum(['create', 'apply']).describe('Choose "create" to generate a new image, or "apply" to use an existing one.'),
-  prompt: z.string().optional().describe('Description for the image (required for "create").'),
-  title: z.string().optional().describe('Label for the entry (optional).'),
-  query: z.string().optional().describe('Search term for existing images (required for "apply").'),
-  mode: z.enum(['inline', 'widget', 'bg', 'bg_widget']).optional().describe('Display mode: "inline" (in chat), "widget" (overlay), "bg" (environment), or "bg_widget" (both). Defaults to character preference.'),
+  prompt: z.string().nullable().describe('Description for the image (required for "create").'),
+  title: z.string().nullable().describe('Label for the entry (optional).'),
+  query: z.string().nullable().describe('Search term for existing images (required for "apply").'),
+  mode: z.enum(['inline', 'widget', 'bg', 'bg_widget']).nullable().describe('Display mode: "inline" (in chat), "widget" (overlay), "bg" (environment), or "bg_widget" (both). Defaults to character preference.'),
 })
 
 async function executeCreateImageJournalEntry(params: { prompt?: string, title?: string, mode?: 'inline' | 'widget' | 'bg' | 'bg_widget' }) {
@@ -193,10 +193,18 @@ async function executeSetAsBackground(params: { query?: string }) {
 }
 
 async function executeImageJournalAction(params: any) {
-  if (params.action === 'create')
-    return await executeCreateImageJournalEntry(params)
-  if (params.action === 'apply' || params.action === 'set_as_background')
-    return await executeSetAsBackground(params)
+  const normalizedParams = {
+    ...params,
+    prompt: params.prompt ?? undefined,
+    title: params.title ?? undefined,
+    query: params.query ?? undefined,
+    mode: params.mode ?? undefined,
+  }
+
+  if (normalizedParams.action === 'create')
+    return await executeCreateImageJournalEntry(normalizedParams)
+  if (normalizedParams.action === 'apply' || normalizedParams.action === 'set_as_background')
+    return await executeSetAsBackground(normalizedParams)
   return 'No action performed.'
 }
 

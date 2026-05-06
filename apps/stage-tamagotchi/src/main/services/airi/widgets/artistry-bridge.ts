@@ -115,12 +115,12 @@ export async function generateHeadless(params: {
       let isDone = false
       let lastStatus: any = {}
       const start = Date.now()
-      const timeout = 1000 * 60 * 5 // 5 minutes timeout
+      const timeout = 1000 * 60 * 10 // 10 minutes timeout
 
       while (!isDone) {
         if (Date.now() - start > timeout) {
-          log.error(`[Headless] Job ${job.jobId} timed out after 5 minutes.`)
-          throw new Error('Image generation timed out after 5 minutes.')
+          log.error(`[Headless] Job ${job.jobId} timed out after 10 minutes.`)
+          throw new Error('Image generation timed out after 10 minutes.')
         }
 
         log.log(`[Headless] Polling status for job: ${job.jobId}...`)
@@ -148,9 +148,9 @@ export async function generateHeadless(params: {
       // For providers with callbacks (like ComfyUI), we wait for the result via the callback
       log.log(`[Headless] Using callback-based wait logic for provider: ${requestedProvider}`)
       return new Promise<{ imageUrl?: string, base64?: string }>((resolve, reject) => {
-        const timeout = 1000 * 60 * 5 // 5 minutes timeout
+        const timeout = 1000 * 60 * 10 // 10 minutes timeout
         const timer = setTimeout(() => {
-          reject(new Error('Image generation timed out after 5 minutes.'))
+          reject(new Error('Image generation timed out after 10 minutes.'))
         }, timeout)
 
         ;(provider as any).setJobCallback(request.extra?.internalJobId, async (status: any) => {
