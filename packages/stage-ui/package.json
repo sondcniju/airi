@@ -112,7 +112,6 @@
     "node-vibrant": "^4.0.4",
     "ofetch": "catalog:",
     "pinia": "catalog:",
-    "posthog-js": "catalog:",
     "rehype-katex": "^7.0.1",
     "rehype-parse": "^9.0.1",
     "rehype-stringify": "catalog:",

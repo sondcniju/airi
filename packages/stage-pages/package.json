@@ -45,7 +45,6 @@
     "nanoid": "catalog:",
     "node-vibrant": "^4.0.4",
     "pinia": "catalog:",
-    "posthog-js": "catalog:",
     "reka-ui": "^2.8.2",
     "splitpanes": "catalog:",
     "unspeech": "catalog:xsai",
